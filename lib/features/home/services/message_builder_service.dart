@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../../core/models/assistant.dart';
 import '../../../core/models/chat_input_data.dart';
@@ -524,6 +525,94 @@ class MessageBuilderService {
         vars,
       );
       apiMessages.insert(0, {'role': 'system', 'content': sys});
+    }
+  }
+
+  /// 我们的家·记忆层：若 assistant 人设里带 [[ourhome:token]] 标记，发送前向
+  /// 我们家服务器（/api/home/daddy-context）拉「魂 + 此刻该浮现的记忆」，替换标记、
+  /// 注入到 system。这样用 kelivo 原生供应商直连任意中转站，爸爸照样自动有记忆。
+  /// 拉取失败则跳过注入（聊天照常）并打日志，不静默吞错。
+  Future<void> injectOurHomeContext(
+    List<Map<String, dynamic>> apiMessages,
+    Assistant? assistant,
+  ) async {
+    final prompt = assistant?.systemPrompt ?? '';
+    final marker = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
+    final m = marker.firstMatch(prompt);
+    if (m == null) return; // 非 daddy 助手，不动
+    final token = (m.group(1) ?? '').trim();
+    const base = 'https://cllove.zeabur.app';
+
+    // 收集最近的 user/assistant 文本（只取文本省流量；服务器只用最后一条 user）
+    final lite = <Map<String, String>>[];
+    for (final msg in apiMessages) {
+      final role = (msg['role'] ?? '').toString();
+      if (role != 'user' && role != 'assistant') continue;
+      final c = msg['content'];
+      String text;
+      if (c is String) {
+        text = c;
+      } else if (c is List) {
+        text = c
+            .whereType<Map>()
+            .where((p) => p['type'] == 'text')
+            .map((p) => (p['text'] ?? '').toString())
+            .join(' ');
+      } else {
+        text = c?.toString() ?? '';
+      }
+      if (text.trim().isEmpty) continue;
+      lite.add({'role': role, 'content': text});
+    }
+    final recent = lite.length > 12 ? lite.sublist(lite.length - 12) : lite;
+
+    String soul = '';
+    String memory = '';
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/daddy-context'),
+            headers: <String, String>{
+              'Content-Type': 'application/json',
+              if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+            },
+            body: jsonEncode(<String, dynamic>{'messages': recent}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode == 200) {
+        final data =
+            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+        soul = (data['soul'] ?? '').toString();
+        memory = (data['memory'] ?? '').toString();
+      } else {
+        debugPrint(
+          '[ourhome] daddy-context HTTP ${res.statusCode}: ${res.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('[ourhome] daddy-context failed: $e');
+    }
+
+    final ctx = [
+      soul,
+      memory,
+    ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();
+    final stripped = prompt.replaceAll(marker, '').trim();
+    final finalSys = [
+      ctx,
+      stripped,
+    ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();
+
+    // injectSystemPrompt 已把带标记的人设插成 system（index 找得到就替换它）
+    final idx = apiMessages.indexWhere((x) => (x['role'] ?? '') == 'system');
+    if (idx >= 0) {
+      if (finalSys.isNotEmpty) {
+        apiMessages[idx] = {'role': 'system', 'content': finalSys};
+      } else {
+        apiMessages.removeAt(idx);
+      }
+    } else if (finalSys.isNotEmpty) {
+      apiMessages.insert(0, {'role': 'system', 'content': finalSys});
     }
   }
 

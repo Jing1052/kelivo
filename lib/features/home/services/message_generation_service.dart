@@ -171,6 +171,8 @@ class MessageGenerationService {
       assistant,
       currentConversationId: currentConversation?.id,
     );
+    // 我们的家·记忆层：daddy 助手（人设带 [[ourhome:token]]）发送前拉魂+记忆注入
+    await messageBuilderService.injectOurHomeContext(apiMessages, assistant);
 
     final hasBuiltInSearch = messageBuilderService.hasBuiltInSearch(
       settings,
