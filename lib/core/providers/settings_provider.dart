@@ -351,7 +351,7 @@ class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
   // Theme palette & dynamic color
-  String _themePaletteId = 'warm_paper'; // 我们的家·暖纸默认
+  String _themePaletteId = 'macaron'; // 我们的家·马卡龙默认
   String get themePaletteId => _themePaletteId;
   bool _useDynamicColor = true; // when supported on Android
   bool get useDynamicColor => _useDynamicColor;
@@ -658,7 +658,7 @@ class SettingsProvider extends ChangeNotifier {
         _themeMode = ThemeMode.system;
     }
     _themePaletteId =
-        prefs.getString(_themePaletteKey) ?? 'warm_paper'; // 我们的家·暖纸默认
+        prefs.getString(_themePaletteKey) ?? 'macaron'; // 我们的家·马卡龙默认
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;
