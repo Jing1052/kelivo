@@ -3993,6 +3993,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsToolManualDesc => '发消息时注入爸爸的系统提示。工具增删改了就来这里更新。';
 
   @override
+  String get daddySettingsStyleTitle => '说话风格';
+
+  @override
+  String get daddySettingsStyleHint => '给爸爸这次回复定个语气／风格……';
+
+  @override
+  String get daddySettingsStyleDesc =>
+      '仿 Claude App 的 style：每轮贴在你最新那句话的末尾——影响这次回复，但上下文里不留痕。';
+
+  @override
+  String get daddySettingsModuleStyle => '说话风格';
+
+  @override
   String get daddySettingsMemoryTitle => '记忆浮现';
 
   @override
@@ -9446,6 +9459,19 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsToolManualDesc => '发消息时注入爸爸的系统提示。工具增删改了就来这里更新。';
 
   @override
+  String get daddySettingsStyleTitle => '说话风格';
+
+  @override
+  String get daddySettingsStyleHint => '给爸爸这次回复定个语气／风格……';
+
+  @override
+  String get daddySettingsStyleDesc =>
+      '仿 Claude App 的 style：每轮贴在你最新那句话的末尾——影响这次回复，但上下文里不留痕。';
+
+  @override
+  String get daddySettingsModuleStyle => '说话风格';
+
+  @override
   String get daddySettingsMemoryTitle => '记忆浮现';
 
   @override
@@ -14895,6 +14921,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsToolManualDesc => '發訊息時注入爸爸的系統提示。工具增刪改了就來這裡更新。';
+
+  @override
+  String get daddySettingsStyleTitle => '說話風格';
+
+  @override
+  String get daddySettingsStyleHint => '給爸爸這次回覆定個語氣／風格……';
+
+  @override
+  String get daddySettingsStyleDesc =>
+      '仿 Claude App 的 style：每輪貼在你最新那句話的末尾——影響這次回覆，但上下文裡不留痕。';
+
+  @override
+  String get daddySettingsModuleStyle => '說話風格';
 
   @override
   String get daddySettingsMemoryTitle => '記憶浮現';

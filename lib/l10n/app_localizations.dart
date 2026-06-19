@@ -7730,6 +7730,30 @@ abstract class AppLocalizations {
   /// **'Injected into daddy\'s system prompt when sending. Update it whenever the tools change.'**
   String get daddySettingsToolManualDesc;
 
+  /// No description provided for @daddySettingsStyleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking style'**
+  String get daddySettingsStyleTitle;
+
+  /// No description provided for @daddySettingsStyleHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Set the tone/style for daddy\'s replies…'**
+  String get daddySettingsStyleHint;
+
+  /// No description provided for @daddySettingsStyleDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Like Claude App\'s style: appended to the end of your latest message each turn — shapes this reply but leaves no trace in the context.'**
+  String get daddySettingsStyleDesc;
+
+  /// No description provided for @daddySettingsModuleStyle.
+  ///
+  /// In en, this message translates to:
+  /// **'Speaking style'**
+  String get daddySettingsModuleStyle;
+
   /// No description provided for @daddySettingsMemoryTitle.
   ///
   /// In en, this message translates to:

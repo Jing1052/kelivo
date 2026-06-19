@@ -196,6 +196,8 @@ class MessageGenerationService {
 
     // Apply context limit and inline images
     messageBuilderService.applyContextLimit(apiMessages, assistant);
+    // 爸爸 style：贴到留存的最后一条 user 末尾（不留痕），需在裁剪之后
+    messageBuilderService.injectDaddyStyle(apiMessages, assistant);
     await messageBuilderService.inlineLocalImages(apiMessages);
 
     // Prepare tools

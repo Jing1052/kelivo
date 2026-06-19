@@ -36,6 +36,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
 
   final TextEditingController _soulCtrl = TextEditingController();
   final TextEditingController _manualCtrl = TextEditingController();
+  final TextEditingController _styleCtrl = TextEditingController();
 
   String? _daddyId;
   String _markerStr = '[[ourhome]]';
@@ -51,7 +52,9 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       if (m != null) _markerStr = m.group(0)!;
       _soulCtrl.text = daddy.systemPrompt.replaceAll(_marker, '').trim();
     }
-    _manualCtrl.text = context.read<SettingsProvider>().daddyToolManual;
+    final settings = context.read<SettingsProvider>();
+    _manualCtrl.text = settings.daddyToolManual;
+    _styleCtrl.text = settings.daddyStyle;
   }
 
   @override
@@ -59,6 +62,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _persist();
     _soulCtrl.dispose();
     _manualCtrl.dispose();
+    _styleCtrl.dispose();
     super.dispose();
   }
 
@@ -87,6 +91,9 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     final settings = context.read<SettingsProvider>();
     if (_manualCtrl.text != settings.daddyToolManual) {
       settings.setDaddyToolManual(_manualCtrl.text);
+    }
+    if (_styleCtrl.text != settings.daddyStyle) {
+      settings.setDaddyStyle(_styleCtrl.text);
     }
   }
 
@@ -169,6 +176,25 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ),
             const SizedBox(height: 12),
 
+            // 说话风格 style（贴在你的话末尾·不留痕）
+            _iosSectionCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsStyleTitle,
+                    controller: _styleCtrl,
+                    hintText: l10n.daddySettingsStyleHint,
+                    minLines: 3,
+                    maxLines: 10,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                _caption(context, l10n.daddySettingsStyleDesc),
+              ],
+            ),
+            const SizedBox(height: 12),
+
             // 记忆浮现
             _iosSectionCard(
               children: [
@@ -219,6 +245,13 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ? l10n.daddySettingsStatusEmpty
             : l10n.daddySettingsStatusFilled,
         active: _manualCtrl.text.trim().isNotEmpty,
+      ),
+      (
+        label: l10n.daddySettingsModuleStyle,
+        status: _styleCtrl.text.trim().isEmpty
+            ? l10n.daddySettingsStatusEmpty
+            : l10n.daddySettingsStatusFilled,
+        active: _styleCtrl.text.trim().isNotEmpty,
       ),
       (
         label: l10n.daddySettingsModuleMemory,

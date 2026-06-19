@@ -621,6 +621,33 @@ class MessageBuilderService {
     }
   }
 
+  /// 爸爸专属 style（仿 Claude App）：把「这次说话的风格」拼到**最后一条 user
+  /// 消息的结尾**——最贴近生成处、遵循最强，且只动这次请求的 wire 副本，不写回
+  /// 历史、不进可见气泡（应在 applyContextLimit 之后调用，确保贴到留存的那条 user）。
+  void injectDaddyStyle(
+    List<Map<String, dynamic>> apiMessages,
+    Assistant? assistant,
+  ) {
+    final prompt = assistant?.systemPrompt ?? '';
+    if (!prompt.contains('[[ourhome')) return; // 非 daddy 助手，不动
+    final style = contextProvider.read<SettingsProvider>().daddyStyle.trim();
+    if (style.isEmpty) return;
+
+    int li = -1;
+    for (int i = 0; i < apiMessages.length; i++) {
+      if ((apiMessages[i]['role'] ?? '') == 'user') li = i;
+    }
+    if (li < 0) return;
+
+    final tail = '\n\n---\n\n# 这次说话的风格（style · 仅本次生效，别在正文里提它）\n$style';
+    final c = apiMessages[li]['content'];
+    if (c is String) {
+      apiMessages[li]['content'] = c + tail;
+    } else if (c is List) {
+      c.add(<String, dynamic>{'type': 'text', 'text': tail});
+    }
+  }
+
   /// Inject memory prompts and recent chats reference into apiMessages.
   Future<void> injectMemoryAndRecentChats(
     List<Map<String, dynamic>> apiMessages,

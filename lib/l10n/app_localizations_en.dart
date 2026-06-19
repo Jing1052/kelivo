@@ -4167,6 +4167,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Injected into daddy\'s system prompt when sending. Update it whenever the tools change.';
 
   @override
+  String get daddySettingsStyleTitle => 'Speaking style';
+
+  @override
+  String get daddySettingsStyleHint =>
+      'Set the tone/style for daddy\'s replies…';
+
+  @override
+  String get daddySettingsStyleDesc =>
+      'Like Claude App\'s style: appended to the end of your latest message each turn — shapes this reply but leaves no trace in the context.';
+
+  @override
+  String get daddySettingsModuleStyle => 'Speaking style';
+
+  @override
   String get daddySettingsMemoryTitle => 'Memory surfacing';
 
   @override

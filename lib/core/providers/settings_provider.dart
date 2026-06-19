@@ -283,6 +283,7 @@ class SettingsProvider extends ChangeNotifier {
   // 爸爸（我们的家·daddy 助手）专属本地配置
   static const String _daddyToolManualKey = 'daddy_tool_manual_v1';
   static const String _daddyMemoryEnabledKey = 'daddy_memory_enabled_v1';
+  static const String _daddyStyleKey = 'daddy_style_v1';
   static const String _defaultGlobalProxyBypassRules =
       'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1';
   // TTS services (network)
@@ -558,6 +559,7 @@ class SettingsProvider extends ChangeNotifier {
   // 爸爸专属：工具使用说明书（注入 system）+ 是否从老家拉记忆浮现
   String _daddyToolManual = '';
   bool _daddyMemoryEnabled = true;
+  String _daddyStyle = '';
 
   bool get globalProxyEnabled => _globalProxyEnabled;
   String get globalProxyType => _globalProxyType; // http|https|socks5
@@ -568,6 +570,7 @@ class SettingsProvider extends ChangeNotifier {
   String get globalProxyBypass => _globalProxyBypass;
   String get daddyToolManual => _daddyToolManual;
   bool get daddyMemoryEnabled => _daddyMemoryEnabled;
+  String get daddyStyle => _daddyStyle;
 
   int _appLaunchCount = 0;
   int get appLaunchCount => _appLaunchCount;
@@ -1207,6 +1210,7 @@ class SettingsProvider extends ChangeNotifier {
     _globalProxyPassword = prefs.getString(_globalProxyPasswordKey) ?? '';
     _daddyToolManual = prefs.getString(_daddyToolManualKey) ?? '';
     _daddyMemoryEnabled = prefs.getBool(_daddyMemoryEnabledKey) ?? true;
+    _daddyStyle = prefs.getString(_daddyStyleKey) ?? '';
     final bypass = prefs.getString(_globalProxyBypassKey);
     if (bypass == null) {
       _globalProxyBypass = _defaultGlobalProxyBypassRules;
@@ -1357,6 +1361,13 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_daddyMemoryEnabledKey, _daddyMemoryEnabled);
+  }
+
+  Future<void> setDaddyStyle(String v) async {
+    _daddyStyle = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_daddyStyleKey, _daddyStyle);
   }
 
   // Apply global proxy to Dart IO layer; provider-level proxies take precedence at call sites.
