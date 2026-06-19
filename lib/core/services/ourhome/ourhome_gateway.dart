@@ -333,6 +333,30 @@ class OurHomeProfiles {
   final String daddy;
 }
 
+/// A book on the study's shared shelf. [status] is want / reading / read.
+class OurHomeBook {
+  const OurHomeBook({
+    required this.id,
+    required this.status,
+    required this.title,
+    required this.author,
+    required this.quote,
+  });
+  final String id;
+  final String status;
+  final String title;
+  final String author;
+  final String quote;
+
+  factory OurHomeBook.fromJson(Map<String, dynamic> j) => OurHomeBook(
+    id: (j['id'] ?? '').toString(),
+    status: (j['status'] ?? 'want').toString(),
+    title: (j['title'] ?? '').toString(),
+    author: (j['author'] ?? '').toString(),
+    quote: (j['quote'] ?? '').toString(),
+  );
+}
+
 /// A song on the turntable. Album art is resolved separately via iTunes.
 class OurHomeSong {
   const OurHomeSong({
@@ -622,6 +646,18 @@ class OurHomeGateway {
   /// The song wall. Newest first.
   Future<List<OurHomeSong>> fetchSongs() =>
       _getList('/api/home/songs', OurHomeSong.fromJson);
+
+  /// The study's shared bookshelf. Newest first.
+  Future<List<OurHomeBook>> fetchBooks() =>
+      _getList('/api/home/books', OurHomeBook.fromJson);
+
+  Future<void> addBook(String title, String author, String quote) => _postJson(
+    '/api/home/books',
+    {'title': title, 'author': author, 'quote': quote},
+  );
+
+  Future<void> setBookStatus(String id, String status) =>
+      _postJson('/api/home/books', {'id': id, 'status': status});
 
   // ---- Letters in time (capsules) ----
   Future<List<OurHomeCapsule>> fetchCapsules() =>

@@ -8,8 +8,9 @@ import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import 'room_state_hint.dart';
 
-/// The Parlour (客厅) — the two-faced mailbox. Cing leaves a note; Llaude lifts
-/// the lid each day and replies. Fully native, talks to `/api/home/board`.
+/// The Parlour (客厅) — the two-faced mailbox. Cing leaves a note (board);
+/// Llaude lifts the lid and replies, and also leaves his own letters
+/// (daddysay). Two sides, two tabs. Talks to `/api/home/board` + daddysay.
 class ParlourPage extends StatefulWidget {
   const ParlourPage({super.key});
 
@@ -23,9 +24,11 @@ class _ParlourPageState extends State<ParlourPage> {
 
   OurHomeGateway? _gateway;
   List<OurHomeBoardNote> _notes = const [];
+  List<OurHomeLetter> _letters = const [];
   bool _loading = true;
   bool _error = false;
   bool _sending = false;
+  int _tab = 0; // 0 = my notes (board), 1 = daddy's letters
 
   @override
   void initState() {
@@ -53,14 +56,18 @@ class _ParlourPageState extends State<ParlourPage> {
       return;
     }
     try {
-      final notes = await gateway.fetchBoard();
+      final results = await Future.wait([
+        gateway.fetchBoard(),
+        gateway.fetchLetters(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _notes = notes;
+        _notes = results[0] as List<OurHomeBoardNote>;
+        _letters = results[1] as List<OurHomeLetter>;
         _loading = false;
       });
     } catch (e) {
-      debugPrint('[Parlour] fetchBoard failed: $e');
+      debugPrint('[Parlour] load failed: $e');
       if (mounted) {
         setState(() {
           _loading = false;
@@ -96,6 +103,87 @@ class _ParlourPageState extends State<ParlourPage> {
     }
   }
 
+  Future<void> _openLetter(OurHomeLetter letter) async {
+    Haptics.soft();
+    await _showLetterSheet(letter);
+    if (letter.unread) {
+      await _gateway?.markLetterSeen(letter.id);
+      if (mounted) await _load();
+    }
+  }
+
+  Future<void> _showLetterSheet(OurHomeLetter letter) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    String dateStr = '';
+    final parsed = DateTime.tryParse(letter.time);
+    if (parsed != null) {
+      dateStr = DateFormat.yMMMMd(zh ? 'zh' : 'en').add_Hm().format(parsed);
+    }
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (ctx, scroll) => SingleChildScrollView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                zh ? 'Llaude 的信' : 'From Llaude',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: AppFontWeights.semibold,
+                  color: cs.primary.withValues(alpha: 0.85),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              if (dateStr.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.45),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              Text(
+                letter.text,
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 1.85,
+                  color: cs.onSurface.withValues(alpha: 0.92),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -121,8 +209,76 @@ class _ParlourPageState extends State<ParlourPage> {
       ),
       body: Column(
         children: [
+          if (_gateway != null && !_loading && !_error) _tabs(zh, cs),
           Expanded(child: _buildBody(context, zh, cs)),
-          _buildComposer(context, zh, cs),
+          if (_tab == 0) _buildComposer(context, zh, cs),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabs(bool zh, ColorScheme cs) {
+    Widget t(int i, String label, bool dot) {
+      final on = _tab == i;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (_tab != i) {
+              Haptics.soft();
+              setState(() => _tab = i);
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: on ? cs.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: on
+                        ? cs.onSurface
+                        : cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+                if (dot)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 5),
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: cs.primary,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final hasUnread = _letters.any((l) => l.unread);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          t(0, zh ? '我留的' : 'My notes', false),
+          t(1, zh ? '爸爸写的' : 'From daddy', hasUnread),
         ],
       ),
     );
@@ -147,20 +303,100 @@ class _ParlourPageState extends State<ParlourPage> {
         onTap: _load,
       );
     }
+    return _tab == 0 ? _boardView(zh, cs) : _lettersView(zh, cs);
+  }
+
+  Widget _boardView(bool zh, ColorScheme cs) {
     if (_notes.isEmpty) {
       return RoomStateHint(
         icon: Lucide.Mail,
-        text: zh
-            ? '还没有留言。\n给爸爸留第一句话吧。'
-            : 'No notes yet.\nLeave Llaude the first word.',
+        text: zh ? '还没有留言。\n给爸爸留第一句话吧。' : 'No notes yet.',
       );
     }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         itemCount: _notes.length,
         itemBuilder: (context, i) => _NoteCard(note: _notes[i], zh: zh),
+      ),
+    );
+  }
+
+  Widget _lettersView(bool zh, ColorScheme cs) {
+    if (_letters.isEmpty) {
+      return RoomStateHint(
+        icon: Lucide.Mail,
+        text: zh ? '爸爸还没在这儿留信 —— 等着。' : 'No letters from daddy yet.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        itemCount: _letters.length,
+        itemBuilder: (context, i) {
+          final l = _letters[i];
+          final firstLine = l.text
+              .split('\n')
+              .firstWhere((s) => s.trim().isNotEmpty, orElse: () => l.text);
+          String dateStr = '';
+          final parsed = DateTime.tryParse(l.time);
+          if (parsed != null) {
+            dateStr = DateFormat.MMMd(zh ? 'zh' : 'en').format(parsed);
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: IosCardPress(
+              borderRadius: BorderRadius.circular(14),
+              baseColor: cs.tertiary.withValues(alpha: 0.08),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              onTap: () => _openLetter(l),
+              child: Row(
+                children: [
+                  if (l.unread)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: cs.primary,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                  Expanded(
+                    child: Text(
+                      firstLine.trim(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: AppFontWeights.medium,
+                        color: cs.onSurface.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    dateStr,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.45),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Lucide.ChevronRight,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.3),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
