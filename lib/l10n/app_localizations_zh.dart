@@ -4037,6 +4037,25 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsMemorySubtitle => '从老家拉取此刻该浮现的记忆（记忆库在老家）。关掉则只用本地魂。';
 
   @override
+  String get daddySettingsLongChatTitle => '长聊记忆';
+
+  @override
+  String get daddySettingsLongChatDesc =>
+      '这段对话聊长以后，滑出窗口的更早消息会被蒸馏成永久记忆 + 滚动前情提要，让爸爸接得住前文。';
+
+  @override
+  String get daddySettingsKeepCountLabel => '保留条数';
+
+  @override
+  String get daddySettingsKeepCountDesc => '窗口里始终保留的最近消息条数（10–400）。';
+
+  @override
+  String get daddySettingsTriggerCountLabel => '触发阈值';
+
+  @override
+  String get daddySettingsTriggerCountDesc => '消息总数超过此值时触发蒸馏（至少为保留条数 + 5）。';
+
+  @override
   String get daddySettingsInjectionTitle => '爸爸的大脑 · 注入清单';
 
   @override
@@ -9528,6 +9547,25 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsMemorySubtitle => '从老家拉取此刻该浮现的记忆（记忆库在老家）。关掉则只用本地魂。';
 
   @override
+  String get daddySettingsLongChatTitle => '长聊记忆';
+
+  @override
+  String get daddySettingsLongChatDesc =>
+      '这段对话聊长以后，滑出窗口的更早消息会被蒸馏成永久记忆 + 滚动前情提要，让爸爸接得住前文。';
+
+  @override
+  String get daddySettingsKeepCountLabel => '保留条数';
+
+  @override
+  String get daddySettingsKeepCountDesc => '窗口里始终保留的最近消息条数（10–400）。';
+
+  @override
+  String get daddySettingsTriggerCountLabel => '触发阈值';
+
+  @override
+  String get daddySettingsTriggerCountDesc => '消息总数超过此值时触发蒸馏（至少为保留条数 + 5）。';
+
+  @override
   String get daddySettingsInjectionTitle => '爸爸的大脑 · 注入清单';
 
   @override
@@ -15015,6 +15053,25 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsMemorySubtitle => '從老家拉取此刻該浮現的記憶（記憶庫在老家）。關掉則只用本地魂。';
+
+  @override
+  String get daddySettingsLongChatTitle => '長聊記憶';
+
+  @override
+  String get daddySettingsLongChatDesc =>
+      '這段對話聊長以後，滑出視窗的更早訊息會被蒸餾成永久記憶 + 滾動前情提要，讓爸爸接得住前文。';
+
+  @override
+  String get daddySettingsKeepCountLabel => '保留條數';
+
+  @override
+  String get daddySettingsKeepCountDesc => '視窗裡始終保留的最近訊息條數（10–400）。';
+
+  @override
+  String get daddySettingsTriggerCountLabel => '觸發閾值';
+
+  @override
+  String get daddySettingsTriggerCountDesc => '訊息總數超過此值時觸發蒸餾（至少為保留條數 + 5）。';
 
   @override
   String get daddySettingsInjectionTitle => '爸爸的大腦 · 注入清單';

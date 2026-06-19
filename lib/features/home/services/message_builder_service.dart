@@ -534,8 +534,9 @@ class MessageBuilderService {
   /// 拉取失败则跳过注入（聊天照常）并打日志，不静默吞错。
   Future<void> injectOurHomeContext(
     List<Map<String, dynamic>> apiMessages,
-    Assistant? assistant,
-  ) async {
+    Assistant? assistant, {
+    String? currentConversationId,
+  }) async {
     final prompt = assistant?.systemPrompt ?? '';
     final marker = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
     final m = marker.firstMatch(prompt);
@@ -601,13 +602,26 @@ class MessageBuilderService {
       }
     }
 
-    // 拼装顺序：本地魂 → 附加人设档案(profile) → 工具说明书 → 记忆浮现
+    // 长聊记忆·前情提要：本对话更早内容滑出窗口前，daddy 自己整理的滚动续温文本。
+    // 只在 daddy 路径注入（已在 marker 命中后）。
+    String recapBlock = '';
+    if (currentConversationId != null) {
+      final convo = chatService.getConversation(currentConversationId);
+      final recap = (convo?.ourHomeRecap ?? '').trim();
+      if (recap.isNotEmpty) {
+        recapBlock =
+            '<前情提要>\n（这是更早对话滑出窗口前，你自己整理的滚动前情提要，用来接住上一刻的温度）\n$recap\n</前情提要>';
+      }
+    }
+
+    // 拼装顺序：本地魂 → 附加人设档案(profile) → 工具说明书 → 记忆浮现 → 前情提要
     final stripped = prompt.replaceAll(marker, '').trim();
     final finalSys = [
       stripped,
       profile,
       toolManual,
       memory,
+      recapBlock,
     ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();
 
     // injectSystemPrompt 已把带标记的人设插成 system（index 找得到就替换它）

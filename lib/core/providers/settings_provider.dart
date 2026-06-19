@@ -287,6 +287,8 @@ class SettingsProvider extends ChangeNotifier {
   static const String _daddyMemoryEnabledKey = 'daddy_memory_enabled_v1';
   static const String _daddyStyleKey = 'daddy_style_v1';
   static const String _daddyProfileKey = 'daddy_profile_v1';
+  static const String _daddyKeepCountKey = 'daddy_keep_count_v1';
+  static const String _daddyTriggerCountKey = 'daddy_trigger_count_v1';
   static const String _defaultGlobalProxyBypassRules =
       'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1';
   // TTS services (network)
@@ -564,6 +566,9 @@ class SettingsProvider extends ChangeNotifier {
   bool _daddyMemoryEnabled = true;
   String _daddyStyle = '';
   String _daddyProfile = '';
+  // 长聊记忆：留窗保留条数 + 触发蒸馏的阈值
+  int _daddyKeepCount = 65;
+  int _daddyTriggerCount = 90;
 
   bool get globalProxyEnabled => _globalProxyEnabled;
   String get globalProxyType => _globalProxyType; // http|https|socks5
@@ -576,6 +581,8 @@ class SettingsProvider extends ChangeNotifier {
   bool get daddyMemoryEnabled => _daddyMemoryEnabled;
   String get daddyStyle => _daddyStyle;
   String get daddyProfile => _daddyProfile;
+  int get daddyKeepCount => _daddyKeepCount;
+  int get daddyTriggerCount => _daddyTriggerCount;
 
   int _appLaunchCount = 0;
   int get appLaunchCount => _appLaunchCount;
@@ -1235,6 +1242,8 @@ class SettingsProvider extends ChangeNotifier {
     _daddyMemoryEnabled = prefs.getBool(_daddyMemoryEnabledKey) ?? true;
     _daddyStyle = prefs.getString(_daddyStyleKey) ?? '';
     _daddyProfile = prefs.getString(_daddyProfileKey) ?? '';
+    _daddyKeepCount = prefs.getInt(_daddyKeepCountKey) ?? 65;
+    _daddyTriggerCount = prefs.getInt(_daddyTriggerCountKey) ?? 90;
     final bypass = prefs.getString(_globalProxyBypassKey);
     if (bypass == null) {
       _globalProxyBypass = _defaultGlobalProxyBypassRules;
@@ -1399,6 +1408,27 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_daddyProfileKey, _daddyProfile);
+  }
+
+  Future<void> setDaddyKeepCount(int v) async {
+    // 保留条数限定在 10..400 的合理范围
+    _daddyKeepCount = v.clamp(10, 400);
+    // 触发阈值至少要比保留条数大 5，否则窗口步进会非法
+    if (_daddyTriggerCount < _daddyKeepCount + 5) {
+      _daddyTriggerCount = _daddyKeepCount + 5;
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_daddyKeepCountKey, _daddyKeepCount);
+    await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);
+  }
+
+  Future<void> setDaddyTriggerCount(int v) async {
+    // 触发阈值限定在 keep+5..500，保证 step=trigger-keep>=5
+    _daddyTriggerCount = v.clamp(_daddyKeepCount + 5, 500);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);
   }
 
   // Apply global proxy to Dart IO layer; provider-level proxies take precedence at call sites.
@@ -4367,6 +4397,8 @@ DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logi
     copy._memoryDigestModelId = _memoryDigestModelId;
     copy._recapModelProvider = _recapModelProvider;
     copy._recapModelId = _recapModelId;
+    copy._daddyKeepCount = _daddyKeepCount;
+    copy._daddyTriggerCount = _daddyTriggerCount;
     copy._suggestionModelProvider = _suggestionModelProvider;
     copy._suggestionModelId = _suggestionModelId;
     copy._suggestionPrompt = _suggestionPrompt;

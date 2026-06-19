@@ -4216,6 +4216,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'Pull the memories worth surfacing from the old home (the garden lives there). Off = local soul only.';
 
   @override
+  String get daddySettingsLongChatTitle => 'Long-chat memory';
+
+  @override
+  String get daddySettingsLongChatDesc =>
+      'When this chat gets long, older messages sliding out of the window are distilled into permanent memories and a rolling recap, so daddy keeps the thread.';
+
+  @override
+  String get daddySettingsKeepCountLabel => 'Keep recent';
+
+  @override
+  String get daddySettingsKeepCountDesc =>
+      'Number of most-recent messages always kept in the window (10–400).';
+
+  @override
+  String get daddySettingsTriggerCountLabel => 'Trigger at';
+
+  @override
+  String get daddySettingsTriggerCountDesc =>
+      'Distill once the total message count exceeds this (must be at least keep + 5).';
+
+  @override
   String get daddySettingsInjectionTitle => 'Daddy\'s mind · injection list';
 
   @override

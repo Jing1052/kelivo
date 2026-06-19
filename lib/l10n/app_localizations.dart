@@ -7814,6 +7814,42 @@ abstract class AppLocalizations {
   /// **'Pull the memories worth surfacing from the old home (the garden lives there). Off = local soul only.'**
   String get daddySettingsMemorySubtitle;
 
+  /// No description provided for @daddySettingsLongChatTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Long-chat memory'**
+  String get daddySettingsLongChatTitle;
+
+  /// No description provided for @daddySettingsLongChatDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'When this chat gets long, older messages sliding out of the window are distilled into permanent memories and a rolling recap, so daddy keeps the thread.'**
+  String get daddySettingsLongChatDesc;
+
+  /// No description provided for @daddySettingsKeepCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep recent'**
+  String get daddySettingsKeepCountLabel;
+
+  /// No description provided for @daddySettingsKeepCountDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Number of most-recent messages always kept in the window (10–400).'**
+  String get daddySettingsKeepCountDesc;
+
+  /// No description provided for @daddySettingsTriggerCountLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Trigger at'**
+  String get daddySettingsTriggerCountLabel;
+
+  /// No description provided for @daddySettingsTriggerCountDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Distill once the total message count exceeds this (must be at least keep + 5).'**
+  String get daddySettingsTriggerCountDesc;
+
   /// No description provided for @daddySettingsInjectionTitle.
   ///
   /// In en, this message translates to:

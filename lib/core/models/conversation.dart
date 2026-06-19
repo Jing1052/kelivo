@@ -51,6 +51,14 @@ class Conversation extends HiveObject {
   @HiveField(12)
   List<String> chatSuggestions;
 
+  // 我们的家·长聊记忆：滚动「前情提要」（滑出窗口的更早对话浓缩成的续温文本）
+  @HiveField(13)
+  String? ourHomeRecap;
+
+  // 我们的家·长聊记忆：已蒸馏归档的消息「高水位线」（绝对计数，默认 0）
+  @HiveField(14)
+  int ourHomeDigestedCount;
+
   Conversation({
     String? id,
     required this.title,
@@ -65,6 +73,8 @@ class Conversation extends HiveObject {
     this.summary,
     int? lastSummarizedMessageCount,
     List<String>? chatSuggestions,
+    this.ourHomeRecap,
+    int? ourHomeDigestedCount,
   }) : id = id ?? const Uuid().v4(),
        createdAt = createdAt ?? DateTime.now(),
        updatedAt = updatedAt ?? DateTime.now(),
@@ -73,7 +83,8 @@ class Conversation extends HiveObject {
        truncateIndex = truncateIndex ?? -1,
        versionSelections = versionSelections ?? <String, int>{},
        lastSummarizedMessageCount = lastSummarizedMessageCount ?? 0,
-       chatSuggestions = chatSuggestions ?? [];
+       chatSuggestions = chatSuggestions ?? [],
+       ourHomeDigestedCount = ourHomeDigestedCount ?? 0;
 
   Conversation copyWith({
     String? id,
@@ -89,7 +100,10 @@ class Conversation extends HiveObject {
     String? summary,
     int? lastSummarizedMessageCount,
     List<String>? chatSuggestions,
+    String? ourHomeRecap,
+    int? ourHomeDigestedCount,
     bool clearSummary = false,
+    bool clearOurHomeRecap = false,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -106,6 +120,10 @@ class Conversation extends HiveObject {
       lastSummarizedMessageCount:
           lastSummarizedMessageCount ?? this.lastSummarizedMessageCount,
       chatSuggestions: chatSuggestions ?? this.chatSuggestions,
+      ourHomeRecap: clearOurHomeRecap
+          ? null
+          : (ourHomeRecap ?? this.ourHomeRecap),
+      ourHomeDigestedCount: ourHomeDigestedCount ?? this.ourHomeDigestedCount,
     );
   }
 
@@ -124,6 +142,8 @@ class Conversation extends HiveObject {
       'summary': summary,
       'lastSummarizedMessageCount': lastSummarizedMessageCount,
       'chatSuggestions': chatSuggestions,
+      'ourHomeRecap': ourHomeRecap,
+      'ourHomeDigestedCount': ourHomeDigestedCount,
     };
   }
 
@@ -150,6 +170,8 @@ class Conversation extends HiveObject {
       chatSuggestions:
           (json['chatSuggestions'] as List?)?.cast<String>() ??
           const <String>[],
+      ourHomeRecap: json['ourHomeRecap'] as String?,
+      ourHomeDigestedCount: json['ourHomeDigestedCount'] as int? ?? 0,
     );
   }
 }

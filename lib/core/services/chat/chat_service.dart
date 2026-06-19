@@ -733,6 +733,32 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 我们的家·长聊记忆：持久化滚动前情提要 + 已蒸馏高水位线。
+  /// recap 为 null 时不动 recap 字段，只更新 digestedCount。
+  Future<void> updateConversationOurHome(
+    String id, {
+    String? recap,
+    required int digestedCount,
+  }) async {
+    if (!_initialized) return;
+
+    if (_draftConversations.containsKey(id)) {
+      final draft = _draftConversations[id]!;
+      if (recap != null) draft.ourHomeRecap = recap;
+      draft.ourHomeDigestedCount = digestedCount;
+      notifyListeners();
+      return;
+    }
+
+    final conversation = _conversationsBox.get(id);
+    if (conversation == null) return;
+
+    if (recap != null) conversation.ourHomeRecap = recap;
+    conversation.ourHomeDigestedCount = digestedCount;
+    await conversation.save();
+    notifyListeners();
+  }
+
   /// Gets all conversations with non-empty summaries for a specific assistant.
   List<Conversation> getConversationsWithSummaryForAssistant(
     String assistantId,

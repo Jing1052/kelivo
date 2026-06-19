@@ -38,6 +38,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   final TextEditingController _profileCtrl = TextEditingController();
   final TextEditingController _manualCtrl = TextEditingController();
   final TextEditingController _styleCtrl = TextEditingController();
+  final TextEditingController _keepCtrl = TextEditingController();
+  final TextEditingController _triggerCtrl = TextEditingController();
 
   String? _daddyId;
   String _markerStr = '[[ourhome]]';
@@ -57,6 +59,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _profileCtrl.text = settings.daddyProfile;
     _manualCtrl.text = settings.daddyToolManual;
     _styleCtrl.text = settings.daddyStyle;
+    _keepCtrl.text = settings.daddyKeepCount.toString();
+    _triggerCtrl.text = settings.daddyTriggerCount.toString();
   }
 
   @override
@@ -66,6 +70,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _profileCtrl.dispose();
     _manualCtrl.dispose();
     _styleCtrl.dispose();
+    _keepCtrl.dispose();
+    _triggerCtrl.dispose();
     super.dispose();
   }
 
@@ -100,6 +106,14 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     }
     if (_styleCtrl.text != settings.daddyStyle) {
       settings.setDaddyStyle(_styleCtrl.text);
+    }
+    final keep = int.tryParse(_keepCtrl.text.trim());
+    if (keep != null && keep != settings.daddyKeepCount) {
+      settings.setDaddyKeepCount(keep);
+    }
+    final trigger = int.tryParse(_triggerCtrl.text.trim());
+    if (trigger != null && trigger != settings.daddyTriggerCount) {
+      settings.setDaddyTriggerCount(trigger);
     }
   }
 
@@ -234,6 +248,37 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+
+            // 长聊记忆：保留条数 / 触发阈值
+            _iosSectionCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsKeepCountLabel,
+                    controller: _keepCtrl,
+                    keyboardType: TextInputType.number,
+                    fieldWidth: 80,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                _caption(context, l10n.daddySettingsKeepCountDesc),
+                _iosDivider(context),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsTriggerCountLabel,
+                    controller: _triggerCtrl,
+                    keyboardType: TextInputType.number,
+                    fieldWidth: 80,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                _caption(context, l10n.daddySettingsTriggerCountDesc),
+              ],
+            ),
+            _caption(context, l10n.daddySettingsLongChatDesc),
             const SizedBox(height: 12),
 
             // 爸爸的大脑·注入清单
