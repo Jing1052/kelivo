@@ -41,11 +41,13 @@ class ThemeSettingsPage extends StatelessWidget {
             onTap: () => Navigator.of(context).maybePop(),
           ),
         ),
-        title: Text(l10n.displaySettingsPageThemeSettingsTitle),
+        title: Text(l10n.appearancePageTitle),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
+          _iosSectionCard(children: [_colorModeRow(context, l10n)]),
+          const SizedBox(height: 12),
           if (!kIsWeb &&
               defaultTargetPlatform == TargetPlatform.android &&
               settings.dynamicColorSupported) ...[
@@ -292,6 +294,154 @@ Widget _iosSwitchRow(
         ),
       );
     },
+  );
+}
+
+String _modeLabel(ThemeMode m, AppLocalizations l10n) {
+  switch (m) {
+    case ThemeMode.dark:
+      return l10n.settingsPageDarkMode;
+    case ThemeMode.light:
+      return l10n.settingsPageLightMode;
+    case ThemeMode.system:
+      return l10n.settingsPageSystemMode;
+  }
+}
+
+Widget _colorModeRow(BuildContext context, AppLocalizations l10n) {
+  final cs = Theme.of(context).colorScheme;
+  final mode = context.read<SettingsProvider>().themeMode;
+  return _TactileRow(
+    onTap: () => _pickThemeMode(context, l10n),
+    builder: (pressed) {
+      final baseColor = cs.onSurface.withValues(alpha: 0.9);
+      return _AnimatedPressColor(
+        pressed: pressed,
+        base: baseColor,
+        builder: (c) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Lucide.SunMoon, size: 20, color: c),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.settingsPageColorMode,
+                  style: TextStyle(fontSize: 15, color: c),
+                ),
+              ),
+              Text(
+                _modeLabel(mode, l10n),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(Lucide.ChevronRight, size: 16, color: c),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _pickThemeMode(BuildContext context, AppLocalizations l10n) async {
+  final cs = Theme.of(context).colorScheme;
+  final settingsProvider = context.read<SettingsProvider>();
+  final selected = await showModalBottomSheet<ThemeMode>(
+    context: context,
+    backgroundColor: cs.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+    ),
+    builder: (ctx) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _sheetOption(
+                ctx,
+                icon: Lucide.Monitor,
+                label: _modeLabel(ThemeMode.system, l10n),
+                onTap: () => Navigator.of(ctx).pop(ThemeMode.system),
+              ),
+              _sheetDivider(ctx),
+              _sheetOption(
+                ctx,
+                icon: Lucide.Sun,
+                label: _modeLabel(ThemeMode.light, l10n),
+                onTap: () => Navigator.of(ctx).pop(ThemeMode.light),
+              ),
+              _sheetDivider(ctx),
+              _sheetOption(
+                ctx,
+                icon: Lucide.Moon,
+                label: _modeLabel(ThemeMode.dark, l10n),
+                onTap: () => Navigator.of(ctx).pop(ThemeMode.dark),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+  if (selected != null) {
+    await settingsProvider.setThemeMode(selected);
+  }
+}
+
+Widget _sheetOption(
+  BuildContext context, {
+  required IconData icon,
+  required String label,
+  required VoidCallback onTap,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return _TactileRow(
+    onTap: onTap,
+    builder: (pressed) {
+      final base = cs.onSurface;
+      final bgTarget = pressed
+          ? (isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.black.withValues(alpha: 0.05))
+          : Colors.transparent;
+      return _AnimatedPressColor(
+        pressed: pressed,
+        base: base,
+        builder: (c) => AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          color: bgTarget,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              SizedBox(width: 24, child: Icon(icon, size: 20, color: c)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(label, style: TextStyle(fontSize: 15, color: c)),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Widget _sheetDivider(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return Divider(
+    height: 1,
+    thickness: 0.6,
+    indent: 52,
+    endIndent: 16,
+    color: cs.outlineVariant.withValues(alpha: 0.18),
   );
 }
 

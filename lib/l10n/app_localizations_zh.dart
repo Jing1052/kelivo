@@ -3969,7 +3969,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get displaySettingsPageChatInputBackgroundOpacityTitle => '输入框背景透明度';
 
   @override
-  String get displaySettingsPageThemeSettingsTitle => '主题设置';
+  String get appearancePageTitle => '外观';
 
   @override
   String get displaySettingsPageThemeColorTitle => '主题颜色';
@@ -9356,7 +9356,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get displaySettingsPageChatInputBackgroundOpacityTitle => '输入框背景透明度';
 
   @override
-  String get displaySettingsPageThemeSettingsTitle => '主题设置';
+  String get appearancePageTitle => '外观';
 
   @override
   String get displaySettingsPageThemeColorTitle => '主题颜色';
@@ -14741,7 +14741,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get displaySettingsPageChatInputBackgroundOpacityTitle => '輸入框背景透明度';
 
   @override
-  String get displaySettingsPageThemeSettingsTitle => '主題設定';
+  String get appearancePageTitle => '外觀';
 
   @override
   String get displaySettingsPageThemeColorTitle => '主題顏色';

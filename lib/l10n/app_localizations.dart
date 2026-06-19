@@ -7682,11 +7682,11 @@ abstract class AppLocalizations {
   /// **'Input Box Background Opacity'**
   String get displaySettingsPageChatInputBackgroundOpacityTitle;
 
-  /// No description provided for @displaySettingsPageThemeSettingsTitle.
+  /// No description provided for @appearancePageTitle.
   ///
   /// In en, this message translates to:
-  /// **'Theme Settings'**
-  String get displaySettingsPageThemeSettingsTitle;
+  /// **'Appearance'**
+  String get appearancePageTitle;
 
   /// No description provided for @displaySettingsPageThemeColorTitle.
   ///

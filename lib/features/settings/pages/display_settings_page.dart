@@ -58,13 +58,12 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
-          // header(l10n.displaySettingsPageThemeSettingsTitle),
           _iosSectionCard(
             children: [
               _iosNavRow(
                 context,
                 icon: Lucide.Palette,
-                label: l10n.displaySettingsPageThemeSettingsTitle,
+                label: l10n.appearancePageTitle,
                 detailText: paletteName(),
                 onTap: () => Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const ThemeSettingsPage()),

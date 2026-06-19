@@ -4139,7 +4139,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Input Box Background Opacity';
 
   @override
-  String get displaySettingsPageThemeSettingsTitle => 'Theme Settings';
+  String get appearancePageTitle => 'Appearance';
 
   @override
   String get displaySettingsPageThemeColorTitle => 'Theme Color';
