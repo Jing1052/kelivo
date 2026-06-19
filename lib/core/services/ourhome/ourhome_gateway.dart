@@ -84,6 +84,34 @@ class OurHomeDiaryEntry {
       );
 }
 
+/// A study to-do. [owner] is "L" (Llaude) / "C" (Cing) / "us" / "".
+class OurHomeTodo {
+  const OurHomeTodo({
+    required this.id,
+    required this.text,
+    required this.status,
+    required this.owner,
+    required this.due,
+    required this.done,
+  });
+
+  final String id;
+  final String text;
+  final String status;
+  final String owner;
+  final String due;
+  final bool done;
+
+  factory OurHomeTodo.fromJson(Map<String, dynamic> j) => OurHomeTodo(
+    id: (j['id'] ?? '').toString(),
+    text: (j['text'] ?? '').toString(),
+    status: (j['status'] ?? '').toString(),
+    owner: (j['owner'] ?? '').toString(),
+    due: (j['due'] ?? '').toString(),
+    done: j['done'] == true,
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -170,6 +198,48 @@ class OurHomeGateway {
         .map(OurHomeDiaryEntry.fromJson)
         .where((d) => d.text.isNotEmpty)
         .toList();
+  }
+
+  /// Newest-first study to-dos. Throws on error.
+  Future<List<OurHomeTodo>> fetchTodos() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/todo'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'todo HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/todo'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! List) return const <OurHomeTodo>[];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(OurHomeTodo.fromJson)
+        .toList();
+  }
+
+  Future<void> addTodo(String text) => _postTodo({'text': text});
+
+  Future<void> setTodoStatus(String id, String status) =>
+      _postTodo({'id': id, 'status': status});
+
+  Future<void> deleteTodo(String id) => _postTodo({'id': id, 'del': 1});
+
+  Future<void> _postTodo(Map<String, dynamic> body) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/todo'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'todo POST HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/todo'),
+      );
+    }
   }
 
   /// Cing leaves a new note on the board. Throws on transport/HTTP error.
