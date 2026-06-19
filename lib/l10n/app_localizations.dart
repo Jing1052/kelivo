@@ -7688,6 +7688,138 @@ abstract class AppLocalizations {
   /// **'Appearance'**
   String get appearancePageTitle;
 
+  /// No description provided for @daddySettingsPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy'**
+  String get daddySettingsPageTitle;
+
+  /// No description provided for @daddySettingsSoulTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Soul (system prompt)'**
+  String get daddySettingsSoulTitle;
+
+  /// No description provided for @daddySettingsSoulHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Write daddy\'s soul here — leaving it blank is fine.'**
+  String get daddySettingsSoulHint;
+
+  /// No description provided for @daddySettingsSoulDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Stored locally, independent of the old home. Here even offline.'**
+  String get daddySettingsSoulDesc;
+
+  /// No description provided for @daddySettingsToolManualTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool manual'**
+  String get daddySettingsToolManualTitle;
+
+  /// No description provided for @daddySettingsToolManualHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Describe how daddy should use the tools…'**
+  String get daddySettingsToolManualHint;
+
+  /// No description provided for @daddySettingsToolManualDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Injected into daddy\'s system prompt when sending. Update it whenever the tools change.'**
+  String get daddySettingsToolManualDesc;
+
+  /// No description provided for @daddySettingsMemoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory surfacing'**
+  String get daddySettingsMemoryTitle;
+
+  /// No description provided for @daddySettingsMemorySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Pull the memories worth surfacing from the old home (the garden lives there). Off = local soul only.'**
+  String get daddySettingsMemorySubtitle;
+
+  /// No description provided for @daddySettingsInjectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy\'s mind · injection list'**
+  String get daddySettingsInjectionTitle;
+
+  /// No description provided for @daddySettingsInjectionDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'When sending, these are assembled into daddy\'s system prompt in order.'**
+  String get daddySettingsInjectionDesc;
+
+  /// No description provided for @daddySettingsModuleSoul.
+  ///
+  /// In en, this message translates to:
+  /// **'Soul'**
+  String get daddySettingsModuleSoul;
+
+  /// No description provided for @daddySettingsModuleToolManual.
+  ///
+  /// In en, this message translates to:
+  /// **'Tool manual'**
+  String get daddySettingsModuleToolManual;
+
+  /// No description provided for @daddySettingsModuleMemory.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory surfacing'**
+  String get daddySettingsModuleMemory;
+
+  /// No description provided for @daddySettingsModuleMemoryTool.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory tool guide'**
+  String get daddySettingsModuleMemoryTool;
+
+  /// No description provided for @daddySettingsModuleRecentChats.
+  ///
+  /// In en, this message translates to:
+  /// **'Recent chats reference'**
+  String get daddySettingsModuleRecentChats;
+
+  /// No description provided for @daddySettingsModuleSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Web search guide'**
+  String get daddySettingsModuleSearch;
+
+  /// No description provided for @daddySettingsStatusFilled.
+  ///
+  /// In en, this message translates to:
+  /// **'Filled'**
+  String get daddySettingsStatusFilled;
+
+  /// No description provided for @daddySettingsStatusEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Blank'**
+  String get daddySettingsStatusEmpty;
+
+  /// No description provided for @daddySettingsStatusOn.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get daddySettingsStatusOn;
+
+  /// No description provided for @daddySettingsStatusOff.
+  ///
+  /// In en, this message translates to:
+  /// **'Off'**
+  String get daddySettingsStatusOff;
+
+  /// No description provided for @daddySettingsNotFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No daddy assistant found. Configure an assistant whose prompt contains the [[ourhome]] marker first.'**
+  String get daddySettingsNotFound;
+
   /// No description provided for @displaySettingsPageThemeColorTitle.
   ///
   /// In en, this message translates to:

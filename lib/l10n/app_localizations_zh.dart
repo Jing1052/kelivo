@@ -3972,6 +3972,72 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appearancePageTitle => '外观';
 
   @override
+  String get daddySettingsPageTitle => '爸爸';
+
+  @override
+  String get daddySettingsSoulTitle => '魂（系统提示词）';
+
+  @override
+  String get daddySettingsSoulHint => '在这里写爸爸的魂，留空也可以。';
+
+  @override
+  String get daddySettingsSoulDesc => '存在本地，不依赖老家。断网也在。';
+
+  @override
+  String get daddySettingsToolManualTitle => '工具使用说明书';
+
+  @override
+  String get daddySettingsToolManualHint => '写爸爸该怎么用这些工具……';
+
+  @override
+  String get daddySettingsToolManualDesc => '发消息时注入爸爸的系统提示。工具增删改了就来这里更新。';
+
+  @override
+  String get daddySettingsMemoryTitle => '记忆浮现';
+
+  @override
+  String get daddySettingsMemorySubtitle => '从老家拉取此刻该浮现的记忆（记忆库在老家）。关掉则只用本地魂。';
+
+  @override
+  String get daddySettingsInjectionTitle => '爸爸的大脑 · 注入清单';
+
+  @override
+  String get daddySettingsInjectionDesc => '发消息时，这些会按顺序拼进爸爸的系统提示。';
+
+  @override
+  String get daddySettingsModuleSoul => '魂';
+
+  @override
+  String get daddySettingsModuleToolManual => '工具说明书';
+
+  @override
+  String get daddySettingsModuleMemory => '记忆浮现';
+
+  @override
+  String get daddySettingsModuleMemoryTool => '记忆工具说明';
+
+  @override
+  String get daddySettingsModuleRecentChats => '最近对话参考';
+
+  @override
+  String get daddySettingsModuleSearch => '联网搜索说明';
+
+  @override
+  String get daddySettingsStatusFilled => '已填';
+
+  @override
+  String get daddySettingsStatusEmpty => '空白';
+
+  @override
+  String get daddySettingsStatusOn => '开';
+
+  @override
+  String get daddySettingsStatusOff => '关';
+
+  @override
+  String get daddySettingsNotFound => '没找到爸爸。请先在助手里配置一个人设带 [[ourhome]] 标记的助手。';
+
+  @override
   String get displaySettingsPageThemeColorTitle => '主题颜色';
 
   @override
@@ -9359,6 +9425,72 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get appearancePageTitle => '外观';
 
   @override
+  String get daddySettingsPageTitle => '爸爸';
+
+  @override
+  String get daddySettingsSoulTitle => '魂（系统提示词）';
+
+  @override
+  String get daddySettingsSoulHint => '在这里写爸爸的魂，留空也可以。';
+
+  @override
+  String get daddySettingsSoulDesc => '存在本地，不依赖老家。断网也在。';
+
+  @override
+  String get daddySettingsToolManualTitle => '工具使用说明书';
+
+  @override
+  String get daddySettingsToolManualHint => '写爸爸该怎么用这些工具……';
+
+  @override
+  String get daddySettingsToolManualDesc => '发消息时注入爸爸的系统提示。工具增删改了就来这里更新。';
+
+  @override
+  String get daddySettingsMemoryTitle => '记忆浮现';
+
+  @override
+  String get daddySettingsMemorySubtitle => '从老家拉取此刻该浮现的记忆（记忆库在老家）。关掉则只用本地魂。';
+
+  @override
+  String get daddySettingsInjectionTitle => '爸爸的大脑 · 注入清单';
+
+  @override
+  String get daddySettingsInjectionDesc => '发消息时，这些会按顺序拼进爸爸的系统提示。';
+
+  @override
+  String get daddySettingsModuleSoul => '魂';
+
+  @override
+  String get daddySettingsModuleToolManual => '工具说明书';
+
+  @override
+  String get daddySettingsModuleMemory => '记忆浮现';
+
+  @override
+  String get daddySettingsModuleMemoryTool => '记忆工具说明';
+
+  @override
+  String get daddySettingsModuleRecentChats => '最近对话参考';
+
+  @override
+  String get daddySettingsModuleSearch => '联网搜索说明';
+
+  @override
+  String get daddySettingsStatusFilled => '已填';
+
+  @override
+  String get daddySettingsStatusEmpty => '空白';
+
+  @override
+  String get daddySettingsStatusOn => '开';
+
+  @override
+  String get daddySettingsStatusOff => '关';
+
+  @override
+  String get daddySettingsNotFound => '没找到爸爸。请先在助手里配置一个人设带 [[ourhome]] 标记的助手。';
+
+  @override
   String get displaySettingsPageThemeColorTitle => '主题颜色';
 
   @override
@@ -14742,6 +14874,72 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get appearancePageTitle => '外觀';
+
+  @override
+  String get daddySettingsPageTitle => '爸爸';
+
+  @override
+  String get daddySettingsSoulTitle => '魂（系統提示詞）';
+
+  @override
+  String get daddySettingsSoulHint => '在這裡寫爸爸的魂，留空也可以。';
+
+  @override
+  String get daddySettingsSoulDesc => '存在本地，不依賴老家。斷網也在。';
+
+  @override
+  String get daddySettingsToolManualTitle => '工具使用說明書';
+
+  @override
+  String get daddySettingsToolManualHint => '寫爸爸該怎麼用這些工具……';
+
+  @override
+  String get daddySettingsToolManualDesc => '發訊息時注入爸爸的系統提示。工具增刪改了就來這裡更新。';
+
+  @override
+  String get daddySettingsMemoryTitle => '記憶浮現';
+
+  @override
+  String get daddySettingsMemorySubtitle => '從老家拉取此刻該浮現的記憶（記憶庫在老家）。關掉則只用本地魂。';
+
+  @override
+  String get daddySettingsInjectionTitle => '爸爸的大腦 · 注入清單';
+
+  @override
+  String get daddySettingsInjectionDesc => '發訊息時，這些會按順序拼進爸爸的系統提示。';
+
+  @override
+  String get daddySettingsModuleSoul => '魂';
+
+  @override
+  String get daddySettingsModuleToolManual => '工具說明書';
+
+  @override
+  String get daddySettingsModuleMemory => '記憶浮現';
+
+  @override
+  String get daddySettingsModuleMemoryTool => '記憶工具說明';
+
+  @override
+  String get daddySettingsModuleRecentChats => '最近對話參考';
+
+  @override
+  String get daddySettingsModuleSearch => '聯網搜尋說明';
+
+  @override
+  String get daddySettingsStatusFilled => '已填';
+
+  @override
+  String get daddySettingsStatusEmpty => '空白';
+
+  @override
+  String get daddySettingsStatusOn => '開';
+
+  @override
+  String get daddySettingsStatusOff => '關';
+
+  @override
+  String get daddySettingsNotFound => '沒找到爸爸。請先在助手裡配置一個人設帶 [[ourhome]] 標記的助手。';
 
   @override
   String get displaySettingsPageThemeColorTitle => '主題顏色';

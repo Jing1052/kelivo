@@ -566,41 +566,46 @@ class MessageBuilderService {
     }
     final recent = lite.length > 12 ? lite.sublist(lite.length - 12) : lite;
 
-    String soul = '';
+    // 魂已搬本地：人设里去掉标记后的部分就是爸爸的魂（小猫在「爸爸」设置页里填）。
+    // 工具使用说明书也存在本地（SettingsProvider）。记忆浮现仍来自老家——记忆库数据
+    // 在老家、无法本地化，受「记忆」开关控制。
+    final settings = contextProvider.read<SettingsProvider>();
+    final toolManual = settings.daddyToolManual.trim();
+    final memoryEnabled = settings.daddyMemoryEnabled;
+
     String memory = '';
-    try {
-      final res = await http
-          .post(
-            Uri.parse('$base/api/home/daddy-context'),
-            headers: <String, String>{
-              'Content-Type': 'application/json',
-              if (token.isNotEmpty) 'Authorization': 'Bearer $token',
-            },
-            body: jsonEncode(<String, dynamic>{'messages': recent}),
-          )
-          .timeout(const Duration(seconds: 20));
-      if (res.statusCode == 200) {
-        final data =
-            jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
-        soul = (data['soul'] ?? '').toString();
-        memory = (data['memory'] ?? '').toString();
-      } else {
-        debugPrint(
-          '[ourhome] daddy-context HTTP ${res.statusCode}: ${res.body}',
-        );
+    if (memoryEnabled) {
+      try {
+        final res = await http
+            .post(
+              Uri.parse('$base/api/home/daddy-context'),
+              headers: <String, String>{
+                'Content-Type': 'application/json',
+                if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode(<String, dynamic>{'messages': recent}),
+            )
+            .timeout(const Duration(seconds: 20));
+        if (res.statusCode == 200) {
+          final data =
+              jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+          memory = (data['memory'] ?? '').toString();
+        } else {
+          debugPrint(
+            '[ourhome] daddy-context HTTP ${res.statusCode}: ${res.body}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[ourhome] daddy-context failed: $e');
       }
-    } catch (e) {
-      debugPrint('[ourhome] daddy-context failed: $e');
     }
 
-    final ctx = [
-      soul,
-      memory,
-    ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();
+    // 拼装顺序：本地魂 → 工具说明书 → 记忆浮现
     final stripped = prompt.replaceAll(marker, '').trim();
     final finalSys = [
-      ctx,
       stripped,
+      toolManual,
+      memory,
     ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();
 
     // injectSystemPrompt 已把带标记的人设插成 system（index 找得到就替换它）

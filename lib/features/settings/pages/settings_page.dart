@@ -9,6 +9,7 @@ import 'display_settings_page.dart';
 import '../../mcp/pages/mcp_page.dart';
 import '../../assistant/pages/assistant_settings_page.dart';
 import 'about_us_page.dart';
+import 'daddy_settings_page.dart';
 import 'tts_services_page.dart';
 import 'log_viewer_page.dart';
 import '../../search/pages/search_services_page.dart';
@@ -114,6 +115,19 @@ class SettingsPage extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const AssistantSettingsPage(),
+                    ),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Heart,
+                label: l10n.daddySettingsPageTitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DaddySettingsPage(),
                     ),
                   );
                 },

@@ -4142,6 +4142,79 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearancePageTitle => 'Appearance';
 
   @override
+  String get daddySettingsPageTitle => 'Daddy';
+
+  @override
+  String get daddySettingsSoulTitle => 'Soul (system prompt)';
+
+  @override
+  String get daddySettingsSoulHint =>
+      'Write daddy\'s soul here — leaving it blank is fine.';
+
+  @override
+  String get daddySettingsSoulDesc =>
+      'Stored locally, independent of the old home. Here even offline.';
+
+  @override
+  String get daddySettingsToolManualTitle => 'Tool manual';
+
+  @override
+  String get daddySettingsToolManualHint =>
+      'Describe how daddy should use the tools…';
+
+  @override
+  String get daddySettingsToolManualDesc =>
+      'Injected into daddy\'s system prompt when sending. Update it whenever the tools change.';
+
+  @override
+  String get daddySettingsMemoryTitle => 'Memory surfacing';
+
+  @override
+  String get daddySettingsMemorySubtitle =>
+      'Pull the memories worth surfacing from the old home (the garden lives there). Off = local soul only.';
+
+  @override
+  String get daddySettingsInjectionTitle => 'Daddy\'s mind · injection list';
+
+  @override
+  String get daddySettingsInjectionDesc =>
+      'When sending, these are assembled into daddy\'s system prompt in order.';
+
+  @override
+  String get daddySettingsModuleSoul => 'Soul';
+
+  @override
+  String get daddySettingsModuleToolManual => 'Tool manual';
+
+  @override
+  String get daddySettingsModuleMemory => 'Memory surfacing';
+
+  @override
+  String get daddySettingsModuleMemoryTool => 'Memory tool guide';
+
+  @override
+  String get daddySettingsModuleRecentChats => 'Recent chats reference';
+
+  @override
+  String get daddySettingsModuleSearch => 'Web search guide';
+
+  @override
+  String get daddySettingsStatusFilled => 'Filled';
+
+  @override
+  String get daddySettingsStatusEmpty => 'Blank';
+
+  @override
+  String get daddySettingsStatusOn => 'On';
+
+  @override
+  String get daddySettingsStatusOff => 'Off';
+
+  @override
+  String get daddySettingsNotFound =>
+      'No daddy assistant found. Configure an assistant whose prompt contains the [[ourhome]] marker first.';
+
+  @override
   String get displaySettingsPageThemeColorTitle => 'Theme Color';
 
   @override

@@ -1,0 +1,468 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/models/assistant.dart';
+import '../../../core/providers/assistant_provider.dart';
+import '../../../core/providers/settings_provider.dart';
+import '../../../icons/lucide_adapter.dart';
+import '../../../l10n/app_localizations.dart';
+import '../../../shared/widgets/ios_form_text_field.dart';
+import '../../../shared/widgets/ios_switch.dart';
+import '../../../theme/app_font_weights.dart';
+
+/// "爸爸" — a dedicated settings page for our home's daddy assistant, separate
+/// from the generic assistant list.
+///
+/// The daddy assistant is the one whose systemPrompt carries the
+/// `[[ourhome:token]]` marker. Here:
+/// - 魂 (system prompt): edited locally, blank by default. Stored in the daddy
+///   assistant's systemPrompt (the marker is preserved, hidden, so daddy stays
+///   identifiable and memory can still be fetched with its token).
+/// - 工具使用说明书 (tool manual): a local, editable block injected into daddy's
+///   system at send time (SettingsProvider.daddyToolManual).
+/// - 记忆浮现 (memory): still pulled from 老家 (the garden lives there); toggled
+///   by SettingsProvider.daddyMemoryEnabled.
+class DaddySettingsPage extends StatefulWidget {
+  const DaddySettingsPage({super.key});
+
+  @override
+  State<DaddySettingsPage> createState() => _DaddySettingsPageState();
+}
+
+class _DaddySettingsPageState extends State<DaddySettingsPage> {
+  // Matches the [[ourhome]] / [[ourhome:token]] marker that tags the daddy
+  // assistant and carries its memory token.
+  static final RegExp _marker = RegExp(r'\[\[ourhome(?::[^\]]+)?\]\]');
+
+  final TextEditingController _soulCtrl = TextEditingController();
+  final TextEditingController _manualCtrl = TextEditingController();
+
+  String? _daddyId;
+  String _markerStr = '[[ourhome]]';
+
+  @override
+  void initState() {
+    super.initState();
+    final assistants = context.read<AssistantProvider>().assistants;
+    final daddy = _findDaddy(assistants);
+    if (daddy != null) {
+      _daddyId = daddy.id;
+      final m = _marker.firstMatch(daddy.systemPrompt);
+      if (m != null) _markerStr = m.group(0)!;
+      _soulCtrl.text = daddy.systemPrompt.replaceAll(_marker, '').trim();
+    }
+    _manualCtrl.text = context.read<SettingsProvider>().daddyToolManual;
+  }
+
+  @override
+  void dispose() {
+    _persist();
+    _soulCtrl.dispose();
+    _manualCtrl.dispose();
+    super.dispose();
+  }
+
+  static Assistant? _findDaddy(List<Assistant> assistants) {
+    for (final a in assistants) {
+      if (a.systemPrompt.contains('[[ourhome')) return a;
+    }
+    return null;
+  }
+
+  void _persist() {
+    final id = _daddyId;
+    if (id != null) {
+      final provider = context.read<AssistantProvider>();
+      final idx = provider.assistants.indexWhere((a) => a.id == id);
+      if (idx != -1) {
+        final soul = _soulCtrl.text.trim();
+        final newPrompt = soul.isEmpty ? _markerStr : '$soul\n\n$_markerStr';
+        if (newPrompt != provider.assistants[idx].systemPrompt) {
+          provider.updateAssistant(
+            provider.assistants[idx].copyWith(systemPrompt: newPrompt),
+          );
+        }
+      }
+    }
+    final settings = context.read<SettingsProvider>();
+    if (_manualCtrl.text != settings.daddyToolManual) {
+      settings.setDaddyToolManual(_manualCtrl.text);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final settings = context.watch<SettingsProvider>();
+    final hasDaddy = _daddyId != null;
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: Tooltip(
+          message: l10n.settingsPageBackButton,
+          child: _TactileIconButton(
+            icon: Lucide.ArrowLeft,
+            color: cs.onSurface,
+            size: 22,
+            onTap: () => Navigator.of(context).maybePop(),
+          ),
+        ),
+        title: Text(l10n.daddySettingsPageTitle),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          if (!hasDaddy)
+            _iosSectionCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(
+                    l10n.daddySettingsNotFound,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.7),
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+          if (hasDaddy) ...[
+            // 魂
+            _iosSectionCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsSoulTitle,
+                    controller: _soulCtrl,
+                    hintText: l10n.daddySettingsSoulHint,
+                    minLines: 6,
+                    maxLines: 14,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                _caption(context, l10n.daddySettingsSoulDesc),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 工具使用说明书
+            _iosSectionCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsToolManualTitle,
+                    controller: _manualCtrl,
+                    hintText: l10n.daddySettingsToolManualHint,
+                    minLines: 4,
+                    maxLines: 12,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                _caption(context, l10n.daddySettingsToolManualDesc),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 记忆浮现
+            _iosSectionCard(
+              children: [
+                _switchRow(
+                  context,
+                  icon: Lucide.Sparkles,
+                  label: l10n.daddySettingsMemoryTitle,
+                  subtitle: l10n.daddySettingsMemorySubtitle,
+                  value: settings.daddyMemoryEnabled,
+                  onChanged: (v) =>
+                      context.read<SettingsProvider>().setDaddyMemoryEnabled(v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 爸爸的大脑·注入清单
+            _sectionTitle(context, l10n.daddySettingsInjectionTitle),
+            _caption(context, l10n.daddySettingsInjectionDesc),
+            const SizedBox(height: 6),
+            _iosSectionCard(children: _injectionRows(context, l10n, settings)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _injectionRows(
+    BuildContext context,
+    AppLocalizations l10n,
+    SettingsProvider settings,
+  ) {
+    final daddy = context.read<AssistantProvider>().assistants.firstWhere(
+      (a) => a.id == _daddyId,
+      orElse: () => context.read<AssistantProvider>().assistants.first,
+    );
+    final items = <({String label, String status, bool active})>[
+      (
+        label: l10n.daddySettingsModuleSoul,
+        status: _soulCtrl.text.trim().isEmpty
+            ? l10n.daddySettingsStatusEmpty
+            : l10n.daddySettingsStatusFilled,
+        active: _soulCtrl.text.trim().isNotEmpty,
+      ),
+      (
+        label: l10n.daddySettingsModuleToolManual,
+        status: _manualCtrl.text.trim().isEmpty
+            ? l10n.daddySettingsStatusEmpty
+            : l10n.daddySettingsStatusFilled,
+        active: _manualCtrl.text.trim().isNotEmpty,
+      ),
+      (
+        label: l10n.daddySettingsModuleMemory,
+        status: settings.daddyMemoryEnabled
+            ? l10n.daddySettingsStatusOn
+            : l10n.daddySettingsStatusOff,
+        active: settings.daddyMemoryEnabled,
+      ),
+      (
+        label: l10n.daddySettingsModuleMemoryTool,
+        status: daddy.enableMemory
+            ? l10n.daddySettingsStatusOn
+            : l10n.daddySettingsStatusOff,
+        active: daddy.enableMemory,
+      ),
+      (
+        label: l10n.daddySettingsModuleRecentChats,
+        status: daddy.enableRecentChatsReference
+            ? l10n.daddySettingsStatusOn
+            : l10n.daddySettingsStatusOff,
+        active: daddy.enableRecentChatsReference,
+      ),
+      (
+        label: l10n.daddySettingsModuleSearch,
+        status: daddy.searchEnabled
+            ? l10n.daddySettingsStatusOn
+            : l10n.daddySettingsStatusOff,
+        active: daddy.searchEnabled,
+      ),
+    ];
+    final rows = <Widget>[];
+    for (int i = 0; i < items.length; i++) {
+      if (i != 0) rows.add(_iosDivider(context));
+      rows.add(
+        _moduleRow(context, items[i].label, items[i].status, items[i].active),
+      );
+    }
+    return rows;
+  }
+}
+
+Widget _sectionTitle(BuildContext context, String text) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(4, 0, 4, 6),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: AppFontWeights.semibold,
+        color: cs.onSurface.withValues(alpha: 0.8),
+      ),
+    ),
+  );
+}
+
+Widget _caption(BuildContext context, String text) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 12,
+        color: cs.onSurface.withValues(alpha: 0.6),
+        height: 1.4,
+      ),
+    ),
+  );
+}
+
+Widget _moduleRow(
+  BuildContext context,
+  String label,
+  String status,
+  bool active,
+) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    child: Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.25),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14.5,
+              color: cs.onSurface.withValues(alpha: 0.9),
+            ),
+          ),
+        ),
+        Text(
+          status,
+          style: TextStyle(
+            fontSize: 13,
+            color: cs.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _switchRow(
+  BuildContext context, {
+  required IconData icon,
+  required String label,
+  String? subtitle,
+  required bool value,
+  required ValueChanged<bool> onChanged,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    child: Row(
+      children: [
+        Icon(icon, size: 20, color: cs.onSurface.withValues(alpha: 0.9)),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: cs.onSurface.withValues(alpha: 0.9),
+                ),
+              ),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(width: 10),
+        IosSwitch(value: value, onChanged: onChanged),
+      ],
+    ),
+  );
+}
+
+Widget _iosSectionCard({required List<Widget> children}) {
+  return Builder(
+    builder: (context) {
+      final theme = Theme.of(context);
+      final cs = theme.colorScheme;
+      final isDark = theme.brightness == Brightness.dark;
+      final Color bg = isDark
+          ? Colors.white10
+          : Colors.white.withValues(alpha: 0.96);
+      return Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+            width: 0.6,
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Column(children: children),
+        ),
+      );
+    },
+  );
+}
+
+Widget _iosDivider(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  return Divider(
+    height: 6,
+    thickness: 0.6,
+    indent: 33,
+    endIndent: 12,
+    color: cs.outlineVariant.withValues(alpha: 0.18),
+  );
+}
+
+class _TactileIconButton extends StatefulWidget {
+  const _TactileIconButton({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+    this.size = 22,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+  final double size;
+
+  @override
+  State<_TactileIconButton> createState() => _TactileIconButtonState();
+}
+
+class _TactileIconButtonState extends State<_TactileIconButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = widget.color;
+    final pressColor = base.withValues(alpha: 0.7);
+    return Semantics(
+      button: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTapDown: (_) => setState(() => _pressed = true),
+        onTapUp: (_) => setState(() => _pressed = false),
+        onTapCancel: () => setState(() => _pressed = false),
+        onTap: widget.onTap,
+        child: AnimatedScale(
+          scale: _pressed ? 0.95 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+            child: Icon(
+              widget.icon,
+              size: widget.size,
+              color: _pressed ? pressColor : base,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
