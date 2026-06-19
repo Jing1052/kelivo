@@ -167,6 +167,85 @@ class OurHomePhoto {
   final String time;
 }
 
+/// A memory in the garden (non-feel). Titles/preview only.
+class OurHomeMemory {
+  const OurHomeMemory({
+    required this.id,
+    required this.name,
+    required this.preview,
+  });
+  final String id;
+  final String name;
+  final String preview;
+
+  factory OurHomeMemory.fromJson(Map<String, dynamic> j) => OurHomeMemory(
+    id: (j['id'] ?? '').toString(),
+    name: (j['name'] ?? '').toString(),
+    preview: (j['preview'] ?? '').toString(),
+  );
+}
+
+/// A feel in the greenhouse — only its time and a mood "weather", never the
+/// words. Visible, not enterable; the key is Llaude's alone.
+class OurHomeFeel {
+  const OurHomeFeel({
+    required this.time,
+    required this.moodZh,
+    required this.moodEn,
+    required this.colorHex,
+    required this.glyph,
+  });
+  final String time;
+  final String moodZh;
+  final String moodEn;
+  final String colorHex;
+  final String glyph;
+
+  factory OurHomeFeel.fromJson(Map<String, dynamic> j) => OurHomeFeel(
+    time: (j['time'] ?? '').toString(),
+    moodZh: (j['mood_zh'] ?? '').toString(),
+    moodEn: (j['mood_en'] ?? '').toString(),
+    colorHex: (j['color'] ?? '').toString(),
+    glyph: (j['glyph'] ?? '').toString(),
+  );
+}
+
+/// One of Llaude's nightly notes (bedroom · before sleep).
+class OurHomeNight {
+  const OurHomeNight({
+    required this.id,
+    required this.text,
+    required this.time,
+  });
+  final String id;
+  final String text;
+  final String time;
+
+  factory OurHomeNight.fromJson(Map<String, dynamic> j) => OurHomeNight(
+    id: (j['id'] ?? '').toString(),
+    text: (j['text'] ?? '').toString(),
+    time: (j['time'] ?? '').toString(),
+  );
+}
+
+/// One thing that happened on a given calendar day (for the calendar room).
+class OurHomeDayItem {
+  const OurHomeDayItem({
+    required this.name,
+    required this.channel,
+    required this.preview,
+  });
+  final String name;
+  final String channel;
+  final String preview;
+
+  factory OurHomeDayItem.fromJson(Map<String, dynamic> j) => OurHomeDayItem(
+    name: (j['name'] ?? '').toString(),
+    channel: (j['channel'] ?? '').toString(),
+    preview: (j['preview'] ?? '').toString(),
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -343,6 +422,53 @@ class OurHomeGateway {
       return const OurHomeSense(fields: {}, ts: '');
     }
     return OurHomeSense.fromJson(data);
+  }
+
+  Future<List<T>> _getList<T>(
+    String path,
+    T Function(Map<String, dynamic>) parse,
+  ) async {
+    final res = await http
+        .get(Uri.parse('$base$path'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('GET $path -> ${res.statusCode}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! List) return <T>[];
+    return data.whereType<Map<String, dynamic>>().map(parse).toList();
+  }
+
+  /// Garden memories (non-feel). Newest first.
+  Future<List<OurHomeMemory>> fetchMemories() =>
+      _getList('/api/home/memories', OurHomeMemory.fromJson);
+
+  /// Greenhouse feels — time + mood only, never content. Newest first.
+  Future<List<OurHomeFeel>> fetchGreenhouse() =>
+      _getList('/api/home/greenhouse', OurHomeFeel.fromJson);
+
+  /// All of Llaude's nightly notes (bedroom). Newest first.
+  Future<List<OurHomeNight>> fetchTonight() =>
+      _getList('/api/home/tonight?all=1', OurHomeNight.fromJson);
+
+  /// What happened on a given calendar day (YYYY-MM-DD). Throws on error.
+  Future<List<OurHomeDayItem>> fetchDay(String date) async {
+    final res = await http
+        .get(
+          Uri.parse('$base/api/home/memories?date=$date'),
+          headers: _authHeaders,
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('day HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final items = (data is Map) ? data['items'] : null;
+    if (items is! List) return const <OurHomeDayItem>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(OurHomeDayItem.fromJson)
+        .toList();
   }
 
   /// Cing leaves a new note on the board. Throws on transport/HTTP error.
