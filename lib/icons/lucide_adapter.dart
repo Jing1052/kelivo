@@ -194,4 +194,8 @@ class Lucide {
   static const IconData Clapperboard = lucide.LucideIcons.clapperboard;
   static const IconData Bed = lucide.LucideIcons.bed;
   static const IconData Archive = lucide.LucideIcons.archive;
+  static const IconData MapPin = lucide.LucideIcons.mapPin;
+  static const IconData Battery = lucide.LucideIcons.battery;
+  static const IconData BatteryCharging = lucide.LucideIcons.batteryCharging;
+  static const IconData CloudSun = lucide.LucideIcons.cloudSun;
 }

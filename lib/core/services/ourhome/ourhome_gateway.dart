@@ -112,6 +112,44 @@ class OurHomeTodo {
   );
 }
 
+/// "Right Now" snapshot of Cing — where she is, the weather, her battery, etc.
+/// Fields are whatever her phone last reported (all optional).
+class OurHomeSense {
+  const OurHomeSense({required this.fields, required this.ts});
+
+  final Map<String, String> fields;
+  final String ts;
+
+  String? get place => _v('place');
+  String? get weather => _v('weather');
+  String? get temp => _v('temp');
+  String? get battery => _v('battery');
+  String? get hr => _v('hr');
+  String? get sleep => _v('sleep');
+  bool get charging {
+    final c = (fields['charging'] ?? '').trim().toLowerCase();
+    return c == '1' || c == 'true' || c == '是' || c == 'yes';
+  }
+
+  bool get isEmpty => fields.isEmpty;
+
+  String? _v(String k) {
+    final v = (fields[k] ?? '').trim();
+    return v.isEmpty ? null : v;
+  }
+
+  factory OurHomeSense.fromJson(Map<String, dynamic> j) {
+    final latest = j['latest'];
+    final map = <String, String>{};
+    if (latest is Map) {
+      latest.forEach((k, v) {
+        if (v != null && '$v'.trim().isNotEmpty) map['$k'] = '$v'.trim();
+      });
+    }
+    return OurHomeSense(fields: map, ts: (j['ts'] ?? '').toString());
+  }
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -240,6 +278,24 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/todo'),
       );
     }
+  }
+
+  /// Cing's latest "Right Now" snapshot. Throws on error.
+  Future<OurHomeSense> fetchSense() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/sense'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'sense HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/sense'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! Map<String, dynamic>) {
+      return const OurHomeSense(fields: {}, ts: '');
+    }
+    return OurHomeSense.fromJson(data);
   }
 
   /// Cing leaves a new note on the board. Throws on transport/HTTP error.
