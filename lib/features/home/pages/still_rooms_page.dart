@@ -8,6 +8,8 @@ import 'rooms/parlour_page.dart';
 import 'rooms/diary_page.dart';
 import 'rooms/study_page.dart';
 import 'rooms/sense_page.dart';
+import 'rooms/boudoir_page.dart';
+import 'rooms/countdown_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -231,6 +233,10 @@ Widget _pageForDoor(_Door door) {
   switch (door.id) {
     case 'sense':
       return const SensePage();
+    case 'countdown':
+      return const CountdownPage();
+    case 'boudoir':
+      return const BoudoirPage();
     case 'parlour':
       return const ParlourPage();
     case 'diary':

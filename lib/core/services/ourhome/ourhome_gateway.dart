@@ -150,6 +150,23 @@ class OurHomeSense {
   }
 }
 
+/// A photo in the boudoir album. [url] is absolute (base + path).
+class OurHomePhoto {
+  const OurHomePhoto({
+    required this.id,
+    required this.url,
+    required this.note,
+    required this.by,
+    required this.time,
+  });
+
+  final String id;
+  final String url;
+  final String note;
+  final String by;
+  final String time;
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -177,6 +194,36 @@ class OurHomeGateway {
   }
 
   Map<String, String> get _authHeaders => {'Authorization': 'Bearer $token'};
+
+  /// Headers for loading auth-protected media (e.g. album images) via
+  /// `Image.network(url, headers: gateway.authHeaders)`.
+  Map<String, String> get authHeaders => _authHeaders;
+
+  /// Newest-first boudoir album photos. Throws on error.
+  Future<List<OurHomePhoto>> fetchAlbum() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/album'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'album HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/album'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final photos = (data is Map) ? data['photos'] : null;
+    if (photos is! List) return const <OurHomePhoto>[];
+    return photos.whereType<Map<String, dynamic>>().map((j) {
+      final path = (j['url'] ?? '').toString();
+      return OurHomePhoto(
+        id: (j['id'] ?? '').toString(),
+        url: path.startsWith('http') ? path : '$base$path',
+        note: (j['note'] ?? '').toString(),
+        by: (j['by'] ?? '').toString(),
+        time: (j['t'] ?? '').toString(),
+      );
+    }).toList();
+  }
 
   /// Newest-first list of letters. Throws on transport/HTTP error so the caller
   /// can surface a recoverable state rather than hiding the failure silently.
