@@ -12,6 +12,7 @@ enum StorageUsageCategoryKey {
   files,
   chatData,
   assistantData,
+  ourHome,
   cache,
   logs,
   other,
@@ -208,6 +209,10 @@ abstract final class StorageUsageService {
               cacheSubs['other_cache']!.add(bytes);
             }
             break;
+          case 'ourhome_cache':
+            // Our home's room snapshots — treasured, not "clearable junk".
+            byCat[StorageUsageCategoryKey.ourHome]!.add(bytes);
+            break;
           case 'logs':
             byCat[StorageUsageCategoryKey.logs]!.add(bytes);
             final name = parts.last.toLowerCase();
@@ -295,6 +300,17 @@ abstract final class StorageUsageService {
             id: 'avatars',
             stats: assistantSubs['avatars']!.toStats(),
             path: avatarsDir.path,
+          ),
+        ],
+      ),
+      StorageUsageCategory(
+        key: StorageUsageCategoryKey.ourHome,
+        stats: byCat[StorageUsageCategoryKey.ourHome]!.toStats(),
+        subcategories: [
+          StorageUsageSubcategory(
+            id: 'ourhome_rooms',
+            stats: byCat[StorageUsageCategoryKey.ourHome]!.toStats(),
+            path: p.join(root.path, 'ourhome_cache'),
           ),
         ],
       ),
@@ -570,6 +586,7 @@ const List<StorageUsageCategoryKey> _categoryOrder = <StorageUsageCategoryKey>[
   StorageUsageCategoryKey.files,
   StorageUsageCategoryKey.chatData,
   StorageUsageCategoryKey.assistantData,
+  StorageUsageCategoryKey.ourHome,
   StorageUsageCategoryKey.cache,
   StorageUsageCategoryKey.logs,
 ];

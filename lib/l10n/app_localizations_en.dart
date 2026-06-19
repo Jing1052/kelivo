@@ -149,6 +149,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get storageSpaceCategoryAssistantData => 'Assistants';
 
   @override
+  String get storageSpaceCategoryOurHome => 'Our Home';
+
+  @override
   String get storageSpaceCategoryCache => 'Cache';
 
   @override
@@ -187,6 +190,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get storageSpaceSubAssistantImages => 'Images';
+
+  @override
+  String get storageSpaceSubOurHomeRooms => 'Room snapshots';
 
   @override
   String get storageSpaceSubCacheAvatars => 'Avatar cache';

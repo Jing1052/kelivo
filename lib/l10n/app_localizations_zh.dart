@@ -147,6 +147,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get storageSpaceCategoryAssistantData => '助手';
 
   @override
+  String get storageSpaceCategoryOurHome => '我们的家';
+
+  @override
   String get storageSpaceCategoryCache => '缓存';
 
   @override
@@ -183,6 +186,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get storageSpaceSubAssistantImages => '图片';
+
+  @override
+  String get storageSpaceSubOurHomeRooms => '房间存档';
 
   @override
   String get storageSpaceSubCacheAvatars => '头像缓存';
@@ -5486,6 +5492,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get storageSpaceCategoryAssistantData => '助手';
 
   @override
+  String get storageSpaceCategoryOurHome => '我们的家';
+
+  @override
   String get storageSpaceCategoryCache => '缓存';
 
   @override
@@ -5522,6 +5531,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get storageSpaceSubAssistantImages => '图片';
+
+  @override
+  String get storageSpaceSubOurHomeRooms => '房间存档';
 
   @override
   String get storageSpaceSubCacheAvatars => '头像缓存';
@@ -10825,6 +10837,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get storageSpaceCategoryAssistantData => '助理';
 
   @override
+  String get storageSpaceCategoryOurHome => '我們的家';
+
+  @override
   String get storageSpaceCategoryCache => '快取';
 
   @override
@@ -10861,6 +10876,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get storageSpaceSubAssistantImages => '圖片';
+
+  @override
+  String get storageSpaceSubOurHomeRooms => '房間存檔';
 
   @override
   String get storageSpaceSubCacheAvatars => '頭像快取';

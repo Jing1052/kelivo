@@ -364,6 +364,12 @@ abstract class AppLocalizations {
   /// **'Assistants'**
   String get storageSpaceCategoryAssistantData;
 
+  /// No description provided for @storageSpaceCategoryOurHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Our Home'**
+  String get storageSpaceCategoryOurHome;
+
   /// No description provided for @storageSpaceCategoryCache.
   ///
   /// In en, this message translates to:
@@ -435,6 +441,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Images'**
   String get storageSpaceSubAssistantImages;
+
+  /// No description provided for @storageSpaceSubOurHomeRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Room snapshots'**
+  String get storageSpaceSubOurHomeRooms;
 
   /// No description provided for @storageSpaceSubCacheAvatars.
   ///
