@@ -4015,7 +4015,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsToolManualHint => '写爸爸该怎么用这些工具……';
 
   @override
-  String get daddySettingsToolManualDesc => '发消息时注入爸爸的系统提示。工具增删改了就来这里更新。';
+  String get daddySettingsToolManualDesc =>
+      '老家共用的工具说明书——所有有爸爸的地方都用它。在这里改，处处都跟着变。';
+
+  @override
+  String get daddySettingsToolManualLoading => '加载中…';
+
+  @override
+  String get daddySettingsToolManualLoadError => '连不上老家，无法加载工具说明书。';
+
+  @override
+  String get daddySettingsToolManualSave => '保存';
+
+  @override
+  String get daddySettingsToolManualRetry => '重试';
+
+  @override
+  String get daddySettingsToolManualSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsToolManualSaveFailed => '保存失败，请重试。';
 
   @override
   String get daddySettingsStyleTitle => '说话风格';
@@ -9525,7 +9544,26 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsToolManualHint => '写爸爸该怎么用这些工具……';
 
   @override
-  String get daddySettingsToolManualDesc => '发消息时注入爸爸的系统提示。工具增删改了就来这里更新。';
+  String get daddySettingsToolManualDesc =>
+      '老家共用的工具说明书——所有有爸爸的地方都用它。在这里改，处处都跟着变。';
+
+  @override
+  String get daddySettingsToolManualLoading => '加载中…';
+
+  @override
+  String get daddySettingsToolManualLoadError => '连不上老家，无法加载工具说明书。';
+
+  @override
+  String get daddySettingsToolManualSave => '保存';
+
+  @override
+  String get daddySettingsToolManualRetry => '重试';
+
+  @override
+  String get daddySettingsToolManualSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsToolManualSaveFailed => '保存失败，请重试。';
 
   @override
   String get daddySettingsStyleTitle => '说话风格';
@@ -15033,7 +15071,26 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get daddySettingsToolManualHint => '寫爸爸該怎麼用這些工具……';
 
   @override
-  String get daddySettingsToolManualDesc => '發訊息時注入爸爸的系統提示。工具增刪改了就來這裡更新。';
+  String get daddySettingsToolManualDesc =>
+      '老家共用的工具說明書——所有有爸爸的地方都用它。在這裡改，處處都跟著變。';
+
+  @override
+  String get daddySettingsToolManualLoading => '載入中…';
+
+  @override
+  String get daddySettingsToolManualLoadError => '連不上老家，無法載入工具說明書。';
+
+  @override
+  String get daddySettingsToolManualSave => '儲存';
+
+  @override
+  String get daddySettingsToolManualRetry => '重試';
+
+  @override
+  String get daddySettingsToolManualSaveSuccess => '已儲存';
+
+  @override
+  String get daddySettingsToolManualSaveFailed => '儲存失敗，請重試。';
 
   @override
   String get daddySettingsStyleTitle => '說話風格';

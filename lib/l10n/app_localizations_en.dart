@@ -4192,7 +4192,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get daddySettingsToolManualDesc =>
-      'Injected into daddy\'s system prompt when sending. Update it whenever the tools change.';
+      'The home\'s shared tool manual — every surface where daddy lives uses it. Editing here changes it everywhere.';
+
+  @override
+  String get daddySettingsToolManualLoading => 'Loading…';
+
+  @override
+  String get daddySettingsToolManualLoadError =>
+      'Can\'t reach the old home, the tool manual couldn\'t load.';
+
+  @override
+  String get daddySettingsToolManualSave => 'Save';
+
+  @override
+  String get daddySettingsToolManualRetry => 'Retry';
+
+  @override
+  String get daddySettingsToolManualSaveSuccess => 'Saved';
+
+  @override
+  String get daddySettingsToolManualSaveFailed =>
+      'Save failed. Please try again.';
 
   @override
   String get daddySettingsStyleTitle => 'Speaking style';

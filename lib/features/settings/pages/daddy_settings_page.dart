@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 import '../../../core/models/assistant.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/ios_form_text_field.dart';
 import '../../../shared/widgets/ios_switch.dart';
+import '../../../shared/widgets/ios_tile_button.dart';
+import '../../../shared/widgets/snackbar.dart';
 import '../../../theme/app_font_weights.dart';
 
 /// "爸爸" — a dedicated settings page for our home's daddy assistant, separate
@@ -18,8 +21,11 @@ import '../../../theme/app_font_weights.dart';
 /// - 魂 (system prompt): edited locally, blank by default. Stored in the daddy
 ///   assistant's systemPrompt (the marker is preserved, hidden, so daddy stays
 ///   identifiable and memory can still be fetched with its token).
-/// - 工具使用说明书 (tool manual): a local, editable block injected into daddy's
-///   system at send time (SettingsProvider.daddyToolManual).
+/// - 工具使用说明书 (tool manual): the home's shared tool manual, fetched from /
+///   saved to 老家 (`/api/home/tool-manual`). Every surface where daddy lives
+///   reads it, so editing here changes it everywhere. The local
+///   SettingsProvider.daddyToolManual field is left intact but no longer feeds
+///   this section.
 /// - 记忆浮现 (memory): still pulled from 老家 (the garden lives there); toggled
 ///   by SettingsProvider.daddyMemoryEnabled.
 class DaddySettingsPage extends StatefulWidget {
@@ -44,6 +50,11 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   String? _daddyId;
   String _markerStr = '[[ourhome]]';
 
+  // 工具使用说明书 (server-backed) state.
+  bool _manualLoading = true;
+  bool _manualLoadFailed = false;
+  bool _manualSaving = false;
+
   @override
   void initState() {
     super.initState();
@@ -57,10 +68,48 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     }
     final settings = context.read<SettingsProvider>();
     _profileCtrl.text = settings.daddyProfile;
-    _manualCtrl.text = settings.daddyToolManual;
     _styleCtrl.text = settings.daddyStyle;
     _keepCtrl.text = settings.daddyKeepCount.toString();
     _triggerCtrl.text = settings.daddyTriggerCount.toString();
+    _loadToolManual();
+  }
+
+  Future<void> _loadToolManual() async {
+    setState(() {
+      _manualLoading = true;
+      _manualLoadFailed = false;
+    });
+    final gateway = OurHomeGateway.fromContext(context);
+    final result = await gateway?.fetchToolManual();
+    if (!mounted) return;
+    setState(() {
+      _manualLoading = false;
+      if (result == null) {
+        _manualLoadFailed = true;
+      } else {
+        _manualLoadFailed = false;
+        _manualCtrl.text = result.manual;
+      }
+    });
+  }
+
+  Future<void> _saveToolManual() async {
+    if (_manualSaving) return;
+    final l10n = AppLocalizations.of(context)!;
+    final gateway = OurHomeGateway.fromContext(context);
+    setState(() => _manualSaving = true);
+    final ok =
+        await (gateway?.saveToolManual(_manualCtrl.text) ??
+            Future.value(false));
+    if (!mounted) return;
+    setState(() => _manualSaving = false);
+    showAppSnackBar(
+      context,
+      message: ok
+          ? l10n.daddySettingsToolManualSaveSuccess
+          : l10n.daddySettingsToolManualSaveFailed,
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
   }
 
   @override
@@ -101,9 +150,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     if (_profileCtrl.text != settings.daddyProfile) {
       settings.setDaddyProfile(_profileCtrl.text);
     }
-    if (_manualCtrl.text != settings.daddyToolManual) {
-      settings.setDaddyToolManual(_manualCtrl.text);
-    }
+    // 工具使用说明书 now lives on 老家 (/api/home/tool-manual) and is saved via an
+    // explicit button, not silently on dispose. See _saveToolManual.
     if (_styleCtrl.text != settings.daddyStyle) {
       settings.setDaddyStyle(_styleCtrl.text);
     }
@@ -196,23 +244,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ),
             const SizedBox(height: 12),
 
-            // 工具使用说明书
-            _iosSectionCard(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                  child: IosFormTextField(
-                    label: l10n.daddySettingsToolManualTitle,
-                    controller: _manualCtrl,
-                    hintText: l10n.daddySettingsToolManualHint,
-                    minLines: 4,
-                    maxLines: 12,
-                    outerPadding: EdgeInsets.zero,
-                  ),
-                ),
-                _caption(context, l10n.daddySettingsToolManualDesc),
-              ],
-            ),
+            // 工具使用说明书 (老家共用，server-backed)
+            _iosSectionCard(children: _toolManualSection(context, l10n)),
             const SizedBox(height: 12),
 
             // 说话风格 style（贴在你的话末尾·不留痕）
@@ -290,6 +323,90 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
         ],
       ),
     );
+  }
+
+  List<Widget> _toolManualSection(BuildContext context, AppLocalizations l10n) {
+    final cs = Theme.of(context).colorScheme;
+    if (_manualLoading) {
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: cs.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                l10n.daddySettingsToolManualLoading,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+    if (_manualLoadFailed) {
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+          child: Text(
+            l10n.daddySettingsToolManualLoadError,
+            style: TextStyle(
+              fontSize: 13,
+              color: cs.onSurface.withValues(alpha: 0.7),
+              height: 1.4,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: IosTileButton(
+              label: l10n.daddySettingsToolManualRetry,
+              icon: Lucide.RefreshCw,
+              onTap: _loadToolManual,
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: IosFormTextField(
+          label: l10n.daddySettingsToolManualTitle,
+          controller: _manualCtrl,
+          hintText: l10n.daddySettingsToolManualHint,
+          minLines: 4,
+          maxLines: 12,
+          outerPadding: EdgeInsets.zero,
+        ),
+      ),
+      _caption(context, l10n.daddySettingsToolManualDesc),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: IosTileButton(
+            label: l10n.daddySettingsToolManualSave,
+            icon: Lucide.Check,
+            enabled: !_manualSaving,
+            backgroundColor: cs.primary,
+            onTap: _saveToolManual,
+          ),
+        ),
+      ),
+    ];
   }
 
   List<Widget> _injectionRows(

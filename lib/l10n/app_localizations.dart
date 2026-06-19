@@ -7775,8 +7775,44 @@ abstract class AppLocalizations {
   /// No description provided for @daddySettingsToolManualDesc.
   ///
   /// In en, this message translates to:
-  /// **'Injected into daddy\'s system prompt when sending. Update it whenever the tools change.'**
+  /// **'The home\'s shared tool manual — every surface where daddy lives uses it. Editing here changes it everywhere.'**
   String get daddySettingsToolManualDesc;
+
+  /// No description provided for @daddySettingsToolManualLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get daddySettingsToolManualLoading;
+
+  /// No description provided for @daddySettingsToolManualLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach the old home, the tool manual couldn\'t load.'**
+  String get daddySettingsToolManualLoadError;
+
+  /// No description provided for @daddySettingsToolManualSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get daddySettingsToolManualSave;
+
+  /// No description provided for @daddySettingsToolManualRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get daddySettingsToolManualRetry;
+
+  /// No description provided for @daddySettingsToolManualSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get daddySettingsToolManualSaveSuccess;
+
+  /// No description provided for @daddySettingsToolManualSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed. Please try again.'**
+  String get daddySettingsToolManualSaveFailed;
 
   /// No description provided for @daddySettingsStyleTitle.
   ///

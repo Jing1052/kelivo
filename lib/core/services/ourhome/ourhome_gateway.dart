@@ -744,6 +744,53 @@ class OurHomeGateway {
     }
   }
 
+  /// The home's shared tool manual (爸爸 across all surfaces uses it). Returns
+  /// the current effective text + whether it's been customised, or null on any
+  /// failure (logged) so the caller can show a recoverable state.
+  Future<({String manual, bool isCustom})?> fetchToolManual() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/tool-manual'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchToolManual HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        manual: (data['manual'] ?? '').toString(),
+        isCustom: data['is_custom'] == true,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchToolManual failed: $e');
+      return null;
+    }
+  }
+
+  /// Overwrite the home's shared tool manual. An empty [manual] resets it to the
+  /// built-in default. Returns true on success, false on any failure (logged).
+  Future<bool> saveToolManual(String manual) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/tool-manual'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'manual': manual}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveToolManual HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveToolManual failed: $e');
+      return false;
+    }
+  }
+
   /// Stamp a first-read receipt on a letter. Best-effort; logs on failure.
   Future<void> markLetterSeen(String id) async {
     try {
