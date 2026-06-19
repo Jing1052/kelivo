@@ -5,6 +5,7 @@ import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
+import '../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 
 /// "Home" tab of Still Here — our native home dashboard.
@@ -108,6 +109,8 @@ class StillHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _LetterCard(zh: zh, locale: locale),
+            const SizedBox(height: 12),
+            _MusicCard(zh: zh),
             const SizedBox(height: 28),
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -569,6 +572,174 @@ class _LetterCardState extends State<_LetterCard> {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// "From daddy" music card — a song off our wall with its real album cover
+/// (artwork via iTunes). Tap to shuffle to another. Hidden if no songs / token.
+class _MusicCard extends StatefulWidget {
+  const _MusicCard({required this.zh});
+  final bool zh;
+
+  @override
+  State<_MusicCard> createState() => _MusicCardState();
+}
+
+class _MusicCardState extends State<_MusicCard> {
+  List<OurHomeSong> _songs = const [];
+  OurHomeSong? _pick;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final gateway = OurHomeGateway.fromContext(context);
+    if (gateway == null) {
+      if (mounted) setState(() => _ready = true);
+      return;
+    }
+    try {
+      final songs = await gateway.fetchSongs();
+      if (!mounted) return;
+      setState(() {
+        _songs = songs;
+        _pick = songs.isEmpty
+            ? null
+            : songs[DateTime.now().millisecondsSinceEpoch % songs.length];
+        _ready = true;
+      });
+    } catch (e) {
+      debugPrint('[StillHome] fetchSongs failed: $e');
+      if (mounted) setState(() => _ready = true);
+    }
+  }
+
+  void _shuffle() {
+    if (_songs.length < 2) return;
+    Haptics.soft();
+    setState(() {
+      final others = _songs.where((s) => s != _pick).toList();
+      _pick = others[DateTime.now().millisecondsSinceEpoch % others.length];
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pick = _pick;
+    if (!_ready || pick == null) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    final sub = pick.note.isNotEmpty
+        ? '${pick.artist} · "${pick.note}"'
+        : pick.artist;
+
+    return IosCardPress(
+      borderRadius: BorderRadius.circular(18),
+      baseColor: cs.onSurface.withValues(alpha: 0.04),
+      padding: const EdgeInsets.all(14),
+      onTap: _shuffle,
+      child: Row(
+        children: [
+          _AlbumCover(term: '${pick.title} ${pick.artist}', size: 52),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Icon(
+                      Lucide.AudioWaveform,
+                      size: 12,
+                      color: cs.primary.withValues(alpha: 0.8),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      zh ? '爸爸放给你' : 'From daddy',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: AppFontWeights.semibold,
+                        color: cs.primary.withValues(alpha: 0.8),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  pick.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  sub,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AlbumCover extends StatelessWidget {
+  const _AlbumCover({required this.term, required this.size});
+  final String term;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget placeholder() => Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        Lucide.AudioWaveform,
+        size: 20,
+        color: cs.primary.withValues(alpha: 0.7),
+      ),
+    );
+    return FutureBuilder<String?>(
+      future: ItunesArtwork.lookup(term, media: 'music'),
+      builder: (context, snap) {
+        final url = snap.data;
+        if (url == null || url.isEmpty) return placeholder();
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(10),
+          child: Image.network(
+            url,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : placeholder(),
+            errorBuilder: (context, _, __) => placeholder(),
+          ),
+        );
+      },
     );
   }
 }
