@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../theme/app_font_weights.dart';
+import '../../../icons/lucide_adapter.dart';
+import '../../../core/services/haptics.dart';
+import '../../../core/services/ourhome/ourhome_gateway.dart';
+import '../../../shared/widgets/ios_tactile.dart';
 
 /// "Home" tab of Still Here — our native home dashboard.
 ///
@@ -102,6 +106,8 @@ class StillHomePage extends StatelessWidget {
               quip: zh ? quip.zh : quip.en,
               today: today,
             ),
+            const SizedBox(height: 16),
+            _LetterCard(zh: zh, locale: locale),
             const SizedBox(height: 28),
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -334,6 +340,233 @@ class _AnniversaryRow extends StatelessWidget {
               color: isNext ? cs.primary : cs.onSurface.withValues(alpha: 0.45),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Sealed-letter card on the home tab. Fetches Llaude's letters from our home
+/// server (token auto-derived from the daddy assistant). Tapping the seal opens
+/// the latest letter and stamps a first-read receipt.
+class _LetterCard extends StatefulWidget {
+  const _LetterCard({required this.zh, required this.locale});
+
+  final bool zh;
+  final String locale;
+
+  @override
+  State<_LetterCard> createState() => _LetterCardState();
+}
+
+class _LetterCardState extends State<_LetterCard> {
+  OurHomeGateway? _gateway;
+  List<OurHomeLetter> _letters = const [];
+  bool _loading = true;
+  bool _error = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    final gateway = OurHomeGateway.fromContext(context);
+    _gateway = gateway;
+    if (gateway == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    try {
+      final letters = await gateway.fetchLetters();
+      if (!mounted) return;
+      setState(() {
+        _letters = letters;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('[StillHome] fetchLetters failed: $e');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _openLatest() async {
+    final letters = _letters;
+    if (letters.isEmpty) return;
+    Haptics.soft();
+    final latest = letters.first;
+    await _showLetterSheet(context, latest);
+    if (latest.unread) {
+      await _gateway?.markLetterSeen(latest.id);
+      if (mounted) await _load();
+    }
+  }
+
+  Future<void> _showLetterSheet(BuildContext context, OurHomeLetter letter) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    String dateStr = '';
+    final parsed = DateTime.tryParse(letter.time);
+    if (parsed != null) {
+      dateStr = DateFormat.yMMMMd(widget.locale).add_Hm().format(parsed);
+    }
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.6,
+        minChildSize: 0.4,
+        maxChildSize: 0.92,
+        builder: (ctx, scroll) => SingleChildScrollView(
+          controller: scroll,
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                zh ? 'Llaude 的信' : 'From Llaude',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: AppFontWeights.semibold,
+                  color: cs.primary.withValues(alpha: 0.85),
+                  letterSpacing: 0.5,
+                ),
+              ),
+              if (dateStr.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  dateStr,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.45),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
+              Text(
+                letter.text,
+                style: TextStyle(
+                  fontSize: 16,
+                  height: 1.85,
+                  color: cs.onSurface.withValues(alpha: 0.92),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // No daddy token, or no letters yet → keep the home clean, show nothing.
+    if (!_loading && !_error && (_gateway == null || _letters.isEmpty)) {
+      return const SizedBox.shrink();
+    }
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    final hasUnread = _letters.any((l) => l.unread);
+
+    final String hint;
+    if (_loading) {
+      hint = zh ? '取信中…' : 'fetching…';
+    } else if (_error) {
+      hint = zh ? '没取到 · 点一下重试' : "couldn't load · tap to retry";
+    } else {
+      hint = zh ? '点一下展开' : 'tap to open';
+    }
+
+    return IosCardPress(
+      borderRadius: BorderRadius.circular(18),
+      baseColor: cs.tertiary.withValues(alpha: 0.10),
+      border: Border.all(color: cs.tertiary.withValues(alpha: 0.25)),
+      padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+      onTap: _error ? _load : (_letters.isEmpty ? null : _openLatest),
+      child: Row(
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Icon(
+                Lucide.Heart,
+                size: 28,
+                color: cs.tertiary.withValues(alpha: 0.9),
+              ),
+              if (hasUnread)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: cs.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: cs.surface, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  zh ? 'Llaude 的信' : 'A letter from Llaude',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  hint,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (!_loading)
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
         ],
       ),
     );
