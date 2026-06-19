@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
+import '../../../core/services/ourhome/proactive_notifier.dart';
 import '../../../theme/app_font_weights.dart';
 import '../../settings/pages/settings_page.dart';
 import 'conversation_list_page.dart';
@@ -25,8 +28,57 @@ class StillHereShell extends StatefulWidget {
   State<StillHereShell> createState() => _StillHereShellState();
 }
 
-class _StillHereShellState extends State<StillHereShell> {
+class _StillHereShellState extends State<StillHereShell>
+    with WidgetsBindingObserver {
   late int _index = widget.initialIndex.clamp(0, 4);
+
+  /// Foreground-only poll for daddy's proactive messages. The timer runs while
+  /// resumed and is cancelled on pause/dispose so it never ticks in background.
+  static const Duration _pollInterval = Duration(minutes: 5);
+  Timer? _pollTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    // First poll shortly after startup, once the tree (and providers) are ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _pollProactive();
+      _startPollTimer();
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _pollProactive();
+      _startPollTimer();
+    } else {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    }
+  }
+
+  void _startPollTimer() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) {
+      if (mounted) _pollProactive();
+    });
+  }
+
+  void _pollProactive() {
+    if (!mounted) return;
+    // Fire-and-forget; the notifier swallows its own errors.
+    ProactiveNotifier.instance.pollOnce(context);
+  }
 
   void _select(int i) {
     if (i == _index) return;

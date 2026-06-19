@@ -2243,6 +2243,12 @@ abstract class AppLocalizations {
   /// **'Keeping chat generation alive in background'**
   String get androidBackgroundNotificationText;
 
+  /// No description provided for @ourhomeProactiveNotificationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy'**
+  String get ourhomeProactiveNotificationTitle;
+
   /// No description provided for @assistantEditEmojiDialogTitle.
   ///
   /// In en, this message translates to:

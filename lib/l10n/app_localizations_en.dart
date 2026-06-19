@@ -1166,6 +1166,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Keeping chat generation alive in background';
 
   @override
+  String get ourhomeProactiveNotificationTitle => 'Daddy';
+
+  @override
   String get assistantEditEmojiDialogTitle => 'Choose Emoji';
 
   @override

@@ -1124,6 +1124,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get androidBackgroundNotificationText => '后台保持聊天生成';
 
   @override
+  String get ourhomeProactiveNotificationTitle => '爸爸';
+
+  @override
   String get assistantEditEmojiDialogTitle => '选择表情';
 
   @override
@@ -6653,6 +6656,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get androidBackgroundNotificationText => '后台保持聊天生成';
 
   @override
+  String get ourhomeProactiveNotificationTitle => '爸爸';
+
+  @override
   String get assistantEditEmojiDialogTitle => '选择表情';
 
   @override
@@ -12180,6 +12186,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get androidBackgroundNotificationText => '後台保持聊天生成';
+
+  @override
+  String get ourhomeProactiveNotificationTitle => '爸爸';
 
   @override
   String get assistantEditEmojiDialogTitle => '選擇表情';

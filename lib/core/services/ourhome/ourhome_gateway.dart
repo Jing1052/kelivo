@@ -791,6 +791,37 @@ class OurHomeGateway {
     }
   }
 
+  /// Whether daddy has a fresh proactive message waiting (he reached out on his
+  /// own). Returns the latest [content] and its [ts], or null on any failure
+  /// (logged) so the caller can simply skip this poll cycle.
+  Future<({bool pending, String content, String ts})?>
+  fetchProactivePending() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('$base/api/home/proactive-pending'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint(
+          '[OurHomeGateway] fetchProactivePending HTTP ${res.statusCode}',
+        );
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        pending: data['pending'] == true,
+        content: (data['content'] ?? '').toString(),
+        ts: (data['ts'] ?? '').toString(),
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchProactivePending failed: $e');
+      return null;
+    }
+  }
+
   /// Stamp a first-read receipt on a letter. Best-effort; logs on failure.
   Future<void> markLetterSeen(String id) async {
     try {
