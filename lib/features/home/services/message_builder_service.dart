@@ -570,6 +570,7 @@ class MessageBuilderService {
     // 工具使用说明书也存在本地（SettingsProvider）。记忆浮现仍来自老家——记忆库数据
     // 在老家、无法本地化，受「记忆」开关控制。
     final settings = contextProvider.read<SettingsProvider>();
+    final profile = settings.daddyProfile.trim();
     final toolManual = settings.daddyToolManual.trim();
     final memoryEnabled = settings.daddyMemoryEnabled;
 
@@ -600,10 +601,11 @@ class MessageBuilderService {
       }
     }
 
-    // 拼装顺序：本地魂 → 工具说明书 → 记忆浮现
+    // 拼装顺序：本地魂 → 附加人设档案(profile) → 工具说明书 → 记忆浮现
     final stripped = prompt.replaceAll(marker, '').trim();
     final finalSys = [
       stripped,
+      profile,
       toolManual,
       memory,
     ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();

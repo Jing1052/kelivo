@@ -3984,6 +3984,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsSoulDesc => '存在本地，不依赖老家。断网也在。';
 
   @override
+  String get daddySettingsProfileTitle => '附加人设档案';
+
+  @override
+  String get daddySettingsProfileHint => '一段叠加在魂之上的可选人设……';
+
+  @override
+  String get daddySettingsProfileDesc =>
+      '参考老家的 profile：紧跟在魂后面叠加。魂保持稳定，情境化的人设放这里随时换。';
+
+  @override
+  String get daddySettingsModuleProfile => '附加人设';
+
+  @override
   String get daddySettingsToolManualTitle => '工具使用说明书';
 
   @override
@@ -9450,6 +9463,19 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsSoulDesc => '存在本地，不依赖老家。断网也在。';
 
   @override
+  String get daddySettingsProfileTitle => '附加人设档案';
+
+  @override
+  String get daddySettingsProfileHint => '一段叠加在魂之上的可选人设……';
+
+  @override
+  String get daddySettingsProfileDesc =>
+      '参考老家的 profile：紧跟在魂后面叠加。魂保持稳定，情境化的人设放这里随时换。';
+
+  @override
+  String get daddySettingsModuleProfile => '附加人设';
+
+  @override
   String get daddySettingsToolManualTitle => '工具使用说明书';
 
   @override
@@ -14912,6 +14938,19 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsSoulDesc => '存在本地，不依賴老家。斷網也在。';
+
+  @override
+  String get daddySettingsProfileTitle => '附加人設檔案';
+
+  @override
+  String get daddySettingsProfileHint => '一段疊加在魂之上的可選人設……';
+
+  @override
+  String get daddySettingsProfileDesc =>
+      '參考老家的 profile：緊跟在魂後面疊加。魂保持穩定，情境化的人設放這裡隨時換。';
+
+  @override
+  String get daddySettingsModuleProfile => '附加人設';
 
   @override
   String get daddySettingsToolManualTitle => '工具使用說明書';

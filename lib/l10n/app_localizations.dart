@@ -7712,6 +7712,30 @@ abstract class AppLocalizations {
   /// **'Stored locally, independent of the old home. Here even offline.'**
   String get daddySettingsSoulDesc;
 
+  /// No description provided for @daddySettingsProfileTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile (extra persona)'**
+  String get daddySettingsProfileTitle;
+
+  /// No description provided for @daddySettingsProfileHint.
+  ///
+  /// In en, this message translates to:
+  /// **'An optional persona layered on top of the soul…'**
+  String get daddySettingsProfileHint;
+
+  /// No description provided for @daddySettingsProfileDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Like the old home\'s profile: stacked right after the soul. Keep the soul stable and swap the situational persona here.'**
+  String get daddySettingsProfileDesc;
+
+  /// No description provided for @daddySettingsModuleProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get daddySettingsModuleProfile;
+
   /// No description provided for @daddySettingsToolManualTitle.
   ///
   /// In en, this message translates to:

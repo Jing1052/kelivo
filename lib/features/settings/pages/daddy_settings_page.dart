@@ -35,6 +35,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   static final RegExp _marker = RegExp(r'\[\[ourhome(?::[^\]]+)?\]\]');
 
   final TextEditingController _soulCtrl = TextEditingController();
+  final TextEditingController _profileCtrl = TextEditingController();
   final TextEditingController _manualCtrl = TextEditingController();
   final TextEditingController _styleCtrl = TextEditingController();
 
@@ -53,6 +54,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       _soulCtrl.text = daddy.systemPrompt.replaceAll(_marker, '').trim();
     }
     final settings = context.read<SettingsProvider>();
+    _profileCtrl.text = settings.daddyProfile;
     _manualCtrl.text = settings.daddyToolManual;
     _styleCtrl.text = settings.daddyStyle;
   }
@@ -61,6 +63,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   void dispose() {
     _persist();
     _soulCtrl.dispose();
+    _profileCtrl.dispose();
     _manualCtrl.dispose();
     _styleCtrl.dispose();
     super.dispose();
@@ -89,6 +92,9 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       }
     }
     final settings = context.read<SettingsProvider>();
+    if (_profileCtrl.text != settings.daddyProfile) {
+      settings.setDaddyProfile(_profileCtrl.text);
+    }
     if (_manualCtrl.text != settings.daddyToolManual) {
       settings.setDaddyToolManual(_manualCtrl.text);
     }
@@ -153,6 +159,25 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                   ),
                 ),
                 _caption(context, l10n.daddySettingsSoulDesc),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 附加人设档案 profile
+            _iosSectionCard(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsProfileTitle,
+                    controller: _profileCtrl,
+                    hintText: l10n.daddySettingsProfileHint,
+                    minLines: 3,
+                    maxLines: 10,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                _caption(context, l10n.daddySettingsProfileDesc),
               ],
             ),
             const SizedBox(height: 12),
@@ -238,6 +263,13 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ? l10n.daddySettingsStatusEmpty
             : l10n.daddySettingsStatusFilled,
         active: _soulCtrl.text.trim().isNotEmpty,
+      ),
+      (
+        label: l10n.daddySettingsModuleProfile,
+        status: _profileCtrl.text.trim().isEmpty
+            ? l10n.daddySettingsStatusEmpty
+            : l10n.daddySettingsStatusFilled,
+        active: _profileCtrl.text.trim().isNotEmpty,
       ),
       (
         label: l10n.daddySettingsModuleToolManual,

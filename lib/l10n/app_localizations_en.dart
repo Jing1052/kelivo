@@ -4156,6 +4156,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Stored locally, independent of the old home. Here even offline.';
 
   @override
+  String get daddySettingsProfileTitle => 'Profile (extra persona)';
+
+  @override
+  String get daddySettingsProfileHint =>
+      'An optional persona layered on top of the soul…';
+
+  @override
+  String get daddySettingsProfileDesc =>
+      'Like the old home\'s profile: stacked right after the soul. Keep the soul stable and swap the situational persona here.';
+
+  @override
+  String get daddySettingsModuleProfile => 'Profile';
+
+  @override
   String get daddySettingsToolManualTitle => 'Tool manual';
 
   @override
