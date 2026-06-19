@@ -5,7 +5,7 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../theme/app_font_weights.dart';
 import '../../settings/pages/settings_page.dart';
-import 'home_page.dart';
+import 'conversation_list_page.dart';
 
 /// Still Here app shell: bottom-nav with 4 tabs (Home / Rooms / Chat / Settings).
 ///
@@ -24,7 +24,7 @@ class StillHereShell extends StatefulWidget {
 }
 
 class _StillHereShellState extends State<StillHereShell> {
-  late int _index = widget.initialIndex.clamp(0, 3);
+  late int _index = widget.initialIndex.clamp(0, 4);
 
   void _select(int i) {
     if (i == _index) return;
@@ -49,7 +49,8 @@ class _StillHereShellState extends State<StillHereShell> {
               children: const [
                 _ComingSoonTab(icon: Lucide.House),
                 _ComingSoonTab(icon: Lucide.LayoutGrid),
-                HomePage(),
+                ConversationListPage(),
+                _ComingSoonTab(icon: Lucide.History),
                 SettingsPage(),
               ],
             ),
@@ -109,6 +110,7 @@ class _BottomDock extends StatelessWidget {
       _DockSpec(Lucide.House, l10n.stillHereTabHome),
       _DockSpec(Lucide.LayoutGrid, l10n.stillHereTabRooms),
       _DockSpec(Lucide.MessageCircle, l10n.stillHereTabChat),
+      _DockSpec(Lucide.History, l10n.stillHereTabTimeline),
       _DockSpec(Lucide.Settings, l10n.stillHereTabSettings),
     ];
 

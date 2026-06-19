@@ -21,10 +21,16 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stillHereTabChat => '聊天';
 
   @override
+  String get stillHereTabTimeline => '时间线';
+
+  @override
   String get stillHereTabSettings => '设置';
 
   @override
   String get stillHereTabComingSoon => '正在建设中';
+
+  @override
+  String get stillHereNewChat => '新对话';
 
   @override
   String get settingsPageBackButton => '返回';
@@ -5354,10 +5360,16 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get stillHereTabChat => '聊天';
 
   @override
+  String get stillHereTabTimeline => '时间线';
+
+  @override
   String get stillHereTabSettings => '设置';
 
   @override
   String get stillHereTabComingSoon => '正在建设中';
+
+  @override
+  String get stillHereNewChat => '新对话';
 
   @override
   String get settingsPageBackButton => '返回';
@@ -10687,10 +10699,16 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get stillHereTabChat => '聊天';
 
   @override
+  String get stillHereTabTimeline => '時間線';
+
+  @override
   String get stillHereTabSettings => '設定';
 
   @override
   String get stillHereTabComingSoon => '建設中';
+
+  @override
+  String get stillHereNewChat => '新對話';
 
   @override
   String get settingsPageBackButton => '返回';

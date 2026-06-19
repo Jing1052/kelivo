@@ -82,6 +82,8 @@ class HomePageController extends ChangeNotifier {
     required TextEditingController inputController,
     required ChatInputBarController mediaController,
     required ScrollController scrollController,
+    String? initialConversationId,
+    bool startNewConversation = false,
   }) : this._(
          context,
          vsync,
@@ -91,6 +93,8 @@ class HomePageController extends ChangeNotifier {
          inputController,
          mediaController,
          scrollController,
+         initialConversationId,
+         startNewConversation,
        );
 
   HomePageController._(
@@ -102,6 +106,8 @@ class HomePageController extends ChangeNotifier {
     this._inputController,
     this._mediaController,
     this._scrollController,
+    this._initialConversationId,
+    this._startNewConversation,
   ) {
     _initialize();
   }
@@ -118,6 +124,13 @@ class HomePageController extends ChangeNotifier {
   final TextEditingController _inputController;
   final ChatInputBarController _mediaController;
   final ScrollController _scrollController;
+
+  /// When opened as a chat detail (from the conversation list tab), this is the
+  /// conversation to display on launch. Null means use the default bootstrap.
+  final String? _initialConversationId;
+
+  /// When true, [initChat] starts a fresh conversation regardless of settings.
+  final bool _startNewConversation;
 
   // ============================================================================
   // Services & Controllers (created internally)
@@ -572,6 +585,30 @@ class HomePageController extends ChangeNotifier {
     final prefs = _context.read<SettingsProvider>();
     final assistantProvider = _context.read<AssistantProvider>();
     await _chatService.init();
+    // Opened as a chat detail with an explicit target conversation.
+    final requestedId = _initialConversationId;
+    if (requestedId != null) {
+      final convo = _chatService.getConversation(requestedId);
+      if (convo != null) {
+        if ((convo.assistantId ?? '').isNotEmpty) {
+          try {
+            await assistantProvider.setCurrentAssistant(convo.assistantId!);
+          } catch (_) {}
+        }
+        _chatService.setCurrentConversation(convo.id);
+        _chatController.setCurrentConversation(convo);
+        _streamController.clearGeminiThoughtSigs();
+        _restoreMessageUiState();
+        notifyListeners();
+        _scrollToBottomSoon(animate: false);
+        return;
+      }
+    }
+    // Opened as a chat detail requesting a brand-new conversation.
+    if (_startNewConversation) {
+      await _createNewConversation();
+      return;
+    }
     if (prefs.newChatOnLaunch) {
       await _createNewConversation();
     } else {

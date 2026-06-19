@@ -21,10 +21,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stillHereTabChat => 'Chat';
 
   @override
+  String get stillHereTabTimeline => 'Timeline';
+
+  @override
   String get stillHereTabSettings => 'Settings';
 
   @override
   String get stillHereTabComingSoon => 'Coming soon';
+
+  @override
+  String get stillHereNewChat => 'New Chat';
 
   @override
   String get settingsPageBackButton => 'Back';

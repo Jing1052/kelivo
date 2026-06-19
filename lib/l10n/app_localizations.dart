@@ -124,6 +124,12 @@ abstract class AppLocalizations {
   /// **'Chat'**
   String get stillHereTabChat;
 
+  /// No description provided for @stillHereTabTimeline.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeline'**
+  String get stillHereTabTimeline;
+
   /// No description provided for @stillHereTabSettings.
   ///
   /// In en, this message translates to:
@@ -135,6 +141,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coming soon'**
   String get stillHereTabComingSoon;
+
+  /// No description provided for @stillHereNewChat.
+  ///
+  /// In en, this message translates to:
+  /// **'New Chat'**
+  String get stillHereNewChat;
 
   /// No description provided for @settingsPageBackButton.
   ///

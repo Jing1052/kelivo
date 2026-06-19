@@ -65,7 +65,23 @@ import 'home_mobile_layout.dart';
 import 'home_desktop_layout.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.initialConversationId,
+    this.startNewConversation = false,
+    this.onBack,
+  });
+
+  /// When provided, open this conversation on launch (used when the chat is
+  /// pushed as a detail from the Still Here conversation-list tab).
+  final String? initialConversationId;
+
+  /// When true, start a fresh conversation on launch instead of restoring.
+  final bool startNewConversation;
+
+  /// When provided, the mobile app bar shows a back button invoking this
+  /// instead of the drawer toggle (chat opened as a pushed detail).
+  final VoidCallback? onBack;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -461,6 +477,8 @@ class _HomePageState extends State<HomePage>
       inputController: _inputController,
       mediaController: _mediaController,
       scrollController: _scrollController,
+      initialConversationId: widget.initialConversationId,
+      startNewConversation: widget.startNewConversation,
     );
 
     _controller.addListener(_onControllerChanged);
@@ -632,6 +650,7 @@ class _HomePageState extends State<HomePage>
       providerName: providerName,
       modelDisplay: modelDisplay,
       onToggleDrawer: () => _drawerController.toggle(),
+      onBack: widget.onBack,
       onDismissKeyboard: _controller.dismissKeyboard,
       onSelectConversation: (id) {
         _controller.switchConversationAnimated(id);
