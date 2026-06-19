@@ -12,6 +12,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get helloWorld => 'Hello World!';
 
   @override
+  String get stillHereTabHome => 'Home';
+
+  @override
+  String get stillHereTabRooms => 'Rooms';
+
+  @override
+  String get stillHereTabChat => 'Chat';
+
+  @override
+  String get stillHereTabSettings => 'Settings';
+
+  @override
+  String get stillHereTabComingSoon => 'Coming soon';
+
+  @override
   String get settingsPageBackButton => 'Back';
 
   @override

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart'
 import 'dart:async';
 import 'l10n/app_localizations.dart';
 import 'features/home/pages/home_page.dart';
+import 'features/home/pages/still_here_shell.dart';
 import 'desktop/desktop_home_page.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -461,7 +462,7 @@ Widget _selectHome() {
       defaultTargetPlatform == TargetPlatform.macOS ||
       defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux;
-  return isDesktop ? const DesktopHomePage() : const HomePage();
+  return isDesktop ? const DesktopHomePage() : const StillHereShell();
 }
 
 // Overrides logic is implemented within SettingsProvider now.

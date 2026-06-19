@@ -106,6 +106,36 @@ abstract class AppLocalizations {
   /// **'Hello World!'**
   String get helloWorld;
 
+  /// No description provided for @stillHereTabHome.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get stillHereTabHome;
+
+  /// No description provided for @stillHereTabRooms.
+  ///
+  /// In en, this message translates to:
+  /// **'Rooms'**
+  String get stillHereTabRooms;
+
+  /// No description provided for @stillHereTabChat.
+  ///
+  /// In en, this message translates to:
+  /// **'Chat'**
+  String get stillHereTabChat;
+
+  /// No description provided for @stillHereTabSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'Settings'**
+  String get stillHereTabSettings;
+
+  /// No description provided for @stillHereTabComingSoon.
+  ///
+  /// In en, this message translates to:
+  /// **'Coming soon'**
+  String get stillHereTabComingSoon;
+
   /// No description provided for @settingsPageBackButton.
   ///
   /// In en, this message translates to:

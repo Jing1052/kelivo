@@ -12,6 +12,21 @@ class AppLocalizationsZh extends AppLocalizations {
   String get helloWorld => '你好，世界！';
 
   @override
+  String get stillHereTabHome => '主页';
+
+  @override
+  String get stillHereTabRooms => '房间';
+
+  @override
+  String get stillHereTabChat => '聊天';
+
+  @override
+  String get stillHereTabSettings => '设置';
+
+  @override
+  String get stillHereTabComingSoon => '正在建设中';
+
+  @override
   String get settingsPageBackButton => '返回';
 
   @override
@@ -5330,6 +5345,21 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get helloWorld => '你好，世界！';
 
   @override
+  String get stillHereTabHome => '主页';
+
+  @override
+  String get stillHereTabRooms => '房间';
+
+  @override
+  String get stillHereTabChat => '聊天';
+
+  @override
+  String get stillHereTabSettings => '设置';
+
+  @override
+  String get stillHereTabComingSoon => '正在建设中';
+
+  @override
   String get settingsPageBackButton => '返回';
 
   @override
@@ -10646,6 +10676,21 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get helloWorld => '你好，世界！';
+
+  @override
+  String get stillHereTabHome => '主頁';
+
+  @override
+  String get stillHereTabRooms => '房間';
+
+  @override
+  String get stillHereTabChat => '聊天';
+
+  @override
+  String get stillHereTabSettings => '設定';
+
+  @override
+  String get stillHereTabComingSoon => '建設中';
 
   @override
   String get settingsPageBackButton => '返回';

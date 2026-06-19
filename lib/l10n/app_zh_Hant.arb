@@ -1,5 +1,10 @@
 {
   "helloWorld": "你好，世界！",
+  "stillHereTabHome": "主頁",
+  "stillHereTabRooms": "房間",
+  "stillHereTabChat": "聊天",
+  "stillHereTabSettings": "設定",
+  "stillHereTabComingSoon": "建設中",
   "settingsPageBackButton": "返回",
   "settingsPageTitle": "設定",
   "settingsPageDarkMode": "深色",

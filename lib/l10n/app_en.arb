@@ -1,5 +1,10 @@
 {
   "helloWorld": "Hello World!",
+  "stillHereTabHome": "Home",
+  "stillHereTabRooms": "Rooms",
+  "stillHereTabChat": "Chat",
+  "stillHereTabSettings": "Settings",
+  "stillHereTabComingSoon": "Coming soon",
   "settingsPageBackButton": "Back",
   "settingsPageTitle": "Settings",
   "settingsPageDarkMode": "Dark",
