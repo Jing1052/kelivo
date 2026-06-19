@@ -13,6 +13,9 @@ import 'rooms/countdown_page.dart';
 import 'rooms/bedroom_page.dart';
 import 'rooms/grounds_page.dart';
 import 'rooms/calendar_page.dart';
+import 'rooms/lounge_page.dart';
+import 'rooms/locked_room_page.dart';
+import 'rooms/capsule_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -252,6 +255,12 @@ Widget _pageForDoor(_Door door) {
       return const DiaryPage();
     case 'study':
       return const StudyPage();
+    case 'lounge':
+      return const LoungePage();
+    case 'locked':
+      return const LockedRoomPage();
+    case 'capsule':
+      return const CapsulePage();
     default:
       return _RoomStubPage(door: door);
   }

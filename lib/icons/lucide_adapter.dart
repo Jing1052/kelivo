@@ -198,4 +198,7 @@ class Lucide {
   static const IconData Battery = lucide.LucideIcons.battery;
   static const IconData BatteryCharging = lucide.LucideIcons.batteryCharging;
   static const IconData CloudSun = lucide.LucideIcons.cloudSun;
+  static const IconData Gamepad2 = lucide.LucideIcons.gamepad2;
+  static const IconData Tv = lucide.LucideIcons.tv;
+  static const IconData Send = lucide.LucideIcons.send;
 }

@@ -246,6 +246,93 @@ class OurHomeDayItem {
   );
 }
 
+/// A watch/play item in the lounge (foyer): film / show / game, want / done.
+class OurHomeFoyerItem {
+  const OurHomeFoyerItem({
+    required this.id,
+    required this.kind,
+    required this.status,
+    required this.title,
+    required this.note,
+  });
+  final String id;
+  final String kind; // film / show / game
+  final String status; // want / done
+  final String title;
+  final String note;
+
+  bool get done => status == 'done';
+
+  factory OurHomeFoyerItem.fromJson(Map<String, dynamic> j) => OurHomeFoyerItem(
+    id: (j['id'] ?? '').toString(),
+    kind: (j['kind'] ?? 'film').toString(),
+    status: (j['status'] ?? 'want').toString(),
+    title: (j['title'] ?? '').toString(),
+    note: (j['note'] ?? '').toString(),
+  );
+}
+
+/// A time-capsule letter, sealed until its open date.
+class OurHomeCapsule {
+  const OurHomeCapsule({
+    required this.id,
+    required this.title,
+    required this.author,
+    required this.openDate,
+    required this.opened,
+    required this.ready,
+    required this.content,
+  });
+  final String id;
+  final String title;
+  final String author;
+  final String openDate;
+  final bool opened;
+  final bool ready; // ready to open (date reached, not yet opened)
+  final String content; // empty while still sealed
+
+  factory OurHomeCapsule.fromJson(Map<String, dynamic> j) => OurHomeCapsule(
+    id: (j['id'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+    author: (j['author'] ?? '').toString(),
+    openDate: (j['open_date'] ?? '').toString(),
+    opened: j['opened'] == true,
+    ready: j['ready'] == true,
+    content: (j['content'] ?? '').toString(),
+  );
+}
+
+/// One play-log entry (boudoir/locked room). [mood] is the after-feeling tag.
+class OurHomePlaylog {
+  const OurHomePlaylog({
+    required this.id,
+    required this.name,
+    required this.time,
+    required this.text,
+    required this.mood,
+  });
+  final String id;
+  final String name;
+  final String time;
+  final String text;
+  final String mood;
+
+  factory OurHomePlaylog.fromJson(Map<String, dynamic> j) => OurHomePlaylog(
+    id: (j['id'] ?? '').toString(),
+    name: (j['name'] ?? '').toString(),
+    time: (j['time'] ?? '').toString(),
+    text: (j['text'] ?? '').toString(),
+    mood: (j['mood'] ?? '').toString(),
+  );
+}
+
+/// The two desire profiles in the locked room.
+class OurHomeProfiles {
+  const OurHomeProfiles({required this.cing, required this.daddy});
+  final String cing;
+  final String daddy;
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -470,6 +557,88 @@ class OurHomeGateway {
         .map(OurHomeDayItem.fromJson)
         .toList();
   }
+
+  // ---- Lounge (foyer) ----
+  Future<List<OurHomeFoyerItem>> fetchFoyer() =>
+      _getList('/api/home/foyer', OurHomeFoyerItem.fromJson);
+
+  Future<void> addFoyer(String kind, String title, String note) => _postJson(
+    '/api/home/foyer',
+    {'kind': kind, 'title': title, 'note': note},
+  );
+
+  Future<void> setFoyerStatus(String id, String status) =>
+      _postJson('/api/home/foyer', {'id': id, 'status': status});
+
+  Future<void> deleteFoyer(String id) =>
+      _postJson('/api/home/foyer', {'id': id, 'del': 1});
+
+  // ---- Locked room: profiles + playlog ----
+  Future<OurHomeProfiles> fetchProfiles() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/profile'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('profile HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    String side(String k) {
+      if (data is Map && data[k] is Map) {
+        return (data[k]['text'] ?? '').toString();
+      }
+      return '';
+    }
+
+    return OurHomeProfiles(cing: side('cing'), daddy: side('daddy'));
+  }
+
+  Future<void> saveProfile(String side, String text) =>
+      _postJson('/api/home/profile', {'side': side, 'text': text});
+
+  Future<List<OurHomePlaylog>> fetchPlaylog() =>
+      _getList('/api/home/playlog', OurHomePlaylog.fromJson);
+
+  // ---- Letters in time (capsules) ----
+  Future<List<OurHomeCapsule>> fetchCapsules() =>
+      _getList('/api/home/capsules', OurHomeCapsule.fromJson);
+
+  Future<String> openCapsule(String id) async {
+    final map = await _postJsonForResult('/api/home/capsules', {
+      'action': 'open',
+      'id': id,
+    });
+    return (map['content'] ?? '').toString();
+  }
+
+  Future<void> addCapsule(String title, String content, String openDate) =>
+      _postJson('/api/home/capsules', {
+        'action': 'add',
+        'title': title,
+        'content': content,
+        'open_date': openDate,
+        'author': 'cing',
+      });
+
+  Future<Map<String, dynamic>> _postJsonForResult(
+    String path,
+    Map<String, dynamic> body,
+  ) async {
+    final res = await http
+        .post(
+          Uri.parse('$base$path'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('POST $path -> ${res.statusCode}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    return data is Map<String, dynamic> ? data : <String, dynamic>{};
+  }
+
+  Future<void> _postJson(String path, Map<String, dynamic> body) =>
+      _postJsonForResult(path, body);
 
   /// Cing leaves a new note on the board. Throws on transport/HTTP error.
   Future<void> postBoardNote(String text) async {
