@@ -5309,6 +5309,30 @@ abstract class AppLocalizations {
   /// **'Used for generating conversation summaries; prefer fast and cheap models'**
   String get defaultModelPageSummaryModelSubtitle;
 
+  /// No description provided for @defaultModelPageMemoryModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory model'**
+  String get defaultModelPageMemoryModelTitle;
+
+  /// No description provided for @defaultModelPageMemoryModelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Model that distills out-of-window messages into long-term memory'**
+  String get defaultModelPageMemoryModelSubtitle;
+
+  /// No description provided for @defaultModelPageRecapModelTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap model'**
+  String get defaultModelPageRecapModelTitle;
+
+  /// No description provided for @defaultModelPageRecapModelSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Model that summarizes earlier conversation into a recap'**
+  String get defaultModelPageRecapModelSubtitle;
+
   /// No description provided for @defaultModelPageSuggestionModelTitle.
   ///
   /// In en, this message translates to:

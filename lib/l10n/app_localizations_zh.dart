@@ -2722,6 +2722,18 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultModelPageSummaryModelSubtitle => '用于生成对话摘要的模型，推荐使用快速且便宜的模型';
 
   @override
+  String get defaultModelPageMemoryModelTitle => '整理记忆模型';
+
+  @override
+  String get defaultModelPageMemoryModelSubtitle => '把超出窗口的对话整理成长期记忆的模型';
+
+  @override
+  String get defaultModelPageRecapModelTitle => '前情提要模型';
+
+  @override
+  String get defaultModelPageRecapModelSubtitle => '把更早的对话总结成前情提要的模型';
+
+  @override
   String get defaultModelPageSuggestionModelTitle => '聊天建议模型';
 
   @override
@@ -8201,6 +8213,18 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get defaultModelPageSummaryModelSubtitle => '用于生成对话摘要的模型，推荐使用快速且便宜的模型';
 
   @override
+  String get defaultModelPageMemoryModelTitle => '整理记忆模型';
+
+  @override
+  String get defaultModelPageMemoryModelSubtitle => '把超出窗口的对话整理成长期记忆的模型';
+
+  @override
+  String get defaultModelPageRecapModelTitle => '前情提要模型';
+
+  @override
+  String get defaultModelPageRecapModelSubtitle => '把更早的对话总结成前情提要的模型';
+
+  @override
   String get defaultModelPageSuggestionModelTitle => '聊天建议模型';
 
   @override
@@ -13677,6 +13701,18 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get defaultModelPageSummaryModelSubtitle => '用於生成對話摘要的模型，推薦使用快速且便宜的模型';
+
+  @override
+  String get defaultModelPageMemoryModelTitle => '整理記憶模型';
+
+  @override
+  String get defaultModelPageMemoryModelSubtitle => '把超出視窗的對話整理成長期記憶的模型';
+
+  @override
+  String get defaultModelPageRecapModelTitle => '前情提要模型';
+
+  @override
+  String get defaultModelPageRecapModelSubtitle => '把更早的對話總結成前情提要的模型';
 
   @override
   String get defaultModelPageSuggestionModelTitle => '聊天建議模型';

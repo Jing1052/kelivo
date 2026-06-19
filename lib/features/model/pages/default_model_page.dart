@@ -94,6 +94,55 @@ class DefaultModelPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           _ModelCard(
+            icon: Lucide.Brain,
+            title: l10n.defaultModelPageMemoryModelTitle,
+            subtitle: l10n.defaultModelPageMemoryModelSubtitle,
+            modelProvider: settings.memoryDigestModelProvider,
+            modelId: settings.memoryDigestModelId,
+            fallbackProvider:
+                settings.summaryModelProvider ?? settings.currentModelProvider,
+            fallbackModelId: settings.summaryModelId ?? settings.currentModelId,
+            onReset: () async {
+              await settings.resetMemoryDigestModel();
+            },
+            onPick: () async {
+              final sel = await pickConfiguredModel(
+                settings.memoryDigestModelProvider,
+                settings.memoryDigestModelId,
+              );
+              if (sel != null) {
+                await settings.setMemoryDigestModel(
+                  sel.providerKey,
+                  sel.modelId,
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _ModelCard(
+            icon: Lucide.History,
+            title: l10n.defaultModelPageRecapModelTitle,
+            subtitle: l10n.defaultModelPageRecapModelSubtitle,
+            modelProvider: settings.recapModelProvider,
+            modelId: settings.recapModelId,
+            fallbackProvider:
+                settings.summaryModelProvider ?? settings.currentModelProvider,
+            fallbackModelId: settings.summaryModelId ?? settings.currentModelId,
+            onReset: () async {
+              await settings.resetRecapModel();
+            },
+            onPick: () async {
+              final sel = await pickConfiguredModel(
+                settings.recapModelProvider,
+                settings.recapModelId,
+              );
+              if (sel != null) {
+                await settings.setRecapModel(sel.providerKey, sel.modelId);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _ModelCard(
             icon: Lucide.package2,
             title: l10n.defaultModelPageCompressModelTitle,
             subtitle: l10n.defaultModelPageCompressModelSubtitle,

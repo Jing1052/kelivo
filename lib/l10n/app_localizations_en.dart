@@ -2819,6 +2819,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Used for generating conversation summaries; prefer fast and cheap models';
 
   @override
+  String get defaultModelPageMemoryModelTitle => 'Memory model';
+
+  @override
+  String get defaultModelPageMemoryModelSubtitle =>
+      'Model that distills out-of-window messages into long-term memory';
+
+  @override
+  String get defaultModelPageRecapModelTitle => 'Recap model';
+
+  @override
+  String get defaultModelPageRecapModelSubtitle =>
+      'Model that summarizes earlier conversation into a recap';
+
+  @override
   String get defaultModelPageSuggestionModelTitle => 'Chat Suggestions Model';
 
   @override
