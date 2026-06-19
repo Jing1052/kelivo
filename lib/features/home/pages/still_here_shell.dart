@@ -6,6 +6,7 @@ import '../../../core/services/haptics.dart';
 import '../../../theme/app_font_weights.dart';
 import '../../settings/pages/settings_page.dart';
 import 'conversation_list_page.dart';
+import 'still_home_page.dart';
 
 /// Still Here app shell: bottom-nav with 4 tabs (Home / Rooms / Chat / Settings).
 ///
@@ -47,7 +48,7 @@ class _StillHereShellState extends State<StillHereShell> {
             child: IndexedStack(
               index: _index,
               children: const [
-                _ComingSoonTab(icon: Lucide.House),
+                StillHomePage(),
                 _ComingSoonTab(icon: Lucide.LayoutGrid),
                 ConversationListPage(),
                 _ComingSoonTab(icon: Lucide.History),
