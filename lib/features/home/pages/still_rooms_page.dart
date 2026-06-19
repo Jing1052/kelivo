@@ -5,6 +5,7 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import 'rooms/parlour_page.dart';
+import 'rooms/diary_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -228,6 +229,8 @@ Widget _pageForDoor(_Door door) {
   switch (door.id) {
     case 'parlour':
       return const ParlourPage();
+    case 'diary':
+      return const DiaryPage();
     default:
       return _RoomStubPage(door: door);
   }

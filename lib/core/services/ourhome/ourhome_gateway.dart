@@ -61,6 +61,29 @@ class OurHomeBoardNote {
   );
 }
 
+/// A page of Llaude's diary about Cing.
+class OurHomeDiaryEntry {
+  const OurHomeDiaryEntry({
+    required this.id,
+    required this.name,
+    required this.time,
+    required this.text,
+  });
+
+  final String id;
+  final String name;
+  final String time;
+  final String text;
+
+  factory OurHomeDiaryEntry.fromJson(Map<String, dynamic> j) =>
+      OurHomeDiaryEntry(
+        id: (j['id'] ?? '').toString(),
+        name: (j['name'] ?? '').toString(),
+        time: (j['time'] ?? '').toString(),
+        text: (j['text'] ?? '').toString(),
+      );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -126,6 +149,26 @@ class OurHomeGateway {
     return data
         .whereType<Map<String, dynamic>>()
         .map(OurHomeBoardNote.fromJson)
+        .toList();
+  }
+
+  /// Newest-first diary pages Llaude wrote about Cing. Throws on error.
+  Future<List<OurHomeDiaryEntry>> fetchDiary() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/diary'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'diary HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/diary'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! List) return const <OurHomeDiaryEntry>[];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(OurHomeDiaryEntry.fromJson)
+        .where((d) => d.text.isNotEmpty)
         .toList();
   }
 
