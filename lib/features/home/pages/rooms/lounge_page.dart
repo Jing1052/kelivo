@@ -4,12 +4,14 @@ import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
+import '../../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_checkbox.dart';
 import 'room_state_hint.dart';
 
-/// The Lounge (起居室) — film · music · play. The watch/play list: things we
-/// mean to see and play, and the ones we already did. Talks to `/api/home/foyer`.
+/// The Lounge (起居室) — film · music · play. The watch/play list with real
+/// posters, and the turntable with real album covers (artwork via iTunes).
+/// Talks to `/api/home/foyer` and `/api/home/songs`.
 class LoungePage extends StatefulWidget {
   const LoungePage({super.key});
 
@@ -20,8 +22,10 @@ class LoungePage extends StatefulWidget {
 class _LoungePageState extends State<LoungePage> {
   OurHomeGateway? _gateway;
   List<OurHomeFoyerItem> _items = const [];
+  List<OurHomeSong> _songs = const [];
   bool _loading = true;
   bool _error = false;
+  int _tab = 0; // 0 = screen (foyer), 1 = songs
 
   @override
   void initState() {
@@ -42,14 +46,18 @@ class _LoungePageState extends State<LoungePage> {
       return;
     }
     try {
-      final items = await gateway.fetchFoyer();
+      final results = await Future.wait([
+        gateway.fetchFoyer(),
+        gateway.fetchSongs(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _items = items;
+        _items = results[0] as List<OurHomeFoyerItem>;
+        _songs = results[1] as List<OurHomeSong>;
         _loading = false;
       });
     } catch (e) {
-      debugPrint('[Lounge] fetchFoyer failed: $e');
+      debugPrint('[Lounge] load failed: $e');
       if (mounted) {
         setState(() {
           _loading = false;
@@ -174,7 +182,7 @@ class _LoungePageState extends State<LoungePage> {
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         actions: [
-          if (_gateway != null)
+          if (_gateway != null && _tab == 0)
             IosIconButton(
               icon: Lucide.Plus,
               size: 22,
@@ -184,7 +192,60 @@ class _LoungePageState extends State<LoungePage> {
           const SizedBox(width: 6),
         ],
       ),
-      body: _buildBody(context, zh, cs),
+      body: Column(
+        children: [
+          _tabs(zh, cs),
+          Expanded(child: _buildBody(context, zh, cs)),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabs(bool zh, ColorScheme cs) {
+    Widget t(int i, String label) {
+      final on = _tab == i;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (_tab != i) {
+              Haptics.soft();
+              setState(() => _tab = i);
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: on ? cs.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: AppFontWeights.semibold,
+                  color: on
+                      ? cs.onSurface
+                      : cs.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [t(0, zh ? '影视' : 'Screen'), t(1, zh ? '歌单' : 'Songs')],
+      ),
     );
   }
 
@@ -207,10 +268,14 @@ class _LoungePageState extends State<LoungePage> {
         onTap: _load,
       );
     }
+    return _tab == 0 ? _screenView(zh, cs) : _songsView(zh, cs);
+  }
+
+  Widget _screenView(bool zh, ColorScheme cs) {
     if (_items.isEmpty) {
       return RoomStateHint(
         icon: Lucide.Clapperboard,
-        text: zh ? '影单、歌单、游戏——\n想看想玩的，加在这儿。' : 'Nothing on the list yet.',
+        text: zh ? '想看想玩的，加在这儿。' : 'Nothing on the list yet.',
       );
     }
     final want = _items.where((x) => !x.done).toList();
@@ -229,6 +294,23 @@ class _LoungePageState extends State<LoungePage> {
             for (final it in done) _row(it, cs),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _songsView(bool zh, ColorScheme cs) {
+    if (_songs.isEmpty) {
+      return RoomStateHint(
+        icon: Lucide.AudioWaveform,
+        text: zh ? '唱机上还没有歌。' : 'Nothing on the turntable yet.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        itemCount: _songs.length,
+        itemBuilder: (context, i) => _songRow(_songs[i], cs),
       ),
     );
   }
@@ -252,22 +334,25 @@ class _LoungePageState extends State<LoungePage> {
       child: IosCardPress(
         borderRadius: BorderRadius.circular(14),
         baseColor: cs.onSurface.withValues(alpha: 0.04),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.all(10),
         onTap: () => _toggle(it),
         onLongPress: () => _delete(it),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: IosCheckbox(
-                value: it.done,
-                onChanged: (_) => _toggle(it),
-                size: 21,
-              ),
+            _Artwork(
+              term: it.title,
+              media: _mediaFor(it.kind),
+              fallbackIcon: _kindIcon(it.kind),
+              width: 42,
+              height: 56,
+              radius: 8,
             ),
             const SizedBox(width: 12),
-            Icon(_kindIcon(it.kind), size: 18, color: cs.primary),
+            IosCheckbox(
+              value: it.done,
+              onChanged: (_) => _toggle(it),
+              size: 21,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -307,6 +392,81 @@ class _LoungePageState extends State<LoungePage> {
     );
   }
 
+  Widget _songRow(OurHomeSong s, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          _Artwork(
+            term: '${s.title} ${s.artist}',
+            media: 'music',
+            fallbackIcon: Lucide.AudioWaveform,
+            width: 50,
+            height: 50,
+            radius: 25, // circular vinyl
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        s.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: AppFontWeights.medium,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    if (s.zh.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Text(
+                          s.zh,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: cs.onSurface.withValues(alpha: 0.45),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  s.note.isNotEmpty ? '${s.artist} · "${s.note}"' : s.artist,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _mediaFor(String kind) {
+    switch (kind) {
+      case 'show':
+        return 'tvShow';
+      case 'game':
+        return 'all';
+      default:
+        return 'movie';
+    }
+  }
+
   static IconData _kindIcon(String kind) {
     switch (kind) {
       case 'game':
@@ -316,6 +476,65 @@ class _LoungePageState extends State<LoungePage> {
       default:
         return Lucide.Clapperboard;
     }
+  }
+}
+
+/// Artwork thumbnail resolved from iTunes (cached). Shows a tinted fallback
+/// with [fallbackIcon] while loading or when no artwork exists.
+class _Artwork extends StatelessWidget {
+  const _Artwork({
+    required this.term,
+    required this.media,
+    required this.fallbackIcon,
+    required this.width,
+    required this.height,
+    required this.radius,
+  });
+
+  final String term;
+  final String media;
+  final IconData fallbackIcon;
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    Widget placeholder() => Container(
+      width: width,
+      height: height,
+      decoration: BoxDecoration(
+        color: cs.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Icon(
+        fallbackIcon,
+        size: 18,
+        color: cs.primary.withValues(alpha: 0.7),
+      ),
+    );
+
+    return FutureBuilder<String?>(
+      future: ItunesArtwork.lookup(term, media: media),
+      builder: (context, snap) {
+        final url = snap.data;
+        if (url == null || url.isEmpty) return placeholder();
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(radius),
+          child: Image.network(
+            url,
+            width: width,
+            height: height,
+            fit: BoxFit.cover,
+            gaplessPlayback: true,
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : placeholder(),
+            errorBuilder: (context, _, __) => placeholder(),
+          ),
+        );
+      },
+    );
   }
 }
 

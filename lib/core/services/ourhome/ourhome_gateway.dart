@@ -333,6 +333,27 @@ class OurHomeProfiles {
   final String daddy;
 }
 
+/// A song on the turntable. Album art is resolved separately via iTunes.
+class OurHomeSong {
+  const OurHomeSong({
+    required this.title,
+    required this.artist,
+    required this.note,
+    required this.zh,
+  });
+  final String title;
+  final String artist;
+  final String note;
+  final String zh;
+
+  factory OurHomeSong.fromJson(Map<String, dynamic> j) => OurHomeSong(
+    title: (j['t'] ?? '').toString(),
+    artist: (j['a'] ?? '').toString(),
+    note: (j['note'] ?? '').toString(),
+    zh: (j['zh'] ?? '').toString(),
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -597,6 +618,10 @@ class OurHomeGateway {
 
   Future<List<OurHomePlaylog>> fetchPlaylog() =>
       _getList('/api/home/playlog', OurHomePlaylog.fromJson);
+
+  /// The song wall. Newest first.
+  Future<List<OurHomeSong>> fetchSongs() =>
+      _getList('/api/home/songs', OurHomeSong.fromJson);
 
   // ---- Letters in time (capsules) ----
   Future<List<OurHomeCapsule>> fetchCapsules() =>
