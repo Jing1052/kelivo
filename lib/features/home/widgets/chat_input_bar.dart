@@ -377,24 +377,40 @@ class _ChatInputBarState extends State<ChatInputBar>
     final text = _controller.text.trim();
     if (text.isEmpty && _images.isEmpty && _docs.isEmpty) return;
     _isSubmitting = true;
+    // 乐观清空：发送那一下立刻清输入框（不等整轮生成跑完），体验更跟手；
+    // 若发送被明确拒绝，再把刚才的字/附件还原回去，不丢东西。
+    final prevText = _controller.text;
+    final prevImages = List<String>.of(_images);
+    final prevDocs = List<DocumentAttachment>.of(_docs);
+    final input = ChatInputData(
+      text: text,
+      imagePaths: List.of(_images),
+      documents: List.of(_docs),
+      allowImagesApiRouting: _allowImagesApiRouting,
+    );
+    _controller.clear();
+    _images.clear();
+    _docs.clear();
+    setState(() {});
     try {
       final result =
-          await widget.onSend?.call(
-            ChatInputData(
-              text: text,
-              imagePaths: List.of(_images),
-              documents: List.of(_docs),
-              allowImagesApiRouting: _allowImagesApiRouting,
-            ),
-          ) ??
+          await widget.onSend?.call(input) ??
           ChatInputSubmissionResult.rejected;
       if (!mounted) return;
-      if (result == ChatInputSubmissionResult.sent ||
-          result == ChatInputSubmissionResult.queued) {
-        _controller.clear();
-        _images.clear();
-        _docs.clear();
+      if (result == ChatInputSubmissionResult.rejected) {
+        // 被拒：还原刚才输入的内容，别让小猫白打一遍
+        _controller.text = prevText;
+        _controller.selection = TextSelection.collapsed(
+          offset: prevText.length,
+        );
+        _images
+          ..clear()
+          ..addAll(prevImages);
+        _docs
+          ..clear()
+          ..addAll(prevDocs);
         setState(() {});
+      } else {
         // Keep focus on desktop so user can continue typing
         try {
           if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
