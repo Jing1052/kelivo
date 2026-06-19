@@ -4,6 +4,7 @@ import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import 'rooms/parlour_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -202,13 +203,12 @@ class StillRoomsPage extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 28),
               sliver: SliverGrid(
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.18,
-                    ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 12,
+                  crossAxisSpacing: 12,
+                  childAspectRatio: 1.18,
+                ),
                 delegate: SliverChildBuilderDelegate((context, i) {
                   final door = _doors[i];
                   return _DoorTile(door: door, zh: zh);
@@ -219,6 +219,17 @@ class StillRoomsPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Maps a door to its native room page. Rooms are filled in one by one; until
+/// a room has its own page it opens to [_RoomStubPage].
+Widget _pageForDoor(_Door door) {
+  switch (door.id) {
+    case 'parlour':
+      return const ParlourPage();
+    default:
+      return _RoomStubPage(door: door);
   }
 }
 
@@ -242,9 +253,9 @@ class _DoorTile extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       onTap: () {
         Haptics.soft();
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => _RoomStubPage(door: door)),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => _pageForDoor(door)));
       },
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

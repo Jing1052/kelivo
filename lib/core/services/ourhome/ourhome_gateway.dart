@@ -30,6 +30,37 @@ class OurHomeLetter {
   );
 }
 
+/// A note on the parlour message board: Cing's [text], Llaude's [reply]
+/// (empty until he answers), his [react] emoji, and whether he's [read] it.
+class OurHomeBoardNote {
+  const OurHomeBoardNote({
+    required this.id,
+    required this.time,
+    required this.text,
+    required this.reply,
+    required this.react,
+    required this.read,
+  });
+
+  final String id;
+  final String time;
+  final String text;
+  final String reply;
+  final String react;
+  final bool read;
+
+  bool get answered => reply.trim().isNotEmpty;
+
+  factory OurHomeBoardNote.fromJson(Map<String, dynamic> j) => OurHomeBoardNote(
+    id: (j['id'] ?? '').toString(),
+    time: (j['time'] ?? '').toString(),
+    text: (j['text'] ?? '').toString(),
+    reply: (j['reply'] ?? '').toString(),
+    react: (j['react'] ?? '').toString(),
+    read: j['read'] == true,
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -77,6 +108,42 @@ class OurHomeGateway {
         .map(OurHomeLetter.fromJson)
         .where((l) => l.text.isNotEmpty)
         .toList();
+  }
+
+  /// Newest-first parlour board notes. Throws on transport/HTTP error.
+  Future<List<OurHomeBoardNote>> fetchBoard() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/board'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'board HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/board'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! List) return const <OurHomeBoardNote>[];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(OurHomeBoardNote.fromJson)
+        .toList();
+  }
+
+  /// Cing leaves a new note on the board. Throws on transport/HTTP error.
+  Future<void> postBoardNote(String text) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/board'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'text': text}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'board POST HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/board'),
+      );
+    }
   }
 
   /// Stamp a first-read receipt on a letter. Best-effort; logs on failure.
