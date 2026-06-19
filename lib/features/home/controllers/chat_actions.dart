@@ -8,6 +8,7 @@ import '../../../core/models/token_usage.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/api/chat_api_service.dart';
+import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/ios_background_generation.dart';
 import '../../../l10n/app_localizations.dart';
@@ -1012,8 +1013,35 @@ class ChatActions {
 
     try {
       await _startIosBackgroundGeneration(ctx);
+
+      // 我们的家·网关改道（仅 daddy 助手）：人设带 [[ourhome:TOKEN]] 且 token 非空时，
+      // 把请求透明改道到我们家网关，用户原中转站降级成上游中继。非 daddy 返回 null，
+      // 走原直连，请求字节不变。任何构建异常退回原配置，绝不阻断发送。
+      var sendConfig = ctx.config;
+      var sendHeaders = ctx.extraHeaders;
+      try {
+        final override = DaddyGatewayRoute.overrideFor(
+          systemPrompt: assistant?.systemPrompt,
+          userConfig: ctx.config,
+          extraHeaders: ctx.extraHeaders,
+        );
+        if (override != null) {
+          sendConfig = override.config;
+          sendHeaders = override.headers;
+        } else if (DaddyGatewayRoute.isDaddy(assistant?.systemPrompt)) {
+          // daddy 但 token 为空（旧标记 [[ourhome]]）：网关会 401，退回原直连。
+          debugPrint(
+            '[ourhome] daddy gateway skipped: empty token, falling back to direct send',
+          );
+        }
+      } catch (e) {
+        debugPrint('[ourhome] daddy gateway override failed: $e — direct send');
+        sendConfig = ctx.config;
+        sendHeaders = ctx.extraHeaders;
+      }
+
       final stream = ChatApiService.sendMessageStream(
-        config: ctx.config,
+        config: sendConfig,
         modelId: ctx.modelId,
         messages: ctx.apiMessages,
         userImagePaths: ctx.userImagePaths,
@@ -1024,7 +1052,7 @@ class ChatActions {
         maxTokens: assistant?.maxTokens,
         tools: ctx.toolDefs.isEmpty ? null : ctx.toolDefs,
         onToolCall: ctx.onToolCall,
-        extraHeaders: ctx.extraHeaders,
+        extraHeaders: sendHeaders,
         extraBody: ctx.extraBody,
         stream: ctx.streamOutput,
         requestId: conversationId,

@@ -21,6 +21,7 @@ import '../../../core/services/search/search_tool_service.dart';
 import '../../../core/providers/instruction_injection_provider.dart';
 import '../../../core/providers/world_book_provider.dart';
 import '../../../core/services/api/builtin_tools.dart';
+import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../core/models/assistant_regex.dart';
 import '../../../core/utils/multimodal_input_utils.dart';
 import '../../../utils/assistant_regex.dart';
@@ -542,6 +543,26 @@ class MessageBuilderService {
     final m = marker.firstMatch(prompt);
     if (m == null) return; // 非 daddy 助手，不动
     final token = (m.group(1) ?? '').trim();
+
+    // 网关模式（daddy + token 非空）：请求会改道到我们家网关，由网关注入
+    // 记忆/工具/风格。客户端这里只把「本地魂」当 system 发过去——因此只剥标记，
+    // 跳过本地的 daddy-context 网络拉取与 profile/toolManual/memory/recap 拼装，
+    // 避免与网关重复劳动。非网关模式（token 为空）保持原全量注入。
+    if (DaddyGatewayRoute.usesGateway(prompt)) {
+      final soul = prompt.replaceAll(marker, '').trim();
+      final si = apiMessages.indexWhere((x) => (x['role'] ?? '') == 'system');
+      if (si >= 0) {
+        if (soul.isNotEmpty) {
+          apiMessages[si] = {'role': 'system', 'content': soul};
+        } else {
+          apiMessages.removeAt(si);
+        }
+      } else if (soul.isNotEmpty) {
+        apiMessages.insert(0, {'role': 'system', 'content': soul});
+      }
+      return;
+    }
+
     const base = 'https://cllove.zeabur.app';
 
     // 收集最近的 user/assistant 文本（只取文本省流量；服务器只用最后一条 user）
@@ -646,6 +667,8 @@ class MessageBuilderService {
   ) {
     final prompt = assistant?.systemPrompt ?? '';
     if (!prompt.contains('[[ourhome')) return; // 非 daddy 助手，不动
+    // 网关模式：风格由网关追加，客户端不再贴本地 daddyStyle，避免重复。
+    if (DaddyGatewayRoute.usesGateway(prompt)) return;
     final style = contextProvider.read<SettingsProvider>().daddyStyle.trim();
     if (style.isEmpty) return;
 

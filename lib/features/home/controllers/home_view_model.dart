@@ -1404,6 +1404,8 @@ class HomeViewModel extends ChangeNotifier {
       final m = marker.firstMatch(prompt);
       if (m == null) return; // 非 daddy
       final token = (m.group(1) ?? '').trim();
+      // 网关模式（token 非空）：溢出→记忆归档由网关负责，客户端不再本地蒸馏。
+      if (token.isNotEmpty) return;
 
       final settings = _contextProvider.read<SettingsProvider>();
       // 完整有序消息列表（含 assistant），按绝对下标计窗口
