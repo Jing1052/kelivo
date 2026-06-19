@@ -63,6 +63,16 @@ class _StudyPageState extends State<StudyPage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    // Instant: seed from on-device cache, then refresh from the server.
+    final ct = gateway.peekList('/api/home/todo', OurHomeTodo.fromJson);
+    final cbk = gateway.peekList('/api/home/books', OurHomeBook.fromJson);
+    if ((ct.isNotEmpty || cbk.isNotEmpty) && mounted) {
+      setState(() {
+        _todos = ct;
+        _books = cbk;
+        _loading = false;
+      });
+    }
     try {
       final results = await Future.wait([
         gateway.fetchTodos(),

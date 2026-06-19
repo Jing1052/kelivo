@@ -44,6 +44,13 @@ class _LockedRoomPageState extends State<LockedRoomPage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    final clog = gateway.peekList('/api/home/playlog', OurHomePlaylog.fromJson);
+    if (clog.isNotEmpty && mounted) {
+      setState(() {
+        _log = clog;
+        _loading = false;
+      });
+    }
     try {
       final results = await Future.wait([
         gateway.fetchProfiles(),

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'l10n/app_localizations.dart';
 import 'features/home/pages/home_page.dart';
 import 'features/home/pages/still_here_shell.dart';
+import 'core/services/ourhome/ourhome_cache.dart';
 import 'desktop/desktop_home_page.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -80,6 +81,9 @@ Future<void> main() async {
       // logging.Logger.root.onRecord.listen((rec) { ... });
       // Cache current Documents directory to fix sandboxed absolute paths on iOS
       await SandboxPathResolver.init();
+      // Warm our home's local cache so rooms can show last-seen content
+      // instantly (no buffering) and keep a copy on-device.
+      await OurHomeCache.init();
       // Enable edge-to-edge to allow content under system bars (Android)
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       // Start app (Flutter log capture is toggleable and off by default)

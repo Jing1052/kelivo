@@ -45,6 +45,15 @@ class _LoungePageState extends State<LoungePage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    final ci = gateway.peekList('/api/home/foyer', OurHomeFoyerItem.fromJson);
+    final cs2 = gateway.peekList('/api/home/songs', OurHomeSong.fromJson);
+    if ((ci.isNotEmpty || cs2.isNotEmpty) && mounted) {
+      setState(() {
+        _items = ci;
+        _songs = cs2;
+        _loading = false;
+      });
+    }
     try {
       final results = await Future.wait([
         gateway.fetchFoyer(),

@@ -40,6 +40,16 @@ class _BedroomPageState extends State<BedroomPage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    final cached = gateway.peekList(
+      '/api/home/tonight?all=1',
+      OurHomeNight.fromJson,
+    );
+    if (cached.isNotEmpty && mounted) {
+      setState(() {
+        _notes = cached;
+        _loading = false;
+      });
+    }
     try {
       final notes = await gateway.fetchTonight();
       if (!mounted) return;

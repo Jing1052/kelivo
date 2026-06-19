@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../providers/assistant_provider.dart';
+import 'ourhome_cache.dart';
 
 /// A letter Llaude left for Cing (server channel "letter").
 class OurHomeLetter {
@@ -448,8 +449,10 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/daddysay'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! List) return const <OurHomeLetter>[];
+    OurHomeCache.put('/api/home/daddysay', body);
     return data
         .whereType<Map<String, dynamic>>()
         .map(OurHomeLetter.fromJson)
@@ -468,8 +471,10 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/board'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! List) return const <OurHomeBoardNote>[];
+    OurHomeCache.put('/api/home/board', body);
     return data
         .whereType<Map<String, dynamic>>()
         .map(OurHomeBoardNote.fromJson)
@@ -487,8 +492,10 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/diary'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! List) return const <OurHomeDiaryEntry>[];
+    OurHomeCache.put('/api/home/diary', body);
     return data
         .whereType<Map<String, dynamic>>()
         .map(OurHomeDiaryEntry.fromJson)
@@ -507,8 +514,10 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/todo'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! List) return const <OurHomeTodo>[];
+    OurHomeCache.put('/api/home/todo', body);
     return data
         .whereType<Map<String, dynamic>>()
         .map(OurHomeTodo.fromJson)
@@ -566,9 +575,26 @@ class OurHomeGateway {
     if (res.statusCode != 200) {
       throw http.ClientException('GET $path -> ${res.statusCode}');
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! List) return <T>[];
+    OurHomeCache.put(path, body);
     return data.whereType<Map<String, dynamic>>().map(parse).toList();
+  }
+
+  /// Synchronously parse a cached top-level-array response for [path] (the same
+  /// key used by [_getList] / the array GETs). Returns [] if nothing cached.
+  /// Lets a room show its last-seen content instantly, before the network.
+  List<T> peekList<T>(String path, T Function(Map<String, dynamic>) parse) {
+    final body = OurHomeCache.peek(path);
+    if (body == null || body.isEmpty) return <T>[];
+    try {
+      final data = jsonDecode(body);
+      if (data is! List) return <T>[];
+      return data.whereType<Map<String, dynamic>>().map(parse).toList();
+    } catch (_) {
+      return <T>[];
+    }
   }
 
   /// Garden memories (non-feel). Newest first.

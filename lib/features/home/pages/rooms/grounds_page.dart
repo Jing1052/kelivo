@@ -43,6 +43,15 @@ class _GroundsPageState extends State<GroundsPage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    final cm = gateway.peekList('/api/home/memories', OurHomeMemory.fromJson);
+    final cf = gateway.peekList('/api/home/greenhouse', OurHomeFeel.fromJson);
+    if ((cm.isNotEmpty || cf.isNotEmpty) && mounted) {
+      setState(() {
+        _memories = cm;
+        _feels = cf;
+        _loading = false;
+      });
+    }
     try {
       final results = await Future.wait([
         gateway.fetchMemories(),

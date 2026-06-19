@@ -40,6 +40,16 @@ class _DiaryPageState extends State<DiaryPage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    final cached = gateway.peekList(
+      '/api/home/diary',
+      OurHomeDiaryEntry.fromJson,
+    );
+    if (cached.isNotEmpty && mounted) {
+      setState(() {
+        _entries = cached;
+        _loading = false;
+      });
+    }
     try {
       final entries = await gateway.fetchDiary();
       if (!mounted) return;

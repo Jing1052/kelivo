@@ -55,6 +55,16 @@ class _ParlourPageState extends State<ParlourPage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    // Instant: seed from on-device cache, then refresh from the server.
+    final cb = gateway.peekList('/api/home/board', OurHomeBoardNote.fromJson);
+    final cl = gateway.peekList('/api/home/daddysay', OurHomeLetter.fromJson);
+    if ((cb.isNotEmpty || cl.isNotEmpty) && mounted) {
+      setState(() {
+        _notes = cb;
+        _letters = cl;
+        _loading = false;
+      });
+    }
     try {
       final results = await Future.wait([
         gateway.fetchBoard(),

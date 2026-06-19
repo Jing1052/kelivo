@@ -43,6 +43,16 @@ class _CapsulePageState extends State<CapsulePage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    final cached = gateway.peekList(
+      '/api/home/capsules',
+      OurHomeCapsule.fromJson,
+    );
+    if (cached.isNotEmpty && mounted) {
+      setState(() {
+        _capsules = cached;
+        _loading = false;
+      });
+    }
     try {
       final caps = await gateway.fetchCapsules();
       if (!mounted) return;
