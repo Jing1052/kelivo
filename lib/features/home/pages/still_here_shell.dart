@@ -7,6 +7,7 @@ import '../../../theme/app_font_weights.dart';
 import '../../settings/pages/settings_page.dart';
 import 'conversation_list_page.dart';
 import 'still_home_page.dart';
+import 'still_rooms_page.dart';
 
 /// Still Here app shell: bottom-nav with 4 tabs (Home / Rooms / Chat / Settings).
 ///
@@ -49,7 +50,7 @@ class _StillHereShellState extends State<StillHereShell> {
               index: _index,
               children: const [
                 StillHomePage(),
-                _ComingSoonTab(icon: Lucide.LayoutGrid),
+                StillRoomsPage(),
                 ConversationListPage(),
                 _ComingSoonTab(icon: Lucide.History),
                 SettingsPage(),

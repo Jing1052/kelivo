@@ -188,4 +188,10 @@ class Lucide {
   static const IconData Coins = lucide.LucideIcons.coins;
   static const IconData House = lucide.LucideIcons.house;
   static const IconData LayoutGrid = lucide.LucideIcons.layoutGrid;
+  static const IconData Mail = lucide.LucideIcons.mail;
+  static const IconData Lock = lucide.LucideIcons.lock;
+  static const IconData Sprout = lucide.LucideIcons.sprout;
+  static const IconData Clapperboard = lucide.LucideIcons.clapperboard;
+  static const IconData Bed = lucide.LucideIcons.bed;
+  static const IconData Archive = lucide.LucideIcons.archive;
 }
