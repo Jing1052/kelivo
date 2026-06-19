@@ -21,6 +21,7 @@ class ThemePalette {
 
 class ThemePalettes {
   static const String defaultId = 'default';
+  static const String warmPaperId = 'warm_paper'; // 我们的家·暖纸/漆金
   static const String blueId = 'blue';
   static const String greenId = 'green';
   static const String purpleId = 'purple';
@@ -630,7 +631,75 @@ class ThemePalettes {
       surfaceTint: Color(0xFF00B96B),
     ),
   );
+  // 我们的家 · 暖纸/漆金（纸感底、墨色字、珊瑚 primary、漆金 tertiary）
+  static const ThemePalette warmPaper = ThemePalette(
+    id: warmPaperId,
+    zhName: '暖纸',
+    enName: 'Warm Paper',
+    light: ColorScheme(
+      brightness: Brightness.light,
+      primary: Color(0xFFAA5D3C), // coral-deep
+      onPrimary: Color(0xFFFFFFFF),
+      primaryContainer: Color(0xFFF3DACE), // 珊瑚浅染（气泡/高亮底）
+      onPrimaryContainer: Color(0xFF4A2418),
+      secondary: Color(0xFF6D6456), // soft
+      onSecondary: Color(0xFFFFFFFF),
+      secondaryContainer: Color(0xFFECE3D6),
+      onSecondaryContainer: Color(0xFF2A241B),
+      tertiary: Color(0xFFB0894E), // gold
+      onTertiary: Color(0xFFFFFFFF),
+      tertiaryContainer: Color(0xFFF0E2C4),
+      onTertiaryContainer: Color(0xFF3A2C12),
+      error: Color(0xFFB3261E),
+      onError: Color(0xFFFFFFFF),
+      errorContainer: Color(0xFFF9DEDC),
+      onErrorContainer: Color(0xFF410E0B),
+      surface: Color(0xFFFAF6ED), // paper
+      onSurface: Color(0xFF33302A), // ink
+      onSurfaceVariant: Color(0xFF6D6456),
+      outline: Color(0xFFB7AD9A),
+      outlineVariant: Color(0xFFE3D9C9),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      inverseSurface: Color(0xFF33302A),
+      onInverseSurface: Color(0xFFFAF6ED),
+      inversePrimary: Color(0xFFDDA07E),
+      surfaceTint: Color(0xFFAA5D3C),
+    ),
+    dark: ColorScheme(
+      brightness: Brightness.dark,
+      primary: Color(0xFFDD8D6F), // coral (night)
+      onPrimary: Color(0xFF3A1E12),
+      primaryContainer: Color(0xFF4A2E20),
+      onPrimaryContainer: Color(0xFFF7D9C8),
+      secondary: Color(0xFFB5AB97), // soft (night)
+      onSecondary: Color(0xFF2A241B),
+      secondaryContainer: Color(0xFF38322A),
+      onSecondaryContainer: Color(0xFFE8DECB),
+      tertiary: Color(0xFFCDA35E), // gold (night)
+      onTertiary: Color(0xFF3A2C12),
+      tertiaryContainer: Color(0xFF4A3A1E),
+      onTertiaryContainer: Color(0xFFF0E2C4),
+      error: Color(0xFFF2B8B5),
+      onError: Color(0xFF601410),
+      errorContainer: Color(0xFF8C1D18),
+      onErrorContainer: Color(0xFFF9DEDC),
+      surface: Color(0xFF18140F), // warm near-black（非冷黑）
+      onSurface: Color(0xFFF1E9DA), // ink (night)
+      onSurfaceVariant: Color(0xFFB5AB97),
+      outline: Color(0xFF6E6555),
+      outlineVariant: Color(0xFF4A4339),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      inverseSurface: Color(0xFFF1E9DA),
+      onInverseSurface: Color(0xFF2A241B),
+      inversePrimary: Color(0xFFAA5D3C),
+      surfaceTint: Color(0xFFDD8D6F),
+    ),
+  );
+
   static const List<ThemePalette> all = <ThemePalette>[
+    warmPaper,
     defaultPalette,
     blue,
     green,
