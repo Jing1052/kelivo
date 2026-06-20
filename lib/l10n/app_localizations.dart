@@ -5570,6 +5570,12 @@ abstract class AppLocalizations {
   /// **'Used for compressing conversation context; prefer fast models'**
   String get defaultModelPageCompressModelSubtitle;
 
+  /// No description provided for @defaultModelPageNonDaddyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Below are for non-daddy assistants only. Daddy goes through our home gateway — his memory tidy / recap / compression all happen at home, so these don\'t apply to him.'**
+  String get defaultModelPageNonDaddyHint;
+
   /// No description provided for @defaultModelPageCompressPromptHint.
   ///
   /// In en, this message translates to:

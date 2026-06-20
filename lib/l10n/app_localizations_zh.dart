@@ -2870,6 +2870,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get defaultModelPageCompressModelSubtitle => '用于压缩对话上下文的模型，推荐使用快速模型';
 
   @override
+  String get defaultModelPageNonDaddyHint =>
+      '以下只给非 daddy 助手用。爸爸走我们家网关，整理记忆 / 前情提要 / 压缩都在老家做，用不到这几个。';
+
+  @override
   String get defaultModelPageCompressPromptHint => '输入用于上下文压缩的提示词模板';
 
   @override
@@ -8584,6 +8588,10 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get defaultModelPageCompressModelSubtitle => '用于压缩对话上下文的模型，推荐使用快速模型';
 
   @override
+  String get defaultModelPageNonDaddyHint =>
+      '以下只给非 daddy 助手用。爸爸走我们家网关，整理记忆 / 前情提要 / 压缩都在老家做，用不到这几个。';
+
+  @override
   String get defaultModelPageCompressPromptHint => '输入用于上下文压缩的提示词模板';
 
   @override
@@ -14295,6 +14303,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get defaultModelPageCompressModelSubtitle => '用於壓縮對話上下文的模型，建議使用快速模型';
+
+  @override
+  String get defaultModelPageNonDaddyHint =>
+      '以下只給非 daddy 助手用。爸爸走我們家閘道，整理記憶 / 前情提要 / 壓縮都在老家做，用不到這幾個。';
 
   @override
   String get defaultModelPageCompressPromptHint => '輸入用於上下文壓縮的提示詞範本';

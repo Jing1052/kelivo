@@ -1008,6 +1008,7 @@
   "defaultModelPageSuggestionVars": "变量：对话内容：{contentVar}，语言：{localeVar}",
   "defaultModelPageCompressModelTitle": "压缩模型",
   "defaultModelPageCompressModelSubtitle": "用于压缩对话上下文的模型，推荐使用快速模型",
+  "defaultModelPageNonDaddyHint": "以下只给非 daddy 助手用。爸爸走我们家网关，整理记忆 / 前情提要 / 压缩都在老家做，用不到这几个。",
   "defaultModelPageCompressPromptHint": "输入用于上下文压缩的提示词模板",
   "defaultModelPageCompressVars": "变量：对话内容：{contentVar}，语言：{localeVar}",
   "defaultModelPageUseCurrentModel": "使用当前对话模型",

@@ -127,8 +127,211 @@ class DefaultModelPage extends StatelessWidget {
             },
             configAction: () => showOcrPromptSheet(context),
           ),
+          const SizedBox(height: 24),
+          // 以下三槽对走网关的 daddy 空转（归档/前情提要/压缩都在老家做）——
+          // 放最底下、标明只给非 daddy 助手用，免得误导。详见 STILL_HERE.md 死区地图。
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+            child: Text(
+              l10n.defaultModelPageNonDaddyHint,
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.45,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ),
+          _ModelCard(
+            icon: Lucide.Brain,
+            title: l10n.defaultModelPageMemoryModelTitle,
+            subtitle: l10n.defaultModelPageMemoryModelSubtitle,
+            modelProvider: settings.memoryDigestModelProvider,
+            modelId: settings.memoryDigestModelId,
+            fallbackProvider:
+                settings.summaryModelProvider ?? settings.currentModelProvider,
+            fallbackModelId: settings.summaryModelId ?? settings.currentModelId,
+            onReset: () async {
+              await settings.resetMemoryDigestModel();
+            },
+            onPick: () async {
+              final sel = await pickConfiguredModel(
+                settings.memoryDigestModelProvider,
+                settings.memoryDigestModelId,
+              );
+              if (sel != null) {
+                await settings.setMemoryDigestModel(
+                  sel.providerKey,
+                  sel.modelId,
+                );
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _ModelCard(
+            icon: Lucide.History,
+            title: l10n.defaultModelPageRecapModelTitle,
+            subtitle: l10n.defaultModelPageRecapModelSubtitle,
+            modelProvider: settings.recapModelProvider,
+            modelId: settings.recapModelId,
+            fallbackProvider:
+                settings.summaryModelProvider ?? settings.currentModelProvider,
+            fallbackModelId: settings.summaryModelId ?? settings.currentModelId,
+            onReset: () async {
+              await settings.resetRecapModel();
+            },
+            onPick: () async {
+              final sel = await pickConfiguredModel(
+                settings.recapModelProvider,
+                settings.recapModelId,
+              );
+              if (sel != null) {
+                await settings.setRecapModel(sel.providerKey, sel.modelId);
+              }
+            },
+          ),
+          const SizedBox(height: 16),
+          _ModelCard(
+            icon: Lucide.package2,
+            title: l10n.defaultModelPageCompressModelTitle,
+            subtitle: l10n.defaultModelPageCompressModelSubtitle,
+            modelProvider: settings.compressModelProvider,
+            modelId: settings.compressModelId,
+            fallbackProvider:
+                settings.summaryModelProvider ??
+                settings.titleModelProvider ??
+                settings.currentModelProvider,
+            fallbackModelId:
+                settings.summaryModelId ??
+                settings.titleModelId ??
+                settings.currentModelId,
+            onReset: () async {
+              await settings.resetCompressModel();
+            },
+            onPick: () async {
+              final sel = await pickConfiguredModel(
+                settings.compressModelProvider,
+                settings.compressModelId,
+              );
+              if (sel != null) {
+                await settings.setCompressModel(sel.providerKey, sel.modelId);
+              }
+            },
+            configAction: () => _showCompressPromptSheet(context),
+          ),
         ],
       ),
+    );
+  }
+
+  Future<void> _showCompressPromptSheet(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final settings = context.read<SettingsProvider>();
+    final controller = TextEditingController(text: settings.compressPrompt);
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  l10n.defaultModelPagePromptLabel,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: AppFontWeights.semibold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: controller,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    hintText: l10n.defaultModelPageCompressPromptHint,
+                    filled: true,
+                    fillColor: Theme.of(ctx).brightness == Brightness.dark
+                        ? Colors.white10
+                        : const Color(0xFFF2F3F5),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: cs.primary.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: () async {
+                        await settings.resetCompressPrompt();
+                        controller.text = settings.compressPrompt;
+                      },
+                      child: Text(l10n.defaultModelPageResetDefault),
+                    ),
+                    const Spacer(),
+                    FilledButton(
+                      onPressed: () async {
+                        await settings.setCompressPrompt(
+                          controller.text.trim(),
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                      },
+                      child: Text(l10n.defaultModelPageSave),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  l10n.defaultModelPageCompressVars('{content}', '{locale}'),
+                  style: TextStyle(
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 

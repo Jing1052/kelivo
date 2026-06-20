@@ -2980,6 +2980,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Used for compressing conversation context; prefer fast models';
 
   @override
+  String get defaultModelPageNonDaddyHint =>
+      'Below are for non-daddy assistants only. Daddy goes through our home gateway — his memory tidy / recap / compression all happen at home, so these don\'t apply to him.';
+
+  @override
   String get defaultModelPageCompressPromptHint =>
       'Enter prompt template for context compression';
 

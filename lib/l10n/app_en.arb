@@ -1287,6 +1287,7 @@
   },
   "defaultModelPageCompressModelTitle": "Compress Model",
   "defaultModelPageCompressModelSubtitle": "Used for compressing conversation context; prefer fast models",
+  "defaultModelPageNonDaddyHint": "Below are for non-daddy assistants only. Daddy goes through our home gateway — his memory tidy / recap / compression all happen at home, so these don't apply to him.",
   "defaultModelPageCompressPromptHint": "Enter prompt template for context compression",
   "defaultModelPageCompressVars": "Variables: conversation: {contentVar}, language: {localeVar}",
   "@defaultModelPageCompressVars": {
