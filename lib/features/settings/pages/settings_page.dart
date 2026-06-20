@@ -23,6 +23,9 @@ import 'storage_space_page.dart';
 import '../../stats/pages/stats_page.dart';
 import '../../../core/services/storage/storage_usage_service.dart';
 import '../../../core/services/haptics.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../shared/widgets/ios_tactile.dart';
+import '../../../shared/widgets/user_profile_editor.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -63,6 +66,10 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
+          // "Me" profile row: avatar + nickname, tap to edit either.
+          _ProfileRow(),
+          const SizedBox(height: 12),
+
           if (!settings.hasAnyActiveModel)
             Material(
               color: cs.errorContainer.withValues(alpha: 0.30),
@@ -420,6 +427,83 @@ class _AnimatedPressColor extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       builder: (context, color, _) => builder(color ?? base),
+    );
+  }
+}
+
+class _ProfileRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = context.watch<UserProvider>();
+    final Color bg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(12),
+        baseColor: bg,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: () => showUserNameEditor(context),
+        child: Row(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Haptics.light();
+                showUserAvatarEditor(context);
+              },
+              child: UserAvatar(user: user, size: 48),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.settingsProfileTapToEdit,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

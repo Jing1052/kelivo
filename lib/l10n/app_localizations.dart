@@ -148,6 +148,12 @@ abstract class AppLocalizations {
   /// **'New Chat'**
   String get stillHereNewChat;
 
+  /// No description provided for @settingsProfileTapToEdit.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to edit avatar and nickname'**
+  String get settingsProfileTapToEdit;
+
   /// No description provided for @settingsPageBackButton.
   ///
   /// In en, this message translates to:

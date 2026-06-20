@@ -33,6 +33,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get stillHereNewChat => '新对话';
 
   @override
+  String get settingsProfileTapToEdit => '点击修改头像和昵称';
+
+  @override
   String get settingsPageBackButton => '返回';
 
   @override
@@ -5775,6 +5778,9 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get stillHereNewChat => '新对话';
 
   @override
+  String get settingsProfileTapToEdit => '点击修改头像和昵称';
+
+  @override
   String get settingsPageBackButton => '返回';
 
   @override
@@ -11515,6 +11521,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get stillHereNewChat => '新對話';
+
+  @override
+  String get settingsProfileTapToEdit => '點擊修改頭像和暱稱';
 
   @override
   String get settingsPageBackButton => '返回';

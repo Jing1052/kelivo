@@ -11,6 +11,7 @@ import '../../../core/providers/assistant_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import '../../assistant/widgets/assistant_select_sheet.dart';
 import '../widgets/assistant_avatar.dart';
 import 'home_page.dart';
 
@@ -34,8 +35,20 @@ class ConversationListPage extends StatelessWidget {
     );
   }
 
-  void _startNewConversation(BuildContext context) {
+  Future<void> _startNewConversation(BuildContext context) async {
     Haptics.soft();
+    final assistantProvider = context.read<AssistantProvider>();
+    final assistants = assistantProvider.assistants;
+
+    // Pick which assistant to chat with first. With a single assistant there is
+    // nothing to choose, so open directly.
+    if (assistants.length > 1) {
+      final selectedId = await showAssistantMoveSelector(context);
+      if (selectedId == null || !context.mounted) return; // cancelled
+      await assistantProvider.setCurrentAssistant(selectedId);
+      if (!context.mounted) return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (ctx) => HomePage(
@@ -51,7 +64,18 @@ class ConversationListPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final chatService = context.watch<ChatService>();
-    final assistant = context.watch<AssistantProvider>().currentAssistant;
+    final assistantProvider = context.watch<AssistantProvider>();
+
+    // Resolve each conversation's own assistant. Falls back to the current
+    // assistant when the conversation has no assistantId or it no longer exists.
+    Assistant? assistantFor(Conversation c) {
+      final id = c.assistantId;
+      if (id != null) {
+        final a = assistantProvider.getById(id);
+        if (a != null) return a;
+      }
+      return assistantProvider.currentAssistant;
+    }
 
     final all = chatService.getAllConversations();
     final pinned = all.where((c) => c.isPinned).toList();
@@ -92,7 +116,7 @@ class ConversationListPage extends StatelessWidget {
                   for (final c in pinned)
                     _ConversationTile(
                       conversation: c,
-                      assistant: assistant,
+                      assistant: assistantFor(c),
                       pinned: true,
                       onTap: () => _openConversation(context, c.id),
                     ),
@@ -102,7 +126,7 @@ class ConversationListPage extends StatelessWidget {
                   for (final c in g.items)
                     _ConversationTile(
                       conversation: c,
-                      assistant: assistant,
+                      assistant: assistantFor(c),
                       pinned: false,
                       onTap: () => _openConversation(context, c.id),
                     ),
@@ -306,6 +330,7 @@ class _ConversationTile extends StatelessWidget {
         ? l10n.chatServiceDefaultConversationTitle
         : conversation.title.trim();
     final time = DateFormat('HH:mm').format(conversation.updatedAt);
+    final assistantName = (assistant?.name ?? '').trim();
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -347,6 +372,18 @@ class _ConversationTile extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (assistantName.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      assistantName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: cs.onSurface.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

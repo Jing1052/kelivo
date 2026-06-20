@@ -33,6 +33,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get stillHereNewChat => 'New Chat';
 
   @override
+  String get settingsProfileTapToEdit => 'Tap to edit avatar and nickname';
+
+  @override
   String get settingsPageBackButton => 'Back';
 
   @override
