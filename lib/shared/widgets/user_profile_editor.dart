@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../theme/app_font_weights.dart';
 import '../../utils/avatar_cache.dart';
 import '../../utils/sandbox_path_resolver.dart';
+import 'emoji_picker_dialog.dart';
 import 'emoji_text.dart';
 import 'ios_tactile.dart';
 import 'snackbar.dart';
@@ -237,85 +238,10 @@ Future<void> _pickLocalImage(BuildContext context) async {
 }
 
 Future<void> _pickEmoji(BuildContext context) async {
-  final l10n = AppLocalizations.of(context)!;
   final userProvider = context.read<UserProvider>();
-  final controller = TextEditingController();
-  final ok = await showDialog<bool>(
-    context: context,
-    builder: (ctx) {
-      final cs = Theme.of(ctx).colorScheme;
-      final isDark = Theme.of(ctx).brightness == Brightness.dark;
-      String value = '';
-      bool valid(String s) {
-        final g = s.characters.take(1).toString().trim();
-        return g.isNotEmpty && g == s.trim();
-      }
-
-      return StatefulBuilder(
-        builder: (ctx, setLocal) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            backgroundColor: cs.surface,
-            title: Text(l10n.sideDrawerChooseEmoji),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              maxLength: 2,
-              textAlign: TextAlign.center,
-              onChanged: (v) => setLocal(() => value = v),
-              onSubmitted: (_) {
-                if (valid(value)) Navigator.of(ctx).pop(true);
-              },
-              decoration: InputDecoration(
-                counterText: '',
-                filled: true,
-                fillColor: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.transparent),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Colors.transparent),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: cs.primary.withValues(alpha: 0.4),
-                  ),
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(false),
-                child: Text(l10n.sideDrawerCancel),
-              ),
-              TextButton(
-                onPressed: valid(value)
-                    ? () => Navigator.of(ctx).pop(true)
-                    : null,
-                child: Text(
-                  l10n.sideDrawerSave,
-                  style: TextStyle(
-                    color: valid(value)
-                        ? cs.primary
-                        : cs.onSurface.withValues(alpha: 0.38),
-                    fontWeight: AppFontWeights.semibold,
-                  ),
-                ),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-  if (!context.mounted || ok != true) return;
-  final emoji = controller.text.characters.take(1).toString().trim();
-  if (emoji.isNotEmpty) {
+  final emoji = await showEmojiPickerDialog(context);
+  if (!context.mounted) return;
+  if (emoji != null && emoji.isNotEmpty) {
     await userProvider.setAvatarEmoji(emoji);
   }
 }
