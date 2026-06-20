@@ -403,6 +403,33 @@ class OurHomeTheater {
   );
 }
 
+/// One of daddy's built-in tools as seen through our home gateway (not a
+/// kelivo MCP tool). [status] is live / offline / ondemand. [group] buckets
+/// tools for display.
+class DaddyTool {
+  const DaddyTool({
+    required this.name,
+    required this.label,
+    required this.group,
+    required this.status,
+    required this.detail,
+  });
+
+  final String name;
+  final String label;
+  final String group;
+  final String status;
+  final String detail;
+
+  factory DaddyTool.fromJson(Map<String, dynamic> j) => DaddyTool(
+    name: (j['name'] ?? '').toString(),
+    label: (j['label'] ?? '').toString(),
+    group: (j['group'] ?? '').toString(),
+    status: (j['status'] ?? '').toString(),
+    detail: (j['detail'] ?? '').toString(),
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -1004,6 +1031,31 @@ class OurHomeGateway {
           .toList();
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchTheaters failed: $e');
+      return null;
+    }
+  }
+
+  /// Daddy's built-in tools (`/api/home/daddy-tools`). Returns null on any
+  /// failure (logged) so the caller can tell a network failure apart from an
+  /// empty list.
+  Future<List<DaddyTool>?> fetchDaddyTools() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/daddy-tools'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchDaddyTools HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final list = (data is Map) ? data['tools'] : null;
+      if (list is! List) return const <DaddyTool>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(DaddyTool.fromJson)
+          .toList();
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchDaddyTools failed: $e');
       return null;
     }
   }

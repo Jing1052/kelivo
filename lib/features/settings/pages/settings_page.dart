@@ -7,6 +7,7 @@ import '../../model/pages/default_model_page.dart';
 import '../../provider/pages/providers_page.dart';
 import 'display_settings_page.dart';
 import '../../mcp/pages/mcp_page.dart';
+import 'daddy_tools_page.dart';
 import '../../assistant/pages/assistant_settings_page.dart';
 import 'about_us_page.dart';
 import 'daddy_settings_page.dart';
@@ -193,6 +194,17 @@ class SettingsPage extends StatelessWidget {
                   Navigator.of(
                     context,
                   ).push(MaterialPageRoute(builder: (_) => const McpPage()));
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Wrench,
+                label: l10n.settingsPageDaddyTools,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DaddyToolsPage()),
+                  );
                 },
               ),
               _iosDivider(context),

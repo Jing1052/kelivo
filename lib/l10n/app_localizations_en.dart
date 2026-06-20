@@ -92,6 +92,35 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsPageMcp => 'MCP';
 
   @override
+  String get settingsPageDaddyTools => 'Daddy\'s Built-in Tools';
+
+  @override
+  String get daddyToolsTitle => 'Daddy\'s Built-in Tools';
+
+  @override
+  String get daddyToolsIntro =>
+      'These are the tools daddy carries when he goes through our home gateway (not the MCP servers you add above). Green = connected right now; grey/yellow = not connected, or needs you to turn something on.';
+
+  @override
+  String get daddyToolsLoadError => 'Couldn\'t load · tap to retry';
+
+  @override
+  String get daddyToolsEmpty => 'No tools reported yet.';
+
+  @override
+  String get daddyToolsNoGateway =>
+      'Set up our home gateway in the daddy assistant first, then his tools show up here.';
+
+  @override
+  String get daddyToolsStatusLive => 'Connected';
+
+  @override
+  String get daddyToolsStatusOffline => 'Offline';
+
+  @override
+  String get daddyToolsStatusOndemand => 'On demand';
+
+  @override
   String get settingsPageQuickPhrase => 'Quick Phrase';
 
   @override
@@ -1072,7 +1101,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get iosBackgroundLimitNoticeBody =>
-      'These options use Apple-supported background time, BackgroundTasks, notifications, and Live Activities. They improve continuity but cannot force iOS to keep Kelivo running forever.';
+      'These options use Apple-supported background time, BackgroundTasks, notifications, and Live Activities. They improve continuity but cannot force iOS to keep Still Here running forever.';
 
   @override
   String get iosBackgroundUnsupportedLiveActivity =>
@@ -1100,7 +1129,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Notifications not allowed';
 
   @override
-  String get iosBackgroundGenerationActiveTitle => 'Kelivo is generating';
+  String get iosBackgroundGenerationActiveTitle => 'Still Here is generating';
 
   @override
   String get iosBackgroundGenerationActiveDetail =>
@@ -1159,7 +1188,7 @@ class AppLocalizationsEn extends AppLocalizations {
       'Assistant reply has been generated';
 
   @override
-  String get androidBackgroundNotificationTitle => 'Kelivo is running';
+  String get androidBackgroundNotificationTitle => 'Still Here is running';
 
   @override
   String get androidBackgroundNotificationText =>
@@ -3818,7 +3847,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aboutPageEasterEggButton => 'Nice!';
 
   @override
-  String get aboutPageAppName => 'Kelivo';
+  String get aboutPageAppName => 'Still Here';
 
   @override
   String get aboutPageAppDescription => 'Open-source AI Assistant';
@@ -4799,7 +4828,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get settingsShare => 'Kelivo - Open Source AI Assistant';
+  String get settingsShare => 'Still Here';
 
   @override
   String get searchProviderBingLocalDescription =>

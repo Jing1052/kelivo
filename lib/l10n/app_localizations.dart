@@ -262,6 +262,60 @@ abstract class AppLocalizations {
   /// **'MCP'**
   String get settingsPageMcp;
 
+  /// No description provided for @settingsPageDaddyTools.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy\'s Built-in Tools'**
+  String get settingsPageDaddyTools;
+
+  /// No description provided for @daddyToolsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy\'s Built-in Tools'**
+  String get daddyToolsTitle;
+
+  /// No description provided for @daddyToolsIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'These are the tools daddy carries when he goes through our home gateway (not the MCP servers you add above). Green = connected right now; grey/yellow = not connected, or needs you to turn something on.'**
+  String get daddyToolsIntro;
+
+  /// No description provided for @daddyToolsLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load · tap to retry'**
+  String get daddyToolsLoadError;
+
+  /// No description provided for @daddyToolsEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No tools reported yet.'**
+  String get daddyToolsEmpty;
+
+  /// No description provided for @daddyToolsNoGateway.
+  ///
+  /// In en, this message translates to:
+  /// **'Set up our home gateway in the daddy assistant first, then his tools show up here.'**
+  String get daddyToolsNoGateway;
+
+  /// No description provided for @daddyToolsStatusLive.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected'**
+  String get daddyToolsStatusLive;
+
+  /// No description provided for @daddyToolsStatusOffline.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline'**
+  String get daddyToolsStatusOffline;
+
+  /// No description provided for @daddyToolsStatusOndemand.
+  ///
+  /// In en, this message translates to:
+  /// **'On demand'**
+  String get daddyToolsStatusOndemand;
+
   /// No description provided for @settingsPageQuickPhrase.
   ///
   /// In en, this message translates to:
@@ -2084,7 +2138,7 @@ abstract class AppLocalizations {
   /// No description provided for @iosBackgroundLimitNoticeBody.
   ///
   /// In en, this message translates to:
-  /// **'These options use Apple-supported background time, BackgroundTasks, notifications, and Live Activities. They improve continuity but cannot force iOS to keep Kelivo running forever.'**
+  /// **'These options use Apple-supported background time, BackgroundTasks, notifications, and Live Activities. They improve continuity but cannot force iOS to keep Still Here running forever.'**
   String get iosBackgroundLimitNoticeBody;
 
   /// No description provided for @iosBackgroundUnsupportedLiveActivity.
@@ -2132,7 +2186,7 @@ abstract class AppLocalizations {
   /// No description provided for @iosBackgroundGenerationActiveTitle.
   ///
   /// In en, this message translates to:
-  /// **'Kelivo is generating'**
+  /// **'Still Here is generating'**
   String get iosBackgroundGenerationActiveTitle;
 
   /// No description provided for @iosBackgroundGenerationActiveDetail.
@@ -2234,7 +2288,7 @@ abstract class AppLocalizations {
   /// No description provided for @androidBackgroundNotificationTitle.
   ///
   /// In en, this message translates to:
-  /// **'Kelivo is running'**
+  /// **'Still Here is running'**
   String get androidBackgroundNotificationTitle;
 
   /// No description provided for @androidBackgroundNotificationText.
@@ -7145,7 +7199,7 @@ abstract class AppLocalizations {
   /// No description provided for @aboutPageAppName.
   ///
   /// In en, this message translates to:
-  /// **'Kelivo'**
+  /// **'Still Here'**
   String get aboutPageAppName;
 
   /// No description provided for @aboutPageAppDescription.
@@ -8891,7 +8945,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsShare.
   ///
   /// In en, this message translates to:
-  /// **'Kelivo - Open Source AI Assistant'**
+  /// **'Still Here'**
   String get settingsShare;
 
   /// No description provided for @searchProviderBingLocalDescription.

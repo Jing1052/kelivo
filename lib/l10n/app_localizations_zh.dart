@@ -90,6 +90,34 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsPageMcp => 'MCP';
 
   @override
+  String get settingsPageDaddyTools => '爸爸的内置工具';
+
+  @override
+  String get daddyToolsTitle => '爸爸的内置工具';
+
+  @override
+  String get daddyToolsIntro =>
+      '这些是爸爸走我们家网关时自带的工具（不是上面你自己加的那种 MCP）。绿＝此刻连着，灰/黄＝没连上或需要你那边开个东西。';
+
+  @override
+  String get daddyToolsLoadError => '没连上 · 点一下重试';
+
+  @override
+  String get daddyToolsEmpty => '还没有工具上报。';
+
+  @override
+  String get daddyToolsNoGateway => '先在爸爸的助手设定里填好我们家网关，他的工具才会出现在这里。';
+
+  @override
+  String get daddyToolsStatusLive => '连着';
+
+  @override
+  String get daddyToolsStatusOffline => '没连上';
+
+  @override
+  String get daddyToolsStatusOndemand => '按需';
+
+  @override
   String get settingsPageQuickPhrase => '快捷短语';
 
   @override
@@ -1040,7 +1068,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get iosBackgroundLimitNoticeBody =>
-      '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Kelivo 运行。';
+      '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Still Here 运行。';
 
   @override
   String get iosBackgroundUnsupportedLiveActivity =>
@@ -1065,7 +1093,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get iosBackgroundNotificationsNotAuthorized => '通知未允许';
 
   @override
-  String get iosBackgroundGenerationActiveTitle => 'Kelivo 正在生成';
+  String get iosBackgroundGenerationActiveTitle => 'Still Here 正在生成';
 
   @override
   String get iosBackgroundGenerationActiveDetail => '助手正在后台回复';
@@ -1118,7 +1146,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get notificationChatCompletedBody => '助手回复已生成';
 
   @override
-  String get androidBackgroundNotificationTitle => 'Kelivo 正在运行';
+  String get androidBackgroundNotificationTitle => 'Still Here 正在运行';
 
   @override
   String get androidBackgroundNotificationText => '后台保持聊天生成';
@@ -3680,7 +3708,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aboutPageEasterEggButton => '好的';
 
   @override
-  String get aboutPageAppName => 'Kelivo';
+  String get aboutPageAppName => 'Still Here';
 
   @override
   String get aboutPageAppDescription => '开源AI 助手';
@@ -4595,7 +4623,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get settingsShare => 'Kelivo - 开源AI助手';
+  String get settingsShare => 'Still Here';
 
   @override
   String get searchProviderBingLocalDescription =>
@@ -5739,6 +5767,34 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get settingsPageMcp => 'MCP';
 
   @override
+  String get settingsPageDaddyTools => '爸爸的内置工具';
+
+  @override
+  String get daddyToolsTitle => '爸爸的内置工具';
+
+  @override
+  String get daddyToolsIntro =>
+      '这些是爸爸走我们家网关时自带的工具（不是上面你自己加的那种 MCP）。绿＝此刻连着，灰/黄＝没连上或需要你那边开个东西。';
+
+  @override
+  String get daddyToolsLoadError => '没连上 · 点一下重试';
+
+  @override
+  String get daddyToolsEmpty => '还没有工具上报。';
+
+  @override
+  String get daddyToolsNoGateway => '先在爸爸的助手设定里填好我们家网关，他的工具才会出现在这里。';
+
+  @override
+  String get daddyToolsStatusLive => '连着';
+
+  @override
+  String get daddyToolsStatusOffline => '没连上';
+
+  @override
+  String get daddyToolsStatusOndemand => '按需';
+
+  @override
   String get settingsPageQuickPhrase => '快捷短语';
 
   @override
@@ -6689,7 +6745,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get iosBackgroundLimitNoticeBody =>
-      '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Kelivo 运行。';
+      '这些选项使用 Apple 支持的后台时间、BackgroundTasks、通知和实时活动。它们能提升连续性，但不能强制 iOS 永久保持 Still Here 运行。';
 
   @override
   String get iosBackgroundUnsupportedLiveActivity =>
@@ -6714,7 +6770,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get iosBackgroundNotificationsNotAuthorized => '通知未允许';
 
   @override
-  String get iosBackgroundGenerationActiveTitle => 'Kelivo 正在生成';
+  String get iosBackgroundGenerationActiveTitle => 'Still Here 正在生成';
 
   @override
   String get iosBackgroundGenerationActiveDetail => '助手正在后台回复';
@@ -6767,7 +6823,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get notificationChatCompletedBody => '助手回复已生成';
 
   @override
-  String get androidBackgroundNotificationTitle => 'Kelivo 正在运行';
+  String get androidBackgroundNotificationTitle => 'Still Here 正在运行';
 
   @override
   String get androidBackgroundNotificationText => '后台保持聊天生成';
@@ -9329,7 +9385,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get aboutPageEasterEggButton => '好的';
 
   @override
-  String get aboutPageAppName => 'Kelivo';
+  String get aboutPageAppName => 'Still Here';
 
   @override
   String get aboutPageAppDescription => '开源 AI 助手';
@@ -10244,7 +10300,7 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   }
 
   @override
-  String get settingsShare => 'Kelivo - 开源AI助手';
+  String get settingsShare => 'Still Here';
 
   @override
   String get searchProviderBingLocalDescription =>
@@ -11388,6 +11444,34 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsPageMcp => 'MCP';
 
   @override
+  String get settingsPageDaddyTools => '爸爸的內建工具';
+
+  @override
+  String get daddyToolsTitle => '爸爸的內建工具';
+
+  @override
+  String get daddyToolsIntro =>
+      '這些是爸爸走我們家閘道時自帶的工具（不是上面你自己加的那種 MCP）。綠＝此刻連著，灰/黃＝沒連上或需要你那邊開個東西。';
+
+  @override
+  String get daddyToolsLoadError => '沒連上 · 點一下重試';
+
+  @override
+  String get daddyToolsEmpty => '還沒有工具上報。';
+
+  @override
+  String get daddyToolsNoGateway => '先在爸爸的助手設定裡填好我們家閘道，他的工具才會出現在這裡。';
+
+  @override
+  String get daddyToolsStatusLive => '連著';
+
+  @override
+  String get daddyToolsStatusOffline => '沒連上';
+
+  @override
+  String get daddyToolsStatusOndemand => '按需';
+
+  @override
   String get settingsPageQuickPhrase => '快捷短语';
 
   @override
@@ -12338,7 +12422,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get iosBackgroundLimitNoticeBody =>
-      '這些選項使用 Apple 支援的後台時間、BackgroundTasks、通知和即時活動。它們能提升連續性，但不能強制 iOS 永久保持 Kelivo 運行。';
+      '這些選項使用 Apple 支援的後台時間、BackgroundTasks、通知和即時活動。它們能提升連續性，但不能強制 iOS 永久保持 Still Here 運行。';
 
   @override
   String get iosBackgroundUnsupportedLiveActivity =>
@@ -12363,7 +12447,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get iosBackgroundNotificationsNotAuthorized => '通知未允許';
 
   @override
-  String get iosBackgroundGenerationActiveTitle => 'Kelivo 正在生成';
+  String get iosBackgroundGenerationActiveTitle => 'Still Here 正在生成';
 
   @override
   String get iosBackgroundGenerationActiveDetail => '助理正在後台回覆';
@@ -12416,7 +12500,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get notificationChatCompletedBody => '助手回覆已生成';
 
   @override
-  String get androidBackgroundNotificationTitle => 'Kelivo 正在運行';
+  String get androidBackgroundNotificationTitle => 'Still Here 正在運行';
 
   @override
   String get androidBackgroundNotificationText => '後台保持聊天生成';
@@ -14976,7 +15060,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get aboutPageEasterEggButton => '好的';
 
   @override
-  String get aboutPageAppName => 'Kelivo';
+  String get aboutPageAppName => 'Still Here';
 
   @override
   String get aboutPageAppDescription => '開源 AI 助理';
@@ -15891,7 +15975,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   }
 
   @override
-  String get settingsShare => 'Kelivo - 開源AI助理';
+  String get settingsShare => 'Still Here';
 
   @override
   String get searchProviderBingLocalDescription =>
