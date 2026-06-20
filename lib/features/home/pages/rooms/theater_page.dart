@@ -38,28 +38,32 @@ class _TheaterPageState extends State<TheaterPage> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = false;
-    });
     final gateway = OurHomeGateway.fromContext(context);
     _gateway = gateway;
     if (gateway == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    // 先显示上次的缓存（秒开、无缓冲），再后台刷新。
+    final cached = gateway.peekTheaters();
+    setState(() {
+      if (cached.isNotEmpty) _theaters = cached;
+      _loading = cached.isEmpty;
+      _error = false;
+    });
     final list = await gateway.fetchTheaters();
     if (!mounted) return;
     if (list == null) {
       setState(() {
         _loading = false;
-        _error = true;
+        _error = _theaters.isEmpty; // 有缓存就留着旧的，别用错误盖掉
       });
       return;
     }
     setState(() {
       _theaters = list;
       _loading = false;
+      _error = false;
     });
   }
 

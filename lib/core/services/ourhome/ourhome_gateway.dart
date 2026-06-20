@@ -473,19 +473,37 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/album'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     final photos = (data is Map) ? data['photos'] : null;
     if (photos is! List) return const <OurHomePhoto>[];
-    return photos.whereType<Map<String, dynamic>>().map((j) {
-      final path = (j['url'] ?? '').toString();
-      return OurHomePhoto(
-        id: (j['id'] ?? '').toString(),
-        url: path.startsWith('http') ? path : '$base$path',
-        note: (j['note'] ?? '').toString(),
-        by: (j['by'] ?? '').toString(),
-        time: (j['t'] ?? '').toString(),
-      );
-    }).toList();
+    OurHomeCache.put('/api/home/album', body);
+    return photos.whereType<Map<String, dynamic>>().map(_photoFromJson).toList();
+  }
+
+  OurHomePhoto _photoFromJson(Map<String, dynamic> j) {
+    final path = (j['url'] ?? '').toString();
+    return OurHomePhoto(
+      id: (j['id'] ?? '').toString(),
+      url: path.startsWith('http') ? path : '$base$path',
+      note: (j['note'] ?? '').toString(),
+      by: (j['by'] ?? '').toString(),
+      time: (j['t'] ?? '').toString(),
+    );
+  }
+
+  /// Last-seen album from cache (instant, before the network). Empty if none.
+  List<OurHomePhoto> peekAlbum() {
+    final body = OurHomeCache.peek('/api/home/album');
+    if (body == null || body.isEmpty) return const <OurHomePhoto>[];
+    try {
+      final data = jsonDecode(body);
+      final photos = (data is Map) ? data['photos'] : null;
+      if (photos is! List) return const <OurHomePhoto>[];
+      return photos.whereType<Map<String, dynamic>>().map(_photoFromJson).toList();
+    } catch (_) {
+      return const <OurHomePhoto>[];
+    }
   }
 
   /// Newest-first list of letters. Throws on transport/HTTP error so the caller
@@ -1050,9 +1068,11 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchTheaters HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       final list = (data is Map) ? data['theaters'] : null;
       if (list is! List) return const <OurHomeTheater>[];
+      OurHomeCache.put('/api/home/theaters', body);
       return list
           .whereType<Map<String, dynamic>>()
           .map(OurHomeTheater.fromJson)
@@ -1060,6 +1080,23 @@ class OurHomeGateway {
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchTheaters failed: $e');
       return null;
+    }
+  }
+
+  /// Last-seen theaters from cache (instant, before the network). Empty if none.
+  List<OurHomeTheater> peekTheaters() {
+    final body = OurHomeCache.peek('/api/home/theaters');
+    if (body == null || body.isEmpty) return const <OurHomeTheater>[];
+    try {
+      final data = jsonDecode(body);
+      final list = (data is Map) ? data['theaters'] : null;
+      if (list is! List) return const <OurHomeTheater>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(OurHomeTheater.fromJson)
+          .toList();
+    } catch (_) {
+      return const <OurHomeTheater>[];
     }
   }
 

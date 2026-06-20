@@ -29,29 +29,33 @@ class _BoudoirPageState extends State<BoudoirPage> {
 
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = false;
-    });
     final gateway = OurHomeGateway.fromContext(context);
     _gateway = gateway;
     if (gateway == null) {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    // 先显示上次的缓存（秒开、无缓冲），再后台刷新。
+    final cached = gateway.peekAlbum();
+    setState(() {
+      if (cached.isNotEmpty) _photos = cached;
+      _loading = cached.isEmpty;
+      _error = false;
+    });
     try {
       final photos = await gateway.fetchAlbum();
       if (!mounted) return;
       setState(() {
         _photos = photos;
         _loading = false;
+        _error = false;
       });
     } catch (e) {
       debugPrint('[Boudoir] fetchAlbum failed: $e');
       if (mounted) {
         setState(() {
           _loading = false;
-          _error = true;
+          _error = _photos.isEmpty; // 有缓存就留着旧的，别用错误盖掉
         });
       }
     }

@@ -16,7 +16,6 @@ import 'log_viewer_page.dart';
 import 'daddy_search_page.dart';
 import '../../backup/pages/backup_page.dart';
 import '../../quick_phrase/pages/quick_phrases_page.dart';
-import '../../world_book/pages/world_book_page.dart';
 import '../widgets/style_sheet.dart';
 import 'network_proxy_page.dart';
 import 'storage_space_page.dart';
@@ -212,17 +211,6 @@ class SettingsPage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const DaddyToolsPage()),
-                  );
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.BookOpen,
-                label: l10n.settingsPageWorldBook,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const WorldBookPage()),
                   );
                 },
               ),
