@@ -20,6 +20,7 @@ class _BoudoirPageState extends State<BoudoirPage> {
   List<OurHomePhoto> _photos = const [];
   bool _loading = true;
   bool _error = false;
+  int _tab = 0; // 0 = 日常点滴(daily), 1 = 私密(private)
 
   @override
   void initState() {
@@ -61,13 +62,13 @@ class _BoudoirPageState extends State<BoudoirPage> {
     }
   }
 
-  void _openViewer(int index) {
+  void _openViewer(List<OurHomePhoto> photos, int index) {
     final headers = _gateway?.authHeaders ?? const {};
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => _PhotoViewer(
-          photos: _photos,
+          photos: photos,
           initialIndex: index,
           headers: headers,
         ),
@@ -121,10 +122,82 @@ class _BoudoirPageState extends State<BoudoirPage> {
         onTap: _load,
       );
     }
-    if (_photos.isEmpty) {
+    return Column(
+      children: [
+        _buildTabs(zh, cs),
+        Expanded(child: _buildGrid(zh, cs)),
+      ],
+    );
+  }
+
+  Widget _buildTabs(bool zh, ColorScheme cs) {
+    Widget tab(int i, IconData icon, String label) {
+      final on = _tab == i;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            if (_tab != i) setState(() => _tab = i);
+          },
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: on ? cs.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  icon,
+                  size: 16,
+                  color: on ? cs.primary : cs.onSurface.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: on
+                        ? cs.onSurface
+                        : cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          tab(0, Lucide.Image, zh ? '日常点滴' : 'Everyday'),
+          tab(1, Lucide.Lock, zh ? '私密' : 'Private'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGrid(bool zh, ColorScheme cs) {
+    final wantDaily = _tab == 0;
+    final photos = _photos
+        .where((p) => (p.album == 'daily') == wantDaily)
+        .toList();
+    if (photos.isEmpty) {
       return RoomStateHint(
-        icon: Lucide.Camera,
-        text: zh ? '相册还空着。' : 'The album is empty.',
+        icon: wantDaily ? Lucide.Image : Lucide.Lock,
+        text: wantDaily
+            ? (zh ? '日常点滴还空着。' : 'Nothing everyday yet.')
+            : (zh ? '私密这间还空着。' : 'Nothing private yet.'),
       );
     }
     final headers = _gateway?.authHeaders ?? const {};
@@ -137,11 +210,11 @@ class _BoudoirPageState extends State<BoudoirPage> {
           mainAxisSpacing: 6,
           crossAxisSpacing: 6,
         ),
-        itemCount: _photos.length,
+        itemCount: photos.length,
         itemBuilder: (context, i) {
-          final p = _photos[i];
+          final p = photos[i];
           return GestureDetector(
-            onTap: () => _openViewer(i),
+            onTap: () => _openViewer(photos, i),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: Image.network(

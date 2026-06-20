@@ -152,6 +152,7 @@ class OurHomeSense {
 }
 
 /// A photo in the boudoir album. [url] is absolute (base + path).
+/// [album] is 'daily' (日常点滴) or 'private' (私密); defaults to 'private'.
 class OurHomePhoto {
   const OurHomePhoto({
     required this.id,
@@ -159,6 +160,7 @@ class OurHomePhoto {
     required this.note,
     required this.by,
     required this.time,
+    required this.album,
   });
 
   final String id;
@@ -166,6 +168,7 @@ class OurHomePhoto {
   final String note;
   final String by;
   final String time;
+  final String album;
 }
 
 /// A memory in the garden (non-feel). Titles/preview only.
@@ -504,6 +507,7 @@ class OurHomeGateway {
       note: (j['note'] ?? '').toString(),
       by: (j['by'] ?? '').toString(),
       time: (j['t'] ?? '').toString(),
+      album: (j['album'] ?? 'private').toString(),
     );
   }
 
