@@ -36,6 +36,7 @@ import '../../../desktop/world_book_popover.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../chat/widgets/bottom_tools_sheet.dart';
 import '../../chat/widgets/context_management_sheet.dart';
+import '../../chat/widgets/daddy_context_sheet.dart';
 import '../../chat/widgets/reasoning_budget_sheet.dart';
 import '../../search/widgets/search_settings_sheet.dart';
 import '../../model/widgets/model_select_sheet.dart';
@@ -1579,13 +1580,26 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showContextManagementSheet() async {
+    final cs = Theme.of(context).colorScheme;
     // daddy 会话的上下文由我们家网关 keep/trigger 管理，压缩/清空两项会和网关
-    // 的滚动前情提要冲突，故对 daddy 整体隐藏这个菜单（不弹）。非 daddy 不变。
+    // 的滚动前情提要冲突。改为给 daddy 弹一个内联编辑器，直接调 SettingsProvider
+    // 的 daddyKeepCount/daddyTriggerCount（和爸爸设置页同一组字段，自动同步）。
+    // 非 daddy 走原有 ContextManagementSheet，行为不变。
     final assistant = context.read<AssistantProvider>().currentAssistant;
     if (DaddyGatewayRoute.isDaddy(assistant?.systemPrompt)) {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: cs.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          return SafeArea(top: false, child: const DaddyContextSheet());
+        },
+      );
       return;
     }
-    final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,

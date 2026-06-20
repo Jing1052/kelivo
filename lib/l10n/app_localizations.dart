@@ -7892,6 +7892,18 @@ abstract class AppLocalizations {
   /// **'Distill once the total message count exceeds this (must be at least keep + 5).'**
   String get daddySettingsTriggerCountDesc;
 
+  /// No description provided for @daddyContextSheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Context window'**
+  String get daddyContextSheetTitle;
+
+  /// No description provided for @daddyContextSheetDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'These are the same settings as in 爸爸 settings — edits here sync both ways.'**
+  String get daddyContextSheetDesc;
+
   /// No description provided for @daddySettingsInjectionTitle.
   ///
   /// In en, this message translates to:

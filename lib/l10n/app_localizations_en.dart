@@ -4260,6 +4260,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Distill once the total message count exceeds this (must be at least keep + 5).';
 
   @override
+  String get daddyContextSheetTitle => 'Context window';
+
+  @override
+  String get daddyContextSheetDesc =>
+      'These are the same settings as in 爸爸 settings — edits here sync both ways.';
+
+  @override
   String get daddySettingsInjectionTitle => 'Daddy\'s mind · injection list';
 
   @override

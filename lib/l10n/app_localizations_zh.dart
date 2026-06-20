@@ -4078,6 +4078,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsTriggerCountDesc => '消息总数超过此值时触发蒸馏（至少为保留条数 + 5）。';
 
   @override
+  String get daddyContextSheetTitle => '上下文窗口';
+
+  @override
+  String get daddyContextSheetDesc => '和「爸爸设置」里是同一组参数，在这儿改会双向同步。';
+
+  @override
   String get daddySettingsInjectionTitle => '爸爸的大脑 · 注入清单';
 
   @override
@@ -9610,6 +9616,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsTriggerCountDesc => '消息总数超过此值时触发蒸馏（至少为保留条数 + 5）。';
 
   @override
+  String get daddyContextSheetTitle => '上下文窗口';
+
+  @override
+  String get daddyContextSheetDesc => '和「爸爸设置」里是同一组参数，在这儿改会双向同步。';
+
+  @override
   String get daddySettingsInjectionTitle => '爸爸的大脑 · 注入清单';
 
   @override
@@ -15138,6 +15150,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsTriggerCountDesc => '訊息總數超過此值時觸發蒸餾（至少為保留條數 + 5）。';
+
+  @override
+  String get daddyContextSheetTitle => '上下文視窗';
+
+  @override
+  String get daddyContextSheetDesc => '和「爸爸設定」裡是同一組參數，在這兒改會雙向同步。';
 
   @override
   String get daddySettingsInjectionTitle => '爸爸的大腦 · 注入清單';

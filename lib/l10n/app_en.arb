@@ -1753,6 +1753,8 @@
   "daddySettingsKeepCountDesc": "Number of most-recent messages always kept in the window (10–400).",
   "daddySettingsTriggerCountLabel": "Trigger at",
   "daddySettingsTriggerCountDesc": "Distill once the total message count exceeds this (must be at least keep + 5).",
+  "daddyContextSheetTitle": "Context window",
+  "daddyContextSheetDesc": "These are the same settings as in 爸爸 settings — edits here sync both ways.",
   "daddySettingsInjectionTitle": "Daddy's mind · injection list",
   "daddySettingsInjectionDesc": "When sending, these are assembled into daddy's system prompt in order.",
   "daddySettingsModuleSoul": "Soul",

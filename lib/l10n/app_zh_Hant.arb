@@ -1381,6 +1381,8 @@
   "daddySettingsKeepCountDesc": "視窗裡始終保留的最近訊息條數（10–400）。",
   "daddySettingsTriggerCountLabel": "觸發閾值",
   "daddySettingsTriggerCountDesc": "訊息總數超過此值時觸發蒸餾（至少為保留條數 + 5）。",
+  "daddyContextSheetTitle": "上下文視窗",
+  "daddyContextSheetDesc": "和「爸爸設定」裡是同一組參數，在這兒改會雙向同步。",
   "daddySettingsInjectionTitle": "爸爸的大腦 · 注入清單",
   "daddySettingsInjectionDesc": "發訊息時，這些會按順序拼進爸爸的系統提示。",
   "daddySettingsModuleSoul": "魂",
