@@ -106,7 +106,10 @@ class ConversationListPage extends StatelessWidget {
           const SizedBox(width: 6),
         ],
       ),
-      body: all.isEmpty
+      body: !chatService.initialized
+          // 初始化未完成时先留白，别闪一下「暂无对话」空状态（init 完成会 notify 刷新）。
+          ? const SizedBox.shrink()
+          : all.isEmpty
           ? _EmptyState(onNewChat: () => _startNewConversation(context))
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),

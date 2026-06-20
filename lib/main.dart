@@ -130,7 +130,9 @@ class MyApp extends StatelessWidget {
             return settings;
           },
         ),
-        ChangeNotifierProvider(create: (_) => ChatService()),
+        // ..init() 立即初始化（懒加载会让首次进聊天列表时 getAllConversations
+        // 返回空、要去新对话转一圈才触发 init）；init 完成会 notifyListeners 刷新。
+        ChangeNotifierProvider(create: (_) => ChatService()..init()),
         ChangeNotifierProvider(create: (_) => McpToolService()),
         ChangeNotifierProvider(create: (_) => McpProvider()),
         ChangeNotifierProvider(create: (_) => ToolApprovalService()),
