@@ -186,6 +186,21 @@ class OurHomeMemory {
   );
 }
 
+/// One garden memory's full text — fetched on tap (the list only carries a
+/// short preview). Feel buckets are never returned here (greenhouse is locked).
+class OurHomeMemoryDetail {
+  const OurHomeMemoryDetail({
+    required this.name,
+    required this.content,
+    required this.created,
+    required this.revised,
+  });
+  final String name;
+  final String content;
+  final String created;
+  final String revised;
+}
+
 /// A feel in the greenhouse — only its time and a mood "weather", never the
 /// words. Visible, not enterable; the key is Llaude's alone.
 class OurHomeFeel {
@@ -669,6 +684,34 @@ class OurHomeGateway {
   /// Garden memories (non-feel). Newest first.
   Future<List<OurHomeMemory>> fetchMemories() =>
       _getList('/api/home/memories', OurHomeMemory.fromJson);
+
+  /// One garden memory's full text. Returns null on any failure (403 locked /
+  /// 404 / network), so the caller can show a gentle "can't open" hint.
+  Future<OurHomeMemoryDetail?> fetchMemoryDetail(String id) async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('$base/api/home/memory/${Uri.encodeComponent(id)}'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchMemoryDetail HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return OurHomeMemoryDetail(
+        name: (data['name'] ?? '').toString(),
+        content: (data['content'] ?? '').toString(),
+        created: (data['created'] ?? '').toString(),
+        revised: (data['revised'] ?? '').toString(),
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchMemoryDetail failed: $e');
+      return null;
+    }
+  }
 
   /// Greenhouse feels — time + mood only, never content. Newest first.
   Future<List<OurHomeFeel>> fetchGreenhouse() =>

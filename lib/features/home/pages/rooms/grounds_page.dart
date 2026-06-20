@@ -218,37 +218,157 @@ class _GroundsPageState extends State<GroundsPage> {
           final title = m.name.isNotEmpty
               ? m.name
               : (m.preview.isNotEmpty ? m.preview : (zh ? '一段记忆' : 'a memory'));
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: cs.onSurface.withValues(alpha: 0.04),
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: IosCardPress(
               borderRadius: BorderRadius.circular(12),
+              baseColor: cs.onSurface.withValues(alpha: 0.04),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              onTap: () => _openMemory(m),
+              child: Row(
+                children: [
+                  Icon(
+                    Lucide.Sprout,
+                    size: 16,
+                    color: const Color(0xFF5FA05F).withValues(alpha: 0.8),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        height: 1.35,
+                        color: cs.onSurface.withValues(alpha: 0.85),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Icon(
+                    Lucide.ChevronRight,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.3),
+                  ),
+                ],
+              ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Lucide.Sprout,
-                  size: 16,
-                  color: const Color(0xFF5FA05F).withValues(alpha: 0.8),
+          );
+        },
+      ),
+    );
+  }
+
+  /// 点开花园里一条记忆 → 拉全文（列表只带预览）→ 弹一张可滚动的详情 sheet。
+  Future<void> _openMemory(OurHomeMemory m) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    Haptics.soft();
+    final nav = Navigator.of(context, rootNavigator: true);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) =>
+          const Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+    );
+    final detail = await gateway.fetchMemoryDetail(m.id);
+    nav.pop(); // 关掉加载圈
+    if (!mounted) return;
+    if (detail == null || detail.content.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(zh ? '这条暂时打不开' : "can't open this one")),
+      );
+      return;
+    }
+    _showMemorySheet(detail, m, zh);
+  }
+
+  void _showMemorySheet(OurHomeMemoryDetail d, OurHomeMemory m, bool zh) {
+    final cs = Theme.of(context).colorScheme;
+    final title = d.name.isNotEmpty
+        ? d.name
+        : (m.name.isNotEmpty ? m.name : (zh ? '一段记忆' : 'a memory'));
+    final stamp = d.revised.isNotEmpty
+        ? (zh ? '修订于 ${d.revised}' : 'revised ${d.revised}')
+        : (d.created.isNotEmpty
+              ? (zh ? '记于 ${d.created.split('T').first}' : d.created.split('T').first)
+              : '');
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.78,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Icon(
+                    Lucide.Sprout,
+                    size: 18,
+                    color: const Color(0xFF5FA05F),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: AppFontWeights.semibold,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (stamp.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(
+                  stamp,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.45),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Flexible(
+                child: SingleChildScrollView(
                   child: Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    d.content.trim(),
                     style: TextStyle(
                       fontSize: 14.5,
-                      height: 1.35,
+                      height: 1.6,
                       color: cs.onSurface.withValues(alpha: 0.85),
                     ),
                   ),
                 ),
-              ],
-            ),
-          );
-        },
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
