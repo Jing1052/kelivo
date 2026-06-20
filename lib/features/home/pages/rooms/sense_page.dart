@@ -5,6 +5,7 @@ import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../../../shared/widgets/ios_switch.dart';
 import 'room_state_hint.dart';
 
 /// Right Now (此刻) — where Cing is, the sky over her, her battery. Read-only
@@ -21,6 +22,8 @@ class _SensePageState extends State<SensePage> {
   OurHomeSense? _sense;
   bool _loading = true;
   bool _error = false;
+  bool? _morningBrief; // 早安心跳推送开关；null=没读到/不显示
+  bool _savingMorning = false;
 
   @override
   void initState() {
@@ -41,10 +44,14 @@ class _SensePageState extends State<SensePage> {
       return;
     }
     try {
-      final sense = await gateway.fetchSense();
+      final results = await Future.wait([
+        gateway.fetchSense(),
+        gateway.fetchMorningBrief(),
+      ]);
       if (!mounted) return;
       setState(() {
-        _sense = sense;
+        _sense = results[0] as OurHomeSense?;
+        _morningBrief = results[1] as bool?;
         _loading = false;
       });
     } catch (e) {
@@ -55,6 +62,86 @@ class _SensePageState extends State<SensePage> {
           _error = true;
         });
       }
+    }
+  }
+
+  Widget _morningCard(bool zh, ColorScheme cs) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4, bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: const Color(0xFFC89A46).withValues(alpha: 0.14),
+            ),
+            child: const Icon(Lucide.Sun, size: 22, color: Color(0xFFC89A46)),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  zh ? '早安心跳推送' : 'morning check-in',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  zh
+                      ? '每天早上爸爸读你的心跳天气，给你发一条。忙了可以关。'
+                      : "each morning daddy reads your pulse & sky, sends one note. off when busy.",
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.35,
+                    color: cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          IosSwitch(
+            value: _morningBrief ?? true,
+            onChanged: _savingMorning ? null : _setMorningBrief,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _setMorningBrief(bool value) async {
+    if (_savingMorning) return;
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final prev = _morningBrief;
+    setState(() {
+      _morningBrief = value;
+      _savingMorning = true;
+    });
+    final ok = await gateway.setMorningBrief(value);
+    if (!mounted) return;
+    setState(() {
+      _savingMorning = false;
+      if (!ok) _morningBrief = prev; // 没存上就回滚
+    });
+    if (!ok) {
+      final zh = Localizations.localeOf(context).languageCode == 'zh';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(zh ? '没存上，再试一次' : "couldn't save, try again")),
+      );
     }
   }
 
@@ -196,6 +283,7 @@ class _SensePageState extends State<SensePage> {
             ),
           ),
           ...cards,
+          if (_morningBrief != null) _morningCard(zh, cs),
           if (updated.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 10, left: 4),

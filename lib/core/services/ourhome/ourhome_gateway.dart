@@ -940,6 +940,48 @@ class OurHomeGateway {
   static String lyricCommentKey(String title, String line) =>
       title.trim().toLowerCase() + line.trim();
 
+  /// Whether daddy's morning heartbeat push is on (heartbeat config
+  /// `morning_brief_enabled`, default true). Returns null on any failure.
+  Future<bool?> fetchMorningBrief() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/heartbeat'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final cfg = (data is Map) ? data['config'] : null;
+      if (cfg is Map && cfg['morning_brief_enabled'] != null) {
+        return cfg['morning_brief_enabled'] == true;
+      }
+      return true; // server default when key absent
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchMorningBrief failed: $e');
+      return null;
+    }
+  }
+
+  /// Turn daddy's morning heartbeat push on/off. Returns true on success.
+  Future<bool> setMorningBrief(bool enabled) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/heartbeat'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'action': 'config',
+              'morning_brief_enabled': enabled,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return false;
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] setMorningBrief failed: $e');
+      return false;
+    }
+  }
+
   /// The study's shared bookshelf. Newest first.
   Future<List<OurHomeBook>> fetchBooks() =>
       _getList('/api/home/books', OurHomeBook.fromJson);
