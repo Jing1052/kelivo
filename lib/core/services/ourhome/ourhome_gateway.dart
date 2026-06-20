@@ -379,6 +379,30 @@ class OurHomeSong {
   );
 }
 
+/// A little theater (小剧场) — one alternate-world role-play setting. [title] is
+/// the world's name, [setting] its description, [bringMemory] whether the
+/// real-life memory is carried in. Each maps 1:1 to a bound chat conversation.
+class OurHomeTheater {
+  const OurHomeTheater({
+    required this.id,
+    required this.title,
+    required this.setting,
+    required this.bringMemory,
+  });
+
+  final String id;
+  final String title;
+  final String setting;
+  final bool bringMemory;
+
+  factory OurHomeTheater.fromJson(Map<String, dynamic> j) => OurHomeTheater(
+    id: (j['id'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+    setting: (j['setting'] ?? '').toString(),
+    bringMemory: j['bring_memory'] == true,
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -863,6 +887,90 @@ class OurHomeGateway {
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchProactivePending failed: $e');
       return null;
+    }
+  }
+
+  /// All little theaters (小剧场 settings). Returns null on any failure
+  /// (logged) so the caller can tell a network failure apart from an empty list.
+  Future<List<OurHomeTheater>?> fetchTheaters() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/theaters'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchTheaters HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final list = (data is Map) ? data['theaters'] : null;
+      if (list is! List) return const <OurHomeTheater>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(OurHomeTheater.fromJson)
+          .toList();
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchTheaters failed: $e');
+      return null;
+    }
+  }
+
+  /// Create or update a theater. Omitting [id] makes a new one (server assigns
+  /// the id, returned on the result). Returns the saved theater, or null on any
+  /// failure (logged).
+  Future<OurHomeTheater?> saveTheater({
+    String? id,
+    required String title,
+    required String setting,
+    required bool bringMemory,
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'title': title,
+        'setting': setting,
+        'bring_memory': bringMemory,
+      };
+      if (id != null && id.isNotEmpty) body['id'] = id;
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/theaters'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveTheater HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final t = (data is Map) ? data['theater'] : null;
+      if (t is! Map<String, dynamic>) return null;
+      return OurHomeTheater.fromJson(t);
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveTheater failed: $e');
+      return null;
+    }
+  }
+
+  /// Delete a theater by id. Returns true on success, false on any failure
+  /// (logged).
+  Future<bool> deleteTheater(String id) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/theaters'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'id': id, 'delete': true}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] deleteTheater HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] deleteTheater failed: $e');
+      return false;
     }
   }
 

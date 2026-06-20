@@ -1020,6 +1020,10 @@ class ChatActions {
       var sendConfig = ctx.config;
       var sendHeaders = ctx.extraHeaders;
       try {
+        // 小剧场：这条会话若绑定了剧场 id，透传给网关当「小剧场」线处理。
+        final theaterId = chatService
+            .getConversation(conversationId)
+            ?.theaterId;
         final override = DaddyGatewayRoute.overrideFor(
           systemPrompt: assistant?.systemPrompt,
           userConfig: ctx.config,
@@ -1029,6 +1033,7 @@ class ChatActions {
           keepCount: ctx.settings.daddyKeepCount,
           triggerCount: ctx.settings.daddyTriggerCount,
           sessionId: conversationId,
+          theaterId: theaterId,
         );
         if (override != null) {
           sendConfig = override.config;

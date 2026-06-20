@@ -54,6 +54,7 @@ class DaddyGatewayRoute {
     int? keepCount,
     int? triggerCount,
     String? sessionId,
+    String? theaterId,
   }) {
     final token = tokenFor(systemPrompt);
     if (token == null || token.isEmpty) return null;
@@ -95,6 +96,9 @@ class DaddyGatewayRoute {
     }
     if (sessionId != null && sessionId.isNotEmpty) {
       gwHeaders['x-ombre-session'] = sessionId;
+    }
+    if (theaterId != null && theaterId.isNotEmpty) {
+      gwHeaders['x-ombre-theater'] = theaterId;
     }
 
     return DaddyGatewayOverride(config: gwConfig, headers: gwHeaders);

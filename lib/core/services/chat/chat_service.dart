@@ -287,6 +287,7 @@ class ChatService extends ChangeNotifier {
   Future<Conversation> createConversation({
     String? title,
     String? assistantId,
+    String? theaterId,
   }) async {
     if (!_initialized) await init();
     _discardTemporaryConversation(_currentConversationId);
@@ -294,6 +295,7 @@ class ChatService extends ChangeNotifier {
     final conversation = Conversation(
       title: title ?? _defaultConversationTitle,
       assistantId: assistantId,
+      theaterId: theaterId,
     );
 
     await _conversationsBox.put(conversation.id, conversation);

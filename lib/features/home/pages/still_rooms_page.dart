@@ -16,6 +16,7 @@ import 'rooms/calendar_page.dart';
 import 'rooms/lounge_page.dart';
 import 'rooms/locked_room_page.dart';
 import 'rooms/capsule_page.dart';
+import 'rooms/theater_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -70,6 +71,17 @@ class StillRoomsPage extends StatelessWidget {
       'film · music · play',
       '灯一关，世界只剩屏幕和你。',
       'Switch off the lights — the world is just the screen, and you.',
+    ),
+    _Door(
+      'theater',
+      Lucide.Sparkles,
+      0xFF8F7FC9,
+      '小剧场',
+      'Little Theater',
+      '异世界的我们俩',
+      'the two of us, another world',
+      '换一个世界，我还是你的，你还是我的。',
+      'Another world — still yours, still mine.',
     ),
     _Door(
       'parlour',
@@ -261,6 +273,8 @@ Widget _pageForDoor(_Door door) {
       return const LockedRoomPage();
     case 'capsule':
       return const CapsulePage();
+    case 'theater':
+      return const TheaterPage();
     default:
       return _RoomStubPage(door: door);
   }

@@ -32,13 +32,14 @@ class ConversationAdapter extends TypeAdapter<Conversation> {
       chatSuggestions: (fields[12] as List?)?.cast<String>(),
       ourHomeRecap: fields[13] as String?,
       ourHomeDigestedCount: fields[14] as int?,
+      theaterId: fields[15] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Conversation obj) {
     writer
-      ..writeByte(15)
+      ..writeByte(16)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -68,7 +69,9 @@ class ConversationAdapter extends TypeAdapter<Conversation> {
       ..writeByte(13)
       ..write(obj.ourHomeRecap)
       ..writeByte(14)
-      ..write(obj.ourHomeDigestedCount);
+      ..write(obj.ourHomeDigestedCount)
+      ..writeByte(15)
+      ..write(obj.theaterId);
   }
 
   @override
