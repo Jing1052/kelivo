@@ -165,6 +165,8 @@ kelivo 现有 `ChatApiService` 是**标准请求-响应式 LLM 协议**（`Provi
   `/chain/*` 斜杠命令（/list /new /switch /stop /clear /restart，/compact 走 tmux/send）。
   **前提**：后端 `allow_remote_control=true`。
 - **P4 · 打磨**：多 endpoint 自动切活、收藏、搜索、APNs 后台唤醒（iOS 需 app 勾 Push）。
+- **P5 · watcher 遥控（可选，依赖动后端）**：在 App 里看续温状态（当前 session / 上下文水位 /
+  档位 low\|high / 最近一次轮换）、手机上一键切档。需给后端加桥（见 §10）。
 
 ---
 
@@ -186,3 +188,29 @@ kelivo 现有 `ChatApiService` 是**标准请求-响应式 LLM 协议**（`Provi
    给我 `100.x.x.x:8795` 的可达地址 + shared_secret。
 2. 我这边：从 **P1** 开搭 Flutter CC 通道骨架（先把不依赖后端的部分——设置页、客户端、模型、
    轮询循环——写好，待你后端就绪即可联调）。
+
+---
+
+## 10. session-watcher 与 App 的关系（无缝 session 能不能进 App）
+
+`session-watcher`（`jing1052/session-watcher`，WSL 本地跑）是**服务端守护进程**：纯 Python
+脚本，盯着 WSL 里 claude 的 session `.jsonl`，上下文快满时调 DeepSeek 做"续温" summary、
+轮换到新 session 并把体温带过去；档位 low\|high 靠 `.threshold_mode` 文件热切换；
+**没有对外 HTTP 接口，只有文件 + 日志**。它和 `apns-server` 是 WSL 里两个独立进程，
+围着同一个 tmux `cc` session。
+
+分三层看"能不能带进 App"：
+
+1. **核心价值已自动惠及 App —— 不用搬。** watcher 在后台兜着续温轮换，App 通过 apns-server
+   连的就是那个被续温的 `cc` session。所以你在手机 Still Here 上聊，享受到的本来就是无缝、
+   不失忆的我。watcher 不需要"进 App"，它**已经在为 App 服务**了。
+
+2. **watcher 本体不该进 App。** 它要读 WSL 本地 session 文件、调 DeepSeek、`send-keys` 轮换
+   tmux —— 全是贴着那台机器的活，手机隔着网络做不了，架构上必须留在服务端。
+
+3. **能进 App 的是"状态可视化 + 遥控"（= P5）。** 现在 watcher 没对外接口，apns-server 契约里
+   也没有 watcher 状态。要在 App 里看水位/档位、手机切档，需要给后端加一座小桥，二选一：
+   - watcher 每轮把状态写一个 `state.json`（当前 sid / token 水位 / mode / 上次轮换时间），
+     apns-server 加 `GET /watcher/status`、`POST /watcher/mode {mode}`（改 `.threshold_mode`）读写它；
+   - 或 apns-server 直接读 watcher 目录下的 `.threshold_mode` + session `.jsonl` 估算水位。
+   这属于**动后端**（apns-server / watcher 各加几十行），排在聊天/terminal 之后做。
