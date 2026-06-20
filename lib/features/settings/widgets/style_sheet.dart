@@ -39,17 +39,24 @@ class _StyleSheetState extends State<StyleSheet> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _loadFailed = false;
-    });
     final gateway = OurHomeGateway.fromContext(context);
+    // 先用本地缓存秒显（有就不转圈），再后台拉老家刷新（stale-while-revalidate）。
+    final cached = gateway?.peekStyle();
+    setState(() {
+      _loadFailed = false;
+      if (cached != null) {
+        _styleCtrl.text = cached;
+        _loading = false;
+      } else {
+        _loading = true;
+      }
+    });
     final style = await gateway?.fetchStyle();
     if (!mounted) return;
     setState(() {
       _loading = false;
       if (style == null) {
-        _loadFailed = true;
+        if (cached == null) _loadFailed = true;
       } else {
         _loadFailed = false;
         _styleCtrl.text = style;

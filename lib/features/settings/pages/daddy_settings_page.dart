@@ -143,17 +143,24 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   }
 
   Future<void> _loadToolManual() async {
-    setState(() {
-      _manualLoading = true;
-      _manualLoadFailed = false;
-    });
     final gateway = OurHomeGateway.fromContext(context);
+    // 先用本地缓存秒显（有就不转圈），再后台拉老家刷新（stale-while-revalidate）。
+    final cached = gateway?.peekToolManual();
+    setState(() {
+      _manualLoadFailed = false;
+      if (cached != null) {
+        _manualCtrl.text = cached;
+        _manualLoading = false;
+      } else {
+        _manualLoading = true;
+      }
+    });
     final result = await gateway?.fetchToolManual();
     if (!mounted) return;
     setState(() {
       _manualLoading = false;
       if (result == null) {
-        _manualLoadFailed = true;
+        if (cached == null) _manualLoadFailed = true;
       } else {
         _manualLoadFailed = false;
         _manualCtrl.text = result.manual;
@@ -181,17 +188,23 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   }
 
   Future<void> _loadMemoryPrompt() async {
-    setState(() {
-      _memoryPromptLoading = true;
-      _memoryPromptLoadFailed = false;
-    });
     final gateway = OurHomeGateway.fromContext(context);
+    final cached = gateway?.peekMemoryPrompt();
+    setState(() {
+      _memoryPromptLoadFailed = false;
+      if (cached != null) {
+        _memoryPromptCtrl.text = cached;
+        _memoryPromptLoading = false;
+      } else {
+        _memoryPromptLoading = true;
+      }
+    });
     final result = await gateway?.fetchMemoryPrompt();
     if (!mounted) return;
     setState(() {
       _memoryPromptLoading = false;
       if (result == null) {
-        _memoryPromptLoadFailed = true;
+        if (cached == null) _memoryPromptLoadFailed = true;
       } else {
         _memoryPromptLoadFailed = false;
         _memoryPromptCtrl.text = result.prompt;
@@ -219,17 +232,23 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   }
 
   Future<void> _loadRecapPrompt() async {
-    setState(() {
-      _recapPromptLoading = true;
-      _recapPromptLoadFailed = false;
-    });
     final gateway = OurHomeGateway.fromContext(context);
+    final cached = gateway?.peekRecapPrompt();
+    setState(() {
+      _recapPromptLoadFailed = false;
+      if (cached != null) {
+        _recapPromptCtrl.text = cached;
+        _recapPromptLoading = false;
+      } else {
+        _recapPromptLoading = true;
+      }
+    });
     final result = await gateway?.fetchRecapPrompt();
     if (!mounted) return;
     setState(() {
       _recapPromptLoading = false;
       if (result == null) {
-        _recapPromptLoadFailed = true;
+        if (cached == null) _recapPromptLoadFailed = true;
       } else {
         _recapPromptLoadFailed = false;
         _recapPromptCtrl.text = result.prompt;

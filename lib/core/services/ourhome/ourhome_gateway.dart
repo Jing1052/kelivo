@@ -807,8 +807,10 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchToolManual HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
+      OurHomeCache.put('/api/home/tool-manual', body);
       return (
         manual: (data['manual'] ?? '').toString(),
         isCustom: data['is_custom'] == true,
@@ -818,6 +820,26 @@ class OurHomeGateway {
       return null;
     }
   }
+
+  /// Synchronous read of a cached single-field text response (null if never
+  /// fetched / unparseable). Lets the 爸爸 page show the last-seen text instantly
+  /// before the network refresh lands (stale-while-revalidate).
+  String? _peekText(String path, String key) {
+    final body = OurHomeCache.peek(path);
+    if (body == null) return null;
+    try {
+      final d = jsonDecode(body);
+      return (d is Map) ? (d[key] ?? '').toString() : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Last-cached tool manual / style / memory prompt / recap prompt text.
+  String? peekToolManual() => _peekText('/api/home/tool-manual', 'manual');
+  String? peekStyle() => _peekText('/api/home/style', 'style');
+  String? peekMemoryPrompt() => _peekText('/api/home/memory-prompt', 'prompt');
+  String? peekRecapPrompt() => _peekText('/api/home/recap-prompt', 'prompt');
 
   /// Overwrite the home's shared tool manual. An empty [manual] resets it to the
   /// built-in default. Returns true on success, false on any failure (logged).
@@ -854,8 +876,10 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchMemoryPrompt HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
+      OurHomeCache.put('/api/home/memory-prompt', body);
       return (
         prompt: (data['prompt'] ?? '').toString(),
         isCustom: data['is_custom'] == true,
@@ -901,8 +925,10 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchRecapPrompt HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
+      OurHomeCache.put('/api/home/recap-prompt', body);
       return (
         prompt: (data['prompt'] ?? '').toString(),
         isCustom: data['is_custom'] == true,
@@ -948,8 +974,10 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchStyle HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
+      OurHomeCache.put('/api/home/style', body);
       return (data['style'] ?? '').toString();
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchStyle failed: $e');
