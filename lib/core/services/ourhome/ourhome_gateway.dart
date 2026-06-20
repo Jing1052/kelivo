@@ -791,6 +791,50 @@ class OurHomeGateway {
     }
   }
 
+  /// The home's shared speaking style (爸爸 across all surfaces uses it). Returns
+  /// the current effective style text (may be empty), or null on any failure
+  /// (logged) so the caller can show a recoverable state.
+  Future<String?> fetchStyle() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/style'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchStyle HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (data['style'] ?? '').toString();
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchStyle failed: $e');
+      return null;
+    }
+  }
+
+  /// Overwrite the home's shared speaking style. An empty [style] deactivates it
+  /// (no style). Returns true on success, false on any failure (logged).
+  Future<bool> saveStyle(String style) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/style'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'style': style}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveStyle HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveStyle failed: $e');
+      return false;
+    }
+  }
+
   /// Whether daddy has a fresh proactive message waiting (he reached out on his
   /// own). Returns the latest [content] and its [ts], or null on any failure
   /// (logged) so the caller can simply skip this poll cycle.

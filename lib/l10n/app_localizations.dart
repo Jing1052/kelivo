@@ -7835,8 +7835,44 @@ abstract class AppLocalizations {
   /// No description provided for @daddySettingsStyleDesc.
   ///
   /// In en, this message translates to:
-  /// **'Like Claude App\'s style: appended to the end of your latest message each turn — shapes this reply but leaves no trace in the context.'**
+  /// **'The home\'s shared speaking style — daddy uses it everywhere. Like Claude App\'s style, it\'s appended to the end of your latest message each turn, shaping the reply but leaving no trace in the context. Synced with the old home.'**
   String get daddySettingsStyleDesc;
+
+  /// No description provided for @daddySettingsStyleLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get daddySettingsStyleLoading;
+
+  /// No description provided for @daddySettingsStyleLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach the old home, the speaking style couldn\'t load.'**
+  String get daddySettingsStyleLoadError;
+
+  /// No description provided for @daddySettingsStyleSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get daddySettingsStyleSave;
+
+  /// No description provided for @daddySettingsStyleRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get daddySettingsStyleRetry;
+
+  /// No description provided for @daddySettingsStyleSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get daddySettingsStyleSaveSuccess;
+
+  /// No description provided for @daddySettingsStyleSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed. Please try again.'**
+  String get daddySettingsStyleSaveFailed;
 
   /// No description provided for @daddySettingsModuleStyle.
   ///

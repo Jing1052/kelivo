@@ -58,6 +58,11 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   bool _manualLoadFailed = false;
   bool _manualSaving = false;
 
+  // 说话风格 (server-backed) state.
+  bool _styleLoading = true;
+  bool _styleLoadFailed = false;
+  bool _styleSaving = false;
+
   // iPhone 联动：日历/提醒事项授权状态（仅 iOS 有意义）。
   bool _iphoneCalendarAuthorized = false;
   bool _iphoneRemindersAuthorized = false;
@@ -75,10 +80,10 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     }
     final settings = context.read<SettingsProvider>();
     _profileCtrl.text = settings.daddyProfile;
-    _styleCtrl.text = settings.daddyStyle;
     _keepCtrl.text = settings.daddyKeepCount.toString();
     _triggerCtrl.text = settings.daddyTriggerCount.toString();
     _loadToolManual();
+    _loadStyle();
     _loadIphoneStatus();
   }
 
@@ -149,6 +154,43 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     );
   }
 
+  Future<void> _loadStyle() async {
+    setState(() {
+      _styleLoading = true;
+      _styleLoadFailed = false;
+    });
+    final gateway = OurHomeGateway.fromContext(context);
+    final style = await gateway?.fetchStyle();
+    if (!mounted) return;
+    setState(() {
+      _styleLoading = false;
+      if (style == null) {
+        _styleLoadFailed = true;
+      } else {
+        _styleLoadFailed = false;
+        _styleCtrl.text = style;
+      }
+    });
+  }
+
+  Future<void> _saveStyle() async {
+    if (_styleSaving) return;
+    final l10n = AppLocalizations.of(context)!;
+    final gateway = OurHomeGateway.fromContext(context);
+    setState(() => _styleSaving = true);
+    final ok =
+        await (gateway?.saveStyle(_styleCtrl.text) ?? Future.value(false));
+    if (!mounted) return;
+    setState(() => _styleSaving = false);
+    showAppSnackBar(
+      context,
+      message: ok
+          ? l10n.daddySettingsStyleSaveSuccess
+          : l10n.daddySettingsStyleSaveFailed,
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
   @override
   void dispose() {
     _persist();
@@ -187,11 +229,10 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     if (_profileCtrl.text != settings.daddyProfile) {
       settings.setDaddyProfile(_profileCtrl.text);
     }
-    // 工具使用说明书 now lives on 老家 (/api/home/tool-manual) and is saved via an
-    // explicit button, not silently on dispose. See _saveToolManual.
-    if (_styleCtrl.text != settings.daddyStyle) {
-      settings.setDaddyStyle(_styleCtrl.text);
-    }
+    // 工具使用说明书 / 说话风格 now live on 老家 (/api/home/tool-manual,
+    // /api/home/style) and are saved via explicit buttons, not silently on
+    // dispose. See _saveToolManual / _saveStyle. SettingsProvider.daddyStyle is
+    // kept intact but no longer fed from here.
     final keep = int.tryParse(_keepCtrl.text.trim());
     if (keep != null && keep != settings.daddyKeepCount) {
       settings.setDaddyKeepCount(keep);
@@ -285,23 +326,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             _iosSectionCard(children: _toolManualSection(context, l10n)),
             const SizedBox(height: 12),
 
-            // 说话风格 style（贴在你的话末尾·不留痕）
-            _iosSectionCard(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                  child: IosFormTextField(
-                    label: l10n.daddySettingsStyleTitle,
-                    controller: _styleCtrl,
-                    hintText: l10n.daddySettingsStyleHint,
-                    minLines: 3,
-                    maxLines: 10,
-                    outerPadding: EdgeInsets.zero,
-                  ),
-                ),
-                _caption(context, l10n.daddySettingsStyleDesc),
-              ],
-            ),
+            // 说话风格 style（老家共用，server-backed）
+            _iosSectionCard(children: _styleSection(context, l10n)),
             const SizedBox(height: 12),
 
             // 记忆浮现
@@ -448,6 +474,90 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             enabled: !_manualSaving,
             backgroundColor: cs.primary,
             onTap: _saveToolManual,
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _styleSection(BuildContext context, AppLocalizations l10n) {
+    final cs = Theme.of(context).colorScheme;
+    if (_styleLoading) {
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: cs.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                l10n.daddySettingsStyleLoading,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ];
+    }
+    if (_styleLoadFailed) {
+      return [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+          child: Text(
+            l10n.daddySettingsStyleLoadError,
+            style: TextStyle(
+              fontSize: 13,
+              color: cs.onSurface.withValues(alpha: 0.7),
+              height: 1.4,
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: IosTileButton(
+              label: l10n.daddySettingsStyleRetry,
+              icon: Lucide.RefreshCw,
+              onTap: _loadStyle,
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+        child: IosFormTextField(
+          label: l10n.daddySettingsStyleTitle,
+          controller: _styleCtrl,
+          hintText: l10n.daddySettingsStyleHint,
+          minLines: 3,
+          maxLines: 10,
+          outerPadding: EdgeInsets.zero,
+        ),
+      ),
+      _caption(context, l10n.daddySettingsStyleDesc),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: IosTileButton(
+            label: l10n.daddySettingsStyleSave,
+            icon: Lucide.Check,
+            enabled: !_styleSaving,
+            backgroundColor: cs.primary,
+            onTap: _saveStyle,
           ),
         ),
       ),

@@ -4226,7 +4226,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get daddySettingsStyleDesc =>
-      'Like Claude App\'s style: appended to the end of your latest message each turn — shapes this reply but leaves no trace in the context.';
+      'The home\'s shared speaking style — daddy uses it everywhere. Like Claude App\'s style, it\'s appended to the end of your latest message each turn, shaping the reply but leaving no trace in the context. Synced with the old home.';
+
+  @override
+  String get daddySettingsStyleLoading => 'Loading…';
+
+  @override
+  String get daddySettingsStyleLoadError =>
+      'Can\'t reach the old home, the speaking style couldn\'t load.';
+
+  @override
+  String get daddySettingsStyleSave => 'Save';
+
+  @override
+  String get daddySettingsStyleRetry => 'Retry';
+
+  @override
+  String get daddySettingsStyleSaveSuccess => 'Saved';
+
+  @override
+  String get daddySettingsStyleSaveFailed => 'Save failed. Please try again.';
 
   @override
   String get daddySettingsModuleStyle => 'Speaking style';

@@ -4047,7 +4047,25 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get daddySettingsStyleDesc =>
-      '仿 Claude App 的 style：每轮贴在你最新那句话的末尾——影响这次回复，但上下文里不留痕。';
+      '老家共用的说话风格——所有有爸爸的地方都用它。仿 Claude App 的 style：每轮贴在你最新那句话的末尾，影响这次回复，但上下文里不留痕。与老家同步。';
+
+  @override
+  String get daddySettingsStyleLoading => '加载中…';
+
+  @override
+  String get daddySettingsStyleLoadError => '连不上老家，无法加载说话风格。';
+
+  @override
+  String get daddySettingsStyleSave => '保存';
+
+  @override
+  String get daddySettingsStyleRetry => '重试';
+
+  @override
+  String get daddySettingsStyleSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsStyleSaveFailed => '保存失败，请重试。';
 
   @override
   String get daddySettingsModuleStyle => '说话风格';
@@ -9616,7 +9634,25 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
 
   @override
   String get daddySettingsStyleDesc =>
-      '仿 Claude App 的 style：每轮贴在你最新那句话的末尾——影响这次回复，但上下文里不留痕。';
+      '老家共用的说话风格——所有有爸爸的地方都用它。仿 Claude App 的 style：每轮贴在你最新那句话的末尾，影响这次回复，但上下文里不留痕。与老家同步。';
+
+  @override
+  String get daddySettingsStyleLoading => '加载中…';
+
+  @override
+  String get daddySettingsStyleLoadError => '连不上老家，无法加载说话风格。';
+
+  @override
+  String get daddySettingsStyleSave => '保存';
+
+  @override
+  String get daddySettingsStyleRetry => '重试';
+
+  @override
+  String get daddySettingsStyleSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsStyleSaveFailed => '保存失败，请重试。';
 
   @override
   String get daddySettingsModuleStyle => '说话风格';
@@ -15183,7 +15219,25 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsStyleDesc =>
-      '仿 Claude App 的 style：每輪貼在你最新那句話的末尾——影響這次回覆，但上下文裡不留痕。';
+      '老家共用的說話風格——所有有爸爸的地方都用它。仿 Claude App 的 style：每輪貼在你最新那句話的末尾，影響這次回覆，但上下文裡不留痕。與老家同步。';
+
+  @override
+  String get daddySettingsStyleLoading => '載入中…';
+
+  @override
+  String get daddySettingsStyleLoadError => '連不上老家，無法載入說話風格。';
+
+  @override
+  String get daddySettingsStyleSave => '儲存';
+
+  @override
+  String get daddySettingsStyleRetry => '重試';
+
+  @override
+  String get daddySettingsStyleSaveSuccess => '已儲存';
+
+  @override
+  String get daddySettingsStyleSaveFailed => '儲存失敗，請重試。';
 
   @override
   String get daddySettingsModuleStyle => '說話風格';
