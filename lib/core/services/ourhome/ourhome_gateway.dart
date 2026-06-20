@@ -734,11 +734,26 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/sense'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! Map<String, dynamic>) {
       return const OurHomeSense(fields: {}, ts: '');
     }
+    OurHomeCache.put('/api/home/sense', body);
     return OurHomeSense.fromJson(data);
+  }
+
+  /// Last-seen sense from cache (instant, before the network). Null if none.
+  OurHomeSense? peekSense() {
+    final body = OurHomeCache.peek('/api/home/sense');
+    if (body == null || body.isEmpty) return null;
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map<String, dynamic>) return null;
+      return OurHomeSense.fromJson(data);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<T>> _getList<T>(
@@ -791,19 +806,36 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchMemoryDetail HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
-      return OurHomeMemoryDetail(
-        name: (data['name'] ?? '').toString(),
-        content: (data['content'] ?? '').toString(),
-        created: (data['created'] ?? '').toString(),
-        revised: (data['revised'] ?? '').toString(),
-      );
+      OurHomeCache.put('/api/home/memory/$id', body);
+      return _memoryDetailFromBody(data);
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchMemoryDetail failed: $e');
       return null;
     }
   }
+
+  /// Last-seen full text of one memory, from cache. Null if never opened.
+  OurHomeMemoryDetail? peekMemoryDetail(String id) {
+    final body = OurHomeCache.peek('/api/home/memory/$id');
+    if (body == null || body.isEmpty) return null;
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map) return null;
+      return _memoryDetailFromBody(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  OurHomeMemoryDetail _memoryDetailFromBody(Map data) => OurHomeMemoryDetail(
+    name: (data['name'] ?? '').toString(),
+    content: (data['content'] ?? '').toString(),
+    created: (data['created'] ?? '').toString(),
+    revised: (data['revised'] ?? '').toString(),
+  );
 
   /// Greenhouse feels — time + mood only, never content. Newest first.
   Future<List<OurHomeFeel>> fetchGreenhouse() =>
@@ -898,22 +930,41 @@ class OurHomeGateway {
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode != 200) return {};
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return {};
-      final out = <String, List<OurHomeLyricComment>>{};
-      data.forEach((k, v) {
-        if (v is List) {
-          out['$k'] = v
-              .whereType<Map<String, dynamic>>()
-              .map(OurHomeLyricComment.fromJson)
-              .toList();
-        }
-      });
-      return out;
+      OurHomeCache.put('/api/home/lyric-comments', body);
+      return _lyricCommentsFromBody(data);
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchLyricComments failed: $e');
       return {};
     }
+  }
+
+  /// Last-seen lyric comment threads from cache (instant, before the network).
+  Map<String, List<OurHomeLyricComment>> peekLyricComments() {
+    final body = OurHomeCache.peek('/api/home/lyric-comments');
+    if (body == null || body.isEmpty) return {};
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map) return {};
+      return _lyricCommentsFromBody(data);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, List<OurHomeLyricComment>> _lyricCommentsFromBody(Map data) {
+    final out = <String, List<OurHomeLyricComment>>{};
+    data.forEach((k, v) {
+      if (v is List) {
+        out['$k'] = v
+            .whereType<Map<String, dynamic>>()
+            .map(OurHomeLyricComment.fromJson)
+            .toList();
+      }
+    });
+    return out;
   }
 
   /// Leave a comment under a lyric line (as Cing). Returns true on success.

@@ -43,6 +43,14 @@ class _SensePageState extends State<SensePage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
+    // 先显示上次缓存（秒开、无缓冲），再后台刷新。
+    final cached = gateway.peekSense();
+    if (cached != null && mounted) {
+      setState(() {
+        _sense = cached;
+        _loading = false;
+      });
+    }
     try {
       final results = await Future.wait([
         gateway.fetchSense(),

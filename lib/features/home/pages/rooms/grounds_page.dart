@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../theme/app_font_weights.dart';
@@ -266,6 +268,13 @@ class _GroundsPageState extends State<GroundsPage> {
     if (gateway == null) return;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     Haptics.soft();
+    // 上次看过的这条 → 缓存里有就秒开，并在后台刷新；没有才转圈现拉。
+    final cached = gateway.peekMemoryDetail(m.id);
+    if (cached != null && cached.content.trim().isNotEmpty) {
+      _showMemorySheet(cached, m, zh);
+      unawaited(gateway.fetchMemoryDetail(m.id));
+      return;
+    }
     final nav = Navigator.of(context, rootNavigator: true);
     showDialog<void>(
       context: context,

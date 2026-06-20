@@ -54,13 +54,19 @@ class _LoungePageState extends State<LoungePage> {
     final cs2 = gateway.peekList('/api/home/songs?all=1', OurHomeSong.fromJson);
     final cg = gateway.peekList('/api/home/games', OurHomeGame.fromJson);
     final cl = gateway.peekList('/api/home/lyrics', OurHomeLyric.fromJson);
-    if ((ci.isNotEmpty || cs2.isNotEmpty || cg.isNotEmpty || cl.isNotEmpty) &&
+    final clc = gateway.peekLyricComments();
+    if ((ci.isNotEmpty ||
+            cs2.isNotEmpty ||
+            cg.isNotEmpty ||
+            cl.isNotEmpty ||
+            clc.isNotEmpty) &&
         mounted) {
       setState(() {
         _items = ci;
         _songs = cs2;
         _games = cg;
         _lyrics = cl;
+        _lyricComments = clc;
         _loading = false;
       });
     }
