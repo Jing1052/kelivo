@@ -4308,6 +4308,39 @@ class AppLocalizationsEn extends AppLocalizations {
       'No daddy assistant found. Configure an assistant whose prompt contains the [[ourhome]] marker first.';
 
   @override
+  String get iphoneLinkSectionTitle => 'iPhone link';
+
+  @override
+  String get iphoneLinkEnableTitle => 'Enable iPhone link';
+
+  @override
+  String get iphoneLinkEnableSubtitle =>
+      'Let daddy write [[cal]] / [[remind]] markers from his replies into your iPhone Calendar and Reminders.';
+
+  @override
+  String get iphoneLinkDesc =>
+      'Only works inside this app, iOS only. Daddy adds events and reminders for you; the markers are never shown in chat.';
+
+  @override
+  String get iphoneLinkStatusCalendar => 'Calendar';
+
+  @override
+  String get iphoneLinkStatusReminders => 'Reminders';
+
+  @override
+  String get iphoneLinkStatusAuthorized => 'Authorized';
+
+  @override
+  String get iphoneLinkStatusDenied => 'Not authorized';
+
+  @override
+  String get iphoneLinkGrantAccess => 'Grant access';
+
+  @override
+  String get iphoneLinkAccessNeeded =>
+      'Access is needed. Tap “Grant access” to allow Calendar and Reminders.';
+
+  @override
   String get displaySettingsPageThemeColorTitle => 'Theme Color';
 
   @override

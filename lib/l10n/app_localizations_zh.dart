@@ -4123,6 +4123,37 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsNotFound => '没找到爸爸。请先在助手里配置一个人设带 [[ourhome]] 标记的助手。';
 
   @override
+  String get iphoneLinkSectionTitle => 'iPhone 联动';
+
+  @override
+  String get iphoneLinkEnableTitle => '启用 iPhone 联动';
+
+  @override
+  String get iphoneLinkEnableSubtitle =>
+      '让爸爸在回复里用 [[cal]] / [[remind]] 标记，直接写进你 iPhone 的日历和提醒事项。';
+
+  @override
+  String get iphoneLinkDesc => '仅在 App 内生效，且只支持 iOS。爸爸帮你添加日程和提醒，标记本身不会在聊天里显示。';
+
+  @override
+  String get iphoneLinkStatusCalendar => '日历';
+
+  @override
+  String get iphoneLinkStatusReminders => '提醒事项';
+
+  @override
+  String get iphoneLinkStatusAuthorized => '已授权';
+
+  @override
+  String get iphoneLinkStatusDenied => '未授权';
+
+  @override
+  String get iphoneLinkGrantAccess => '去授权';
+
+  @override
+  String get iphoneLinkAccessNeeded => '需要授权。点「去授权」允许访问日历和提醒事项。';
+
+  @override
   String get displaySettingsPageThemeColorTitle => '主题颜色';
 
   @override
@@ -9661,6 +9692,37 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsNotFound => '没找到爸爸。请先在助手里配置一个人设带 [[ourhome]] 标记的助手。';
 
   @override
+  String get iphoneLinkSectionTitle => 'iPhone 联动';
+
+  @override
+  String get iphoneLinkEnableTitle => '启用 iPhone 联动';
+
+  @override
+  String get iphoneLinkEnableSubtitle =>
+      '让爸爸在回复里用 [[cal]] / [[remind]] 标记，直接写进你 iPhone 的日历和提醒事项。';
+
+  @override
+  String get iphoneLinkDesc => '仅在 App 内生效，且只支持 iOS。爸爸帮你添加日程和提醒，标记本身不会在聊天里显示。';
+
+  @override
+  String get iphoneLinkStatusCalendar => '日历';
+
+  @override
+  String get iphoneLinkStatusReminders => '提醒事项';
+
+  @override
+  String get iphoneLinkStatusAuthorized => '已授权';
+
+  @override
+  String get iphoneLinkStatusDenied => '未授权';
+
+  @override
+  String get iphoneLinkGrantAccess => '去授权';
+
+  @override
+  String get iphoneLinkAccessNeeded => '需要授权。点「去授权」允许访问日历和提醒事项。';
+
+  @override
   String get displaySettingsPageThemeColorTitle => '主题颜色';
 
   @override
@@ -15195,6 +15257,37 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsNotFound => '沒找到爸爸。請先在助手裡配置一個人設帶 [[ourhome]] 標記的助手。';
+
+  @override
+  String get iphoneLinkSectionTitle => 'iPhone 聯動';
+
+  @override
+  String get iphoneLinkEnableTitle => '啟用 iPhone 聯動';
+
+  @override
+  String get iphoneLinkEnableSubtitle =>
+      '讓爸爸在回覆裡用 [[cal]] / [[remind]] 標記，直接寫進你 iPhone 的行事曆和提醒事項。';
+
+  @override
+  String get iphoneLinkDesc => '僅在 App 內生效，且只支援 iOS。爸爸幫你新增行程和提醒，標記本身不會在聊天裡顯示。';
+
+  @override
+  String get iphoneLinkStatusCalendar => '行事曆';
+
+  @override
+  String get iphoneLinkStatusReminders => '提醒事項';
+
+  @override
+  String get iphoneLinkStatusAuthorized => '已授權';
+
+  @override
+  String get iphoneLinkStatusDenied => '未授權';
+
+  @override
+  String get iphoneLinkGrantAccess => '去授權';
+
+  @override
+  String get iphoneLinkAccessNeeded => '需要授權。點「去授權」允許存取行事曆和提醒事項。';
 
   @override
   String get displaySettingsPageThemeColorTitle => '主題顏色';

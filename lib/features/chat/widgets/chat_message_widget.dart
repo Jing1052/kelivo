@@ -7,6 +7,7 @@ import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/utils/buzz_markers.dart';
+import '../../../core/utils/iphone_markers.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 import 'dart:io';
@@ -2089,21 +2090,25 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     final parsedInlineThinking = _legacyInlineThinkingFor(widget);
     final extractedThinking = parsedInlineThinking.thinkingTexts.join('\n\n');
     final contentWithoutThink = parsedInlineThinking.visibleContent;
-    final visualContent = stripBuzzMarkers(
-      applyAssistantRegexes(
-        contentWithoutThink,
-        assistant: assistant,
-        scope: AssistantRegexScope.assistant,
-        target: AssistantRegexTransformTarget.visual,
+    final visualContent = stripIphoneMarkers(
+      stripBuzzMarkers(
+        applyAssistantRegexes(
+          contentWithoutThink,
+          assistant: assistant,
+          scope: AssistantRegexScope.assistant,
+          target: AssistantRegexTransformTarget.visual,
+        ),
       ),
     );
     final visualTranslation = widget.message.translation != null
-        ? stripBuzzMarkers(
-            applyAssistantRegexes(
-              widget.message.translation!,
-              assistant: assistant,
-              scope: AssistantRegexScope.assistant,
-              target: AssistantRegexTransformTarget.visual,
+        ? stripIphoneMarkers(
+            stripBuzzMarkers(
+              applyAssistantRegexes(
+                widget.message.translation!,
+                assistant: assistant,
+                scope: AssistantRegexScope.assistant,
+                target: AssistantRegexTransformTarget.visual,
+              ),
             ),
           )
         : null;

@@ -19,6 +19,8 @@ import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/tts/tts_text_selection.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/utils/buzz_markers.dart';
+import '../../../core/utils/iphone_markers.dart';
+import '../../../core/services/iphone_link_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../utils/platform_utils.dart';
@@ -1253,31 +1255,66 @@ class HomePageController extends ChangeNotifier {
   void _handleAssistantMessageFinished(ChatMessage message) {
     if (!_context.mounted || message.role != 'assistant') return;
 
-    // Fire `[[buzz]]` haptics exactly once, at the per-message completion hook.
-    // This hook is invoked a single time when streaming finalizes, never on
-    // rebuild/scroll/history reload, so no extra firing guard is needed.
+    // Per-message completion hook (fires once when streaming finalizes, never on
+    // rebuild/scroll/history reload). Fire the marker side-effects, then strip
+    // ALL reply markers in ONE pass — separating action from stripping so the
+    // two handlers don't overwrite each other's update.
     _handleBuzzMarkers(message);
+    _handleIphoneMarkers(message);
+    _stripReplyMarkers(message);
 
     final settings = _context.read<SettingsProvider>();
     if (!settings.ttsAutoPlayAssistantReplies) return;
     unawaited(_speakAssistantMessage(message, autoPlay: true));
   }
 
-  /// Triggers haptics for any `[[buzz]]` markers in [message] and strips them
-  /// from the persisted content so they neither linger in history nor re-fire.
+  /// Fires `[[buzz]]` haptics once for [message] (side-effect only; the markers
+  /// are stripped centrally in [_stripReplyMarkers]).
   void _handleBuzzMarkers(ChatMessage message) {
     final content = message.content;
     if (content.isEmpty || !content.contains('[[')) return;
-
-    // Haptics must never affect the message: any failure is swallowed here in
-    // addition to Haptics' own internal guards.
+    // Haptics must never affect the message: failures are swallowed here on top
+    // of Haptics' own internal guards.
     try {
       for (final variant in parseBuzzVariants(content)) {
         Haptics.buzz(variant);
       }
     } catch (_) {}
+  }
 
-    final stripped = stripBuzzMarkers(content);
+  /// Writes any `[[cal]]` / `[[remind]]` markers in [message] to the iPhone
+  /// Calendar / Reminders when the iPhone link is enabled (side-effect only; the
+  /// markers are stripped centrally in [_stripReplyMarkers]). Never writes when
+  /// disabled; native failures are swallowed.
+  void _handleIphoneMarkers(ChatMessage message) {
+    final content = message.content;
+    if (content.isEmpty || !content.contains('[[')) return;
+    final settings = _context.read<SettingsProvider>();
+    if (!settings.iphoneLinkEnabled) return;
+    // Fire-and-forget: native failures are swallowed and never touch chat.
+    unawaited(() async {
+      try {
+        for (final ev in parseCalMarkers(content)) {
+          await IphoneLinkService.addEvent(
+            title: ev.title,
+            date: ev.date,
+            time: ev.time,
+          );
+        }
+        for (final r in parseRemindMarkers(content)) {
+          await IphoneLinkService.addReminder(text: r.text, due: r.due);
+        }
+      } catch (_) {}
+    }());
+  }
+
+  /// Strips all reply markers ([[buzz]] / [[cal]] / [[remind]]) from [message]'s
+  /// persisted content in one pass, so they never linger in history, never
+  /// re-fire, and the side-effect handlers above don't clobber each other.
+  void _stripReplyMarkers(ChatMessage message) {
+    final content = message.content;
+    if (content.isEmpty || !content.contains('[[')) return;
+    final stripped = stripIphoneMarkers(stripBuzzMarkers(content));
     if (stripped == content) return;
     unawaited(_chatService.updateMessage(message.id, content: stripped));
     final i = messages.indexWhere((m) => m.id == message.id);

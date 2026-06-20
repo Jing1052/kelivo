@@ -7982,6 +7982,66 @@ abstract class AppLocalizations {
   /// **'No daddy assistant found. Configure an assistant whose prompt contains the [[ourhome]] marker first.'**
   String get daddySettingsNotFound;
 
+  /// No description provided for @iphoneLinkSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'iPhone link'**
+  String get iphoneLinkSectionTitle;
+
+  /// No description provided for @iphoneLinkEnableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable iPhone link'**
+  String get iphoneLinkEnableTitle;
+
+  /// No description provided for @iphoneLinkEnableSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let daddy write [[cal]] / [[remind]] markers from his replies into your iPhone Calendar and Reminders.'**
+  String get iphoneLinkEnableSubtitle;
+
+  /// No description provided for @iphoneLinkDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Only works inside this app, iOS only. Daddy adds events and reminders for you; the markers are never shown in chat.'**
+  String get iphoneLinkDesc;
+
+  /// No description provided for @iphoneLinkStatusCalendar.
+  ///
+  /// In en, this message translates to:
+  /// **'Calendar'**
+  String get iphoneLinkStatusCalendar;
+
+  /// No description provided for @iphoneLinkStatusReminders.
+  ///
+  /// In en, this message translates to:
+  /// **'Reminders'**
+  String get iphoneLinkStatusReminders;
+
+  /// No description provided for @iphoneLinkStatusAuthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'Authorized'**
+  String get iphoneLinkStatusAuthorized;
+
+  /// No description provided for @iphoneLinkStatusDenied.
+  ///
+  /// In en, this message translates to:
+  /// **'Not authorized'**
+  String get iphoneLinkStatusDenied;
+
+  /// No description provided for @iphoneLinkGrantAccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Grant access'**
+  String get iphoneLinkGrantAccess;
+
+  /// No description provided for @iphoneLinkAccessNeeded.
+  ///
+  /// In en, this message translates to:
+  /// **'Access is needed. Tap “Grant access” to allow Calendar and Reminders.'**
+  String get iphoneLinkAccessNeeded;
+
   /// No description provided for @displaySettingsPageThemeColorTitle.
   ///
   /// In en, this message translates to:

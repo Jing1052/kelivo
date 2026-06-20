@@ -1,9 +1,12 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/models/assistant.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/iphone_link_service.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
@@ -55,6 +58,10 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   bool _manualLoadFailed = false;
   bool _manualSaving = false;
 
+  // iPhone 联动：日历/提醒事项授权状态（仅 iOS 有意义）。
+  bool _iphoneCalendarAuthorized = false;
+  bool _iphoneRemindersAuthorized = false;
+
   @override
   void initState() {
     super.initState();
@@ -72,6 +79,36 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _keepCtrl.text = settings.daddyKeepCount.toString();
     _triggerCtrl.text = settings.daddyTriggerCount.toString();
     _loadToolManual();
+    _loadIphoneStatus();
+  }
+
+  Future<void> _loadIphoneStatus() async {
+    if (!Platform.isIOS) return;
+    final status = await IphoneLinkService.getStatus();
+    if (!mounted) return;
+    setState(() {
+      _iphoneCalendarAuthorized = status.calendar;
+      _iphoneRemindersAuthorized = status.reminders;
+    });
+  }
+
+  Future<void> _requestIphoneAccess() async {
+    if (!Platform.isIOS) return;
+    final status = await IphoneLinkService.requestAccess();
+    if (!mounted) return;
+    setState(() {
+      _iphoneCalendarAuthorized = status.calendar;
+      _iphoneRemindersAuthorized = status.reminders;
+    });
+  }
+
+  Future<void> _onIphoneLinkToggled(bool value) async {
+    await context.read<SettingsProvider>().setIphoneLinkEnabled(value);
+    if (value && Platform.isIOS) {
+      // Prompt for access when enabling; keep the toggle on regardless of the
+      // outcome and let the status caption reflect what was granted.
+      await _requestIphoneAccess();
+    }
   }
 
   Future<void> _loadToolManual() async {
@@ -283,6 +320,14 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ),
             const SizedBox(height: 12),
 
+            // iPhone 联动
+            _sectionTitle(context, l10n.iphoneLinkSectionTitle),
+            _iosSectionCard(
+              children: _iphoneLinkSection(context, l10n, settings),
+            ),
+            _caption(context, l10n.iphoneLinkDesc),
+            const SizedBox(height: 12),
+
             // 长聊记忆：保留条数 / 触发阈值
             _iosSectionCard(
               children: [
@@ -407,6 +452,64 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
         ),
       ),
     ];
+  }
+
+  List<Widget> _iphoneLinkSection(
+    BuildContext context,
+    AppLocalizations l10n,
+    SettingsProvider settings,
+  ) {
+    final cs = Theme.of(context).colorScheme;
+    final rows = <Widget>[
+      _switchRow(
+        context,
+        icon: Lucide.Calendar,
+        label: l10n.iphoneLinkEnableTitle,
+        subtitle: l10n.iphoneLinkEnableSubtitle,
+        value: settings.iphoneLinkEnabled,
+        onChanged: _onIphoneLinkToggled,
+      ),
+    ];
+
+    if (Platform.isIOS) {
+      final bothAuthorized =
+          _iphoneCalendarAuthorized && _iphoneRemindersAuthorized;
+      rows.add(_iosDivider(context));
+      rows.add(
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 10, 12, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${l10n.iphoneLinkStatusCalendar}: '
+                  '${_iphoneCalendarAuthorized ? l10n.iphoneLinkStatusAuthorized : l10n.iphoneLinkStatusDenied}  ·  '
+                  '${l10n.iphoneLinkStatusReminders}: '
+                  '${_iphoneRemindersAuthorized ? l10n.iphoneLinkStatusAuthorized : l10n.iphoneLinkStatusDenied}',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: cs.onSurface.withValues(alpha: 0.6),
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              if (!bothAuthorized) ...[
+                const SizedBox(width: 10),
+                IosTileButton(
+                  label: l10n.iphoneLinkGrantAccess,
+                  icon: Lucide.Lock,
+                  onTap: _requestIphoneAccess,
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+      if (settings.iphoneLinkEnabled && !bothAuthorized) {
+        rows.add(_caption(context, l10n.iphoneLinkAccessNeeded));
+      }
+    }
+    return rows;
   }
 
   List<Widget> _injectionRows(

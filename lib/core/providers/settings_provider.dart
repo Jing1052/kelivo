@@ -289,6 +289,7 @@ class SettingsProvider extends ChangeNotifier {
   static const String _daddyProfileKey = 'daddy_profile_v1';
   static const String _daddyKeepCountKey = 'daddy_keep_count_v1';
   static const String _daddyTriggerCountKey = 'daddy_trigger_count_v1';
+  static const String _iphoneLinkEnabledKey = 'iphone_link_enabled_v1';
   static const String _defaultGlobalProxyBypassRules =
       'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1';
   // TTS services (network)
@@ -569,6 +570,8 @@ class SettingsProvider extends ChangeNotifier {
   // 长聊记忆：留窗保留条数 + 触发蒸馏的阈值
   int _daddyKeepCount = 65;
   int _daddyTriggerCount = 90;
+  // iPhone 联动：是否允许把 [[cal]]/[[remind]] 写进 iPhone 日历/提醒事项
+  bool _iphoneLinkEnabled = false;
 
   bool get globalProxyEnabled => _globalProxyEnabled;
   String get globalProxyType => _globalProxyType; // http|https|socks5
@@ -583,6 +586,7 @@ class SettingsProvider extends ChangeNotifier {
   String get daddyProfile => _daddyProfile;
   int get daddyKeepCount => _daddyKeepCount;
   int get daddyTriggerCount => _daddyTriggerCount;
+  bool get iphoneLinkEnabled => _iphoneLinkEnabled;
 
   int _appLaunchCount = 0;
   int get appLaunchCount => _appLaunchCount;
@@ -1244,6 +1248,7 @@ class SettingsProvider extends ChangeNotifier {
     _daddyProfile = prefs.getString(_daddyProfileKey) ?? '';
     _daddyKeepCount = prefs.getInt(_daddyKeepCountKey) ?? 65;
     _daddyTriggerCount = prefs.getInt(_daddyTriggerCountKey) ?? 90;
+    _iphoneLinkEnabled = prefs.getBool(_iphoneLinkEnabledKey) ?? false;
     final bypass = prefs.getString(_globalProxyBypassKey);
     if (bypass == null) {
       _globalProxyBypass = _defaultGlobalProxyBypassRules;
@@ -1394,6 +1399,14 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_daddyMemoryEnabledKey, _daddyMemoryEnabled);
+  }
+
+  Future<void> setIphoneLinkEnabled(bool v) async {
+    if (_iphoneLinkEnabled == v) return;
+    _iphoneLinkEnabled = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_iphoneLinkEnabledKey, _iphoneLinkEnabled);
   }
 
   Future<void> setDaddyStyle(String v) async {
@@ -4399,6 +4412,7 @@ DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logi
     copy._recapModelId = _recapModelId;
     copy._daddyKeepCount = _daddyKeepCount;
     copy._daddyTriggerCount = _daddyTriggerCount;
+    copy._iphoneLinkEnabled = _iphoneLinkEnabled;
     copy._suggestionModelProvider = _suggestionModelProvider;
     copy._suggestionModelId = _suggestionModelId;
     copy._suggestionPrompt = _suggestionPrompt;
