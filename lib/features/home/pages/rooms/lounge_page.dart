@@ -8,6 +8,7 @@ import '../../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../../shared/pages/webview_page.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_checkbox.dart';
+import 'lyric_song_page.dart';
 import 'room_state_hint.dart';
 
 /// The Lounge (起居室) — film · music · play. The watch/play list with real
@@ -25,9 +26,11 @@ class _LoungePageState extends State<LoungePage> {
   List<OurHomeFoyerItem> _items = const [];
   List<OurHomeSong> _songs = const [];
   List<OurHomeGame> _games = const [];
+  List<OurHomeLyric> _lyrics = const [];
+  Map<String, List<OurHomeLyricComment>> _lyricComments = const {};
   bool _loading = true;
   bool _error = false;
-  int _tab = 0; // 0 = screen (foyer), 1 = songs, 2 = game corner
+  int _tab = 0; // 0 = screen, 1 = songs, 2 = game corner, 3 = lyric corridor
 
   @override
   void initState() {
@@ -50,11 +53,14 @@ class _LoungePageState extends State<LoungePage> {
     final ci = gateway.peekList('/api/home/foyer?all=1', OurHomeFoyerItem.fromJson);
     final cs2 = gateway.peekList('/api/home/songs?all=1', OurHomeSong.fromJson);
     final cg = gateway.peekList('/api/home/games', OurHomeGame.fromJson);
-    if ((ci.isNotEmpty || cs2.isNotEmpty || cg.isNotEmpty) && mounted) {
+    final cl = gateway.peekList('/api/home/lyrics', OurHomeLyric.fromJson);
+    if ((ci.isNotEmpty || cs2.isNotEmpty || cg.isNotEmpty || cl.isNotEmpty) &&
+        mounted) {
       setState(() {
         _items = ci;
         _songs = cs2;
         _games = cg;
+        _lyrics = cl;
         _loading = false;
       });
     }
@@ -63,12 +69,17 @@ class _LoungePageState extends State<LoungePage> {
         gateway.fetchFoyer(),
         gateway.fetchSongs(),
         gateway.fetchGames(),
+        gateway.fetchLyrics(),
+        gateway.fetchLyricComments(),
       ]);
       if (!mounted) return;
       setState(() {
         _items = results[0] as List<OurHomeFoyerItem>;
         _songs = results[1] as List<OurHomeSong>;
         _games = results[2] as List<OurHomeGame>;
+        _lyrics = results[3] as List<OurHomeLyric>;
+        _lyricComments =
+            results[4] as Map<String, List<OurHomeLyricComment>>;
         _loading = false;
       });
     } catch (e) {
@@ -263,6 +274,7 @@ class _LoungePageState extends State<LoungePage> {
           t(0, zh ? '影视' : 'Screen'),
           t(1, zh ? '歌单' : 'Songs'),
           t(2, zh ? '游戏角' : 'Games'),
+          t(3, zh ? '词廊' : 'Lyrics'),
         ],
       ),
     );
@@ -289,7 +301,95 @@ class _LoungePageState extends State<LoungePage> {
     }
     if (_tab == 1) return _songsView(zh, cs);
     if (_tab == 2) return _gamesView(zh, cs);
+    if (_tab == 3) return _lyricsView(zh, cs);
     return _screenView(zh, cs);
+  }
+
+  Widget _lyricsView(bool zh, ColorScheme cs) {
+    if (_lyrics.isEmpty) {
+      return RoomStateHint(
+        icon: Lucide.MessageCircle,
+        text: zh ? '词廊还空着。' : 'The corridor is empty.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        itemCount: _lyrics.length,
+        itemBuilder: (context, i) {
+          final l = _lyrics[i];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: IosCardPress(
+              borderRadius: BorderRadius.circular(14),
+              baseColor: cs.onSurface.withValues(alpha: 0.04),
+              padding: const EdgeInsets.all(12),
+              onTap: () {
+                Haptics.soft();
+                final gateway = _gateway;
+                if (gateway == null) return;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => LyricSongPage(
+                      gateway: gateway,
+                      lyric: l,
+                      comments: _lyricComments,
+                    ),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  _Artwork(
+                    term: '${l.title} ${l.artist}',
+                    media: 'music',
+                    fallbackIcon: Lucide.MessageCircle,
+                    width: 46,
+                    height: 46,
+                    radius: 10,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          l.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: AppFontWeights.medium,
+                            color: cs.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l.artist,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    Lucide.ChevronRight,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.3),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _gamesView(bool zh, ColorScheme cs) {

@@ -413,6 +413,78 @@ class OurHomeGame {
   );
 }
 
+/// One lyric line in the corridor: the line itself [line] and daddy's
+/// annotation [note] (may be empty).
+class OurHomeLyricLine {
+  const OurHomeLyricLine({required this.line, required this.note});
+  final String line;
+  final String note;
+
+  factory OurHomeLyricLine.fromJson(Map<String, dynamic> j) => OurHomeLyricLine(
+    line: (j['l'] ?? '').toString(),
+    note: (j['n'] ?? '').toString(),
+  );
+}
+
+/// A song in the lyric corridor (词廊): daddy's overall reading [intro] + the
+/// annotated [lines]. [colorHex] tints the card; [cover] may be empty.
+class OurHomeLyric {
+  const OurHomeLyric({
+    required this.id,
+    required this.title,
+    required this.artist,
+    required this.colorHex,
+    required this.cover,
+    required this.intro,
+    required this.lines,
+  });
+  final String id;
+  final String title;
+  final String artist;
+  final String colorHex;
+  final String cover;
+  final String intro;
+  final List<OurHomeLyricLine> lines;
+
+  factory OurHomeLyric.fromJson(Map<String, dynamic> j) {
+    final raw = j['lines'];
+    final lines = (raw is List)
+        ? raw
+              .whereType<Map<String, dynamic>>()
+              .map(OurHomeLyricLine.fromJson)
+              .toList()
+        : <OurHomeLyricLine>[];
+    return OurHomeLyric(
+      id: (j['id'] ?? '').toString(),
+      title: (j['t'] ?? '').toString(),
+      artist: (j['a'] ?? '').toString(),
+      colorHex: (j['c'] ?? '').toString(),
+      cover: (j['cover'] ?? '').toString(),
+      intro: (j['intro'] ?? '').toString(),
+      lines: lines,
+    );
+  }
+}
+
+/// One comment under a lyric line. [by] is 'cing' or 'daddy'.
+class OurHomeLyricComment {
+  const OurHomeLyricComment({
+    required this.by,
+    required this.text,
+    required this.ts,
+  });
+  final String by;
+  final String text;
+  final int ts;
+
+  factory OurHomeLyricComment.fromJson(Map<String, dynamic> j) =>
+      OurHomeLyricComment(
+        by: (j['by'] ?? '').toString(),
+        text: (j['x'] ?? '').toString(),
+        ts: (j['t'] is int) ? j['t'] as int : int.tryParse('${j['t']}') ?? 0,
+      );
+}
+
 /// A little theater (小剧场) — one alternate-world role-play setting. [title] is
 /// the world's name, [setting] its description, [bringMemory] whether the
 /// real-life memory is carried in. Each maps 1:1 to a bound chat conversation.
@@ -810,6 +882,63 @@ class OurHomeGateway {
   /// `<base>/games/<file>` (served without auth).
   Future<List<OurHomeGame>> fetchGames() =>
       _getList('/api/home/games', OurHomeGame.fromJson);
+
+  /// Songs in the lyric corridor (词廊), newest first.
+  Future<List<OurHomeLyric>> fetchLyrics() =>
+      _getList('/api/home/lyrics', OurHomeLyric.fromJson);
+
+  /// All lyric comment threads, keyed by [lyricCommentKey]. Returns {} on any
+  /// failure (logged) — the corridor still shows lyrics, just no comments.
+  Future<Map<String, List<OurHomeLyricComment>>> fetchLyricComments() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('$base/api/home/lyric-comments'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return {};
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return {};
+      final out = <String, List<OurHomeLyricComment>>{};
+      data.forEach((k, v) {
+        if (v is List) {
+          out['$k'] = v
+              .whereType<Map<String, dynamic>>()
+              .map(OurHomeLyricComment.fromJson)
+              .toList();
+        }
+      });
+      return out;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchLyricComments failed: $e');
+      return {};
+    }
+  }
+
+  /// Leave a comment under a lyric line (as Cing). Returns true on success.
+  Future<bool> postLyricComment(String title, String line, String text) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/lyric-comments'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'title': title, 'line': line, 'text': text}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return false;
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] postLyricComment failed: $e');
+      return false;
+    }
+  }
+
+  /// Comment-thread key for a lyric line — mirrors the server's
+  /// `_lyric_cmt_key`: title.toLowerCase() concatenated with the raw line.
+  static String lyricCommentKey(String title, String line) =>
+      title.trim().toLowerCase() + line.trim();
 
   /// The study's shared bookshelf. Newest first.
   Future<List<OurHomeBook>> fetchBooks() =>
