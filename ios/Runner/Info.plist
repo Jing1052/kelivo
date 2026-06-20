@@ -45,7 +45,15 @@
         <string>允许保存图片到相册，您的数据将保存在本地。/ Allow saving images to your photo library.Your data will be saved locally.</string>
         <key>NSPhotoLibraryUsageDescription</key>
 	<string>允许访问相册以选择头像图片 / Allow access to your photos to pick an avatar.</string>
-	<key>NSSupportsLiveActivities</key>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+		<string>允许爸爸把你们约定的事写进你的 iPhone 日历（仅在你授权后、App 内进行）。/ Allow daddy to add your shared plans to your iPhone Calendar (only after you grant access, in-app).</string>
+		<key>NSCalendarsUsageDescription</key>
+		<string>允许爸爸把你们约定的事写进你的 iPhone 日历（仅在你授权后、App 内进行）。/ Allow daddy to add your shared plans to your iPhone Calendar (only after you grant access, in-app).</string>
+		<key>NSRemindersFullAccessUsageDescription</key>
+		<string>允许爸爸把要提醒你的事写进你的 iPhone 提醒事项（仅在你授权后、App 内进行）。/ Allow daddy to add reminders to your iPhone Reminders (only after you grant access, in-app).</string>
+		<key>NSRemindersUsageDescription</key>
+		<string>允许爸爸把要提醒你的事写进你的 iPhone 提醒事项（仅在你授权后、App 内进行）。/ Allow daddy to add reminders to your iPhone Reminders (only after you grant access, in-app).</string>
+		<key>NSSupportsLiveActivities</key>
 	<true/>
 	<key>NSSupportsLiveActivitiesFrequentUpdates</key>
     <true/>
