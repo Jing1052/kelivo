@@ -18,6 +18,7 @@ import '../../../core/providers/memory_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/tts/tts_text_selection.dart';
 import '../../../core/services/haptics.dart';
+import '../../../core/utils/buzz_markers.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../utils/platform_utils.dart';
@@ -1251,9 +1252,39 @@ class HomePageController extends ChangeNotifier {
 
   void _handleAssistantMessageFinished(ChatMessage message) {
     if (!_context.mounted || message.role != 'assistant') return;
+
+    // Fire `[[buzz]]` haptics exactly once, at the per-message completion hook.
+    // This hook is invoked a single time when streaming finalizes, never on
+    // rebuild/scroll/history reload, so no extra firing guard is needed.
+    _handleBuzzMarkers(message);
+
     final settings = _context.read<SettingsProvider>();
     if (!settings.ttsAutoPlayAssistantReplies) return;
     unawaited(_speakAssistantMessage(message, autoPlay: true));
+  }
+
+  /// Triggers haptics for any `[[buzz]]` markers in [message] and strips them
+  /// from the persisted content so they neither linger in history nor re-fire.
+  void _handleBuzzMarkers(ChatMessage message) {
+    final content = message.content;
+    if (content.isEmpty || !content.contains('[[')) return;
+
+    // Haptics must never affect the message: any failure is swallowed here in
+    // addition to Haptics' own internal guards.
+    try {
+      for (final variant in parseBuzzVariants(content)) {
+        Haptics.buzz(variant);
+      }
+    } catch (_) {}
+
+    final stripped = stripBuzzMarkers(content);
+    if (stripped == content) return;
+    unawaited(_chatService.updateMessage(message.id, content: stripped));
+    final i = messages.indexWhere((m) => m.id == message.id);
+    if (i != -1) {
+      messages[i] = messages[i].copyWith(content: stripped);
+      notifyListeners();
+    }
   }
 
   Future<void> speakMessage(ChatMessage message) async {

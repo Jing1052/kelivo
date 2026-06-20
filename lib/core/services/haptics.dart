@@ -56,6 +56,45 @@ class Haptics {
     }
   }
 
+  /// Strong single tap feedback.
+  static void heavy() {
+    if (!enabled) return;
+    if (_isIOS) {
+      _safe(() => hfp.Haptics.vibrate(hfp.HapticsType.heavy));
+    } else if (_isAndroid) {
+      _safe(() => system.HapticFeedback.heavyImpact());
+    }
+  }
+
+  /// Fires a `[[buzz]]` marker haptic for the given [variant].
+  ///
+  /// Empty string -> normal single tap (medium). `soft`/`heavy` map to the
+  /// matching intensity. `double` fires two pulses ~120ms apart. `long` has no
+  /// dedicated sustained API across platforms, so it is approximated by a few
+  /// quick heavy pulses to read as one longer buzz.
+  static void buzz(String variant) {
+    if (!enabled) return;
+    switch (variant) {
+      case 'soft':
+        soft();
+        break;
+      case 'heavy':
+        heavy();
+        break;
+      case 'double':
+        heavy();
+        Timer(const Duration(milliseconds: 120), heavy);
+        break;
+      case 'long':
+        heavy();
+        Timer(const Duration(milliseconds: 90), heavy);
+        Timer(const Duration(milliseconds: 180), heavy);
+        break;
+      default:
+        medium();
+    }
+  }
+
   /// Cancel any ongoing vibration (rarely needed in our use cases).
   static void cancel() {
     /* no-op */
