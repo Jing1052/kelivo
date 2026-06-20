@@ -23,6 +23,7 @@ import '../../../core/models/quick_phrase.dart';
 import '../../../core/models/chat_input_data.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/android_process_text.dart';
+import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../utils/sandbox_path_resolver.dart';
 import '../../../utils/platform_utils.dart';
 import '../../../desktop/search_provider_popover.dart';
@@ -1578,6 +1579,12 @@ class _HomePageState extends State<HomePage>
   }
 
   void _showContextManagementSheet() async {
+    // daddy 会话的上下文由我们家网关 keep/trigger 管理，压缩/清空两项会和网关
+    // 的滚动前情提要冲突，故对 daddy 整体隐藏这个菜单（不弹）。非 daddy 不变。
+    final assistant = context.read<AssistantProvider>().currentAssistant;
+    if (DaddyGatewayRoute.isDaddy(assistant?.systemPrompt)) {
+      return;
+    }
     final cs = Theme.of(context).colorScheme;
     await showModalBottomSheet(
       context: context,

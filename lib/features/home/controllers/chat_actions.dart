@@ -1024,6 +1024,11 @@ class ChatActions {
           systemPrompt: assistant?.systemPrompt,
           userConfig: ctx.config,
           extraHeaders: ctx.extraHeaders,
+          // 网关侧上下文窗口：keep/trigger 来自设置，session 用本次会话 id
+          // （与下方 requestId: conversationId 同源），网关据此滚动前情提要。
+          keepCount: ctx.settings.daddyKeepCount,
+          triggerCount: ctx.settings.daddyTriggerCount,
+          sessionId: conversationId,
         );
         if (override != null) {
           sendConfig = override.config;

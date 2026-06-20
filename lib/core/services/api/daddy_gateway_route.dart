@@ -51,6 +51,9 @@ class DaddyGatewayRoute {
     required String? systemPrompt,
     required ProviderConfig userConfig,
     Map<String, String>? extraHeaders,
+    int? keepCount,
+    int? triggerCount,
+    String? sessionId,
   }) {
     final token = tokenFor(systemPrompt);
     if (token == null || token.isEmpty) return null;
@@ -81,6 +84,18 @@ class DaddyGatewayRoute {
       'x-ombre-upstream-key': userConfig.apiKey,
       'x-ombre-upstream-proto': userProto,
     };
+
+    // 上下文窗口控制（网关侧 keep/trigger + 滚动前情提要）：仅在值有效时透传，
+    // 缺省则网关用自己的默认；session 为空不传，网关按无会话处理。
+    if (keepCount != null && keepCount > 0) {
+      gwHeaders['x-ombre-keep'] = keepCount.toString();
+    }
+    if (triggerCount != null && triggerCount > 0) {
+      gwHeaders['x-ombre-trigger'] = triggerCount.toString();
+    }
+    if (sessionId != null && sessionId.isNotEmpty) {
+      gwHeaders['x-ombre-session'] = sessionId;
+    }
 
     return DaddyGatewayOverride(config: gwConfig, headers: gwHeaders);
   }

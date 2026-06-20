@@ -96,6 +96,42 @@ void main() {
       expect(o!.headers['X-Custom'], 'keep-me');
       expect(o.headers['x-ombre-upstream-proto'], 'openai');
     });
+
+    test('valid keep/trigger/session → context window headers sent', () {
+      final o = DaddyGatewayRoute.overrideFor(
+        systemPrompt: '[[ourhome:T]]',
+        userConfig: userConfig(),
+        keepCount: 65,
+        triggerCount: 90,
+        sessionId: 'conv-abc',
+      );
+      expect(o!.headers['x-ombre-keep'], '65');
+      expect(o.headers['x-ombre-trigger'], '90');
+      expect(o.headers['x-ombre-session'], 'conv-abc');
+    });
+
+    test('null/non-positive/empty context values are omitted', () {
+      final o = DaddyGatewayRoute.overrideFor(
+        systemPrompt: '[[ourhome:T]]',
+        userConfig: userConfig(),
+        keepCount: null,
+        triggerCount: 0,
+        sessionId: '',
+      );
+      expect(o!.headers.containsKey('x-ombre-keep'), isFalse);
+      expect(o.headers.containsKey('x-ombre-trigger'), isFalse);
+      expect(o.headers.containsKey('x-ombre-session'), isFalse);
+    });
+
+    test('context window headers omitted when params not passed', () {
+      final o = DaddyGatewayRoute.overrideFor(
+        systemPrompt: '[[ourhome:T]]',
+        userConfig: userConfig(),
+      );
+      expect(o!.headers.containsKey('x-ombre-keep'), isFalse);
+      expect(o.headers.containsKey('x-ombre-trigger'), isFalse);
+      expect(o.headers.containsKey('x-ombre-session'), isFalse);
+    });
   });
 
   group('DaddyGatewayRoute predicates', () {

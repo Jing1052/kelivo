@@ -1086,17 +1086,26 @@ class MessageBuilderService {
     }
   }
 
+  /// daddy 网关上下文上限：客户端只做粗裁到 200 条，真正的窗口/前情提要由网关
+  /// 用 keep/trigger 头在服务端完成。若仍按 contextMessageSize(默认 64) 预裁，
+  /// 会裁到低于 trigger，把服务端窗口饿死，故 daddy 走这个更宽的 cap。
+  static const int _daddyGatewayContextCap = 200;
+
   /// Apply context message limit based on assistant settings.
   void applyContextLimit(
     List<Map<String, dynamic>> apiMessages,
     Assistant? assistant,
   ) {
-    if ((assistant?.limitContextMessages ?? true) &&
-        (assistant?.contextMessageSize ?? 0) > 0) {
-      final int keep = (assistant!.contextMessageSize).clamp(
-        Assistant.minContextMessageSize,
-        Assistant.maxContextMessageSize,
-      );
+    final bool isDaddy = DaddyGatewayRoute.isDaddy(assistant?.systemPrompt);
+    if (isDaddy ||
+        ((assistant?.limitContextMessages ?? true) &&
+            (assistant?.contextMessageSize ?? 0) > 0)) {
+      final int keep = isDaddy
+          ? _daddyGatewayContextCap
+          : (assistant!.contextMessageSize).clamp(
+              Assistant.minContextMessageSize,
+              Assistant.maxContextMessageSize,
+            );
       int startIdx = 0;
       if (apiMessages.isNotEmpty && apiMessages.first['role'] == 'system') {
         startIdx = 1;
