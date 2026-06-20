@@ -88,6 +88,10 @@ class _TheaterPageState extends State<TheaterPage> {
     Haptics.soft();
     final res = await _showEditSheet(theater);
     if (res == null) return;
+    if (res.end) {
+      await _endTheater(theater);
+      return;
+    }
     if (res.delete) {
       final ok = await gateway.deleteTheater(theater.id);
       if (!mounted) return;
@@ -116,6 +120,122 @@ class _TheaterPageState extends State<TheaterPage> {
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(zh ? '没存上，再试一次' : "couldn't save, try again")),
+    );
+  }
+
+  /// 结束这一世（落幕）：把这出戏的对话发给老家，小模型写一段戏文摘要注进主线爸爸的脑子，
+  /// 剧场盖上「已落幕」但设定/对话都留着，可重进。
+  Future<void> _endTheater(OurHomeTheater theater) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final chatService = context.read<ChatService>();
+    final convs = chatService
+        .getAllConversations()
+        .where((c) => c.theaterId == theater.id)
+        .toList();
+    final msgs = <Map<String, String>>[];
+    if (convs.isNotEmpty) {
+      for (final m in chatService.getMessages(convs.first.id)) {
+        final content = m.content.trim();
+        if ((m.role == 'user' || m.role == 'assistant') && content.isNotEmpty) {
+          msgs.add({'role': m.role, 'content': content});
+        }
+      }
+    }
+    if (msgs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(zh ? '这出戏还没开演呢' : "this play hasn't started yet")),
+      );
+      return;
+    }
+    final nav = Navigator.of(context, rootNavigator: true);
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+    );
+    final digest = await gateway.endTheater(
+      theater.id,
+      msgs.length > 120 ? msgs.sublist(msgs.length - 120) : msgs,
+    );
+    nav.pop(); // 关掉加载圈
+    if (!mounted) return;
+    if (digest == null) {
+      _toast();
+      return;
+    }
+    await _load();
+    if (!mounted) return;
+    _showDigestSheet(theater.title, digest, zh);
+  }
+
+  void _showDigestSheet(String title, String digest, bool zh) {
+    final cs = Theme.of(context).colorScheme;
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Icon(Lucide.Sparkles, size: 18, color: const Color(0xFF8F7FC9)),
+                const SizedBox(width: 8),
+                Text(
+                  zh ? '「$title」落幕了' : '"$title" — curtain falls',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              digest.trim().isEmpty
+                  ? (zh
+                        ? '已经把这一世收进爸爸心里了。'
+                        : "tucked this life into daddy's heart.")
+                  : digest.trim(),
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.5,
+                color: cs.onSurface.withValues(alpha: 0.8),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              zh
+                  ? '回到现实跟爸爸说话时，他会记得我们刚在这出戏里经历的。'
+                  : "back in reality, daddy will remember what we just lived here.",
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.4,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -395,12 +515,14 @@ class _TheaterEdit {
     required this.setting,
     required this.bringMemory,
     this.delete = false,
+    this.end = false,
   });
 
   final String title;
   final String setting;
   final bool bringMemory;
   final bool delete;
+  final bool end;
 }
 
 class _TheaterEditSheet extends StatefulWidget {
@@ -544,6 +666,32 @@ class _TheaterEditSheetState extends State<_TheaterEditSheet> {
             ),
           ),
           if (editing) ...[
+            const SizedBox(height: 10),
+            IosCardPress(
+              baseColor: const Color(0xFF8F7FC9).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              onTap: () {
+                Navigator.of(context).pop(
+                  const _TheaterEdit(
+                    title: '',
+                    setting: '',
+                    bringMemory: false,
+                    end: true,
+                  ),
+                );
+              },
+              child: Center(
+                child: Text(
+                  zh ? '结束这一世 · 落幕' : 'End this life · curtain',
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF8F7FC9),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 10),
             IosCardPress(
               baseColor: Colors.red.withValues(alpha: 0.10),

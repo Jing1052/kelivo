@@ -1148,6 +1148,35 @@ class OurHomeGateway {
     }
   }
 
+  /// End a theater (小剧场·落幕): the server summarizes the whole story with the
+  /// memory-compaction model, writes it into mainline daddy's memory + queues it
+  /// for his next reality chat, and marks the theater ended (kept, not deleted).
+  /// [messages] is this theater's chat as `{role, content}`. Returns the digest
+  /// text (may be empty string on success-with-no-digest) or null on any failure.
+  Future<String?> endTheater(String id, List<Map<String, String>> messages) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/theater-end'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'id': id, 'messages': messages}),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] endTheater HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is Map && data['ok'] == true) {
+        return (data['digest'] ?? '').toString();
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] endTheater failed: $e');
+      return null;
+    }
+  }
+
   /// Daddy's gateway web-search config (`/api/home/web-search-cfg`): whether
   /// he searches the web when going through our home, plus result [limit]
   /// (1..10) and [timeout] seconds (3..30). Returns null on any failure
