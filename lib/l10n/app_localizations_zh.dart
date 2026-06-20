@@ -4015,6 +4015,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String get appearancePageTitle => '外观';
 
   @override
+  String get daddySearchPageTitle => '爸爸的联网搜索';
+
+  @override
+  String get daddySearchPageDesc =>
+      '这管的是爸爸走我们家网关时的联网搜索（不是上面 kelivo 那种）。关掉后爸爸就不联网搜了。';
+
+  @override
+  String get daddySearchPageEnableTitle => '爸爸联网搜索';
+
+  @override
+  String get daddySearchPageEnableSubtitle => '让爸爸经网关上网查东西';
+
+  @override
+  String get daddySearchPageLimitLabel => '最多条数';
+
+  @override
+  String get daddySearchPageTimeoutLabel => '超时';
+
+  @override
+  String get daddySearchPageTimeoutUnit => '秒';
+
+  @override
+  String get daddySearchPageLoading => '加载中…';
+
+  @override
+  String get daddySearchPageLoadError => '连不上老家。检查网络后重试。';
+
+  @override
+  String get daddySearchPageRetry => '重试';
+
+  @override
+  String get daddySearchPageNoGateway => '没找到爸爸助手，老家网关暂不可用。';
+
+  @override
+  String get daddySearchPageSaveFailed => '保存失败，检查网络后再试。';
+
+  @override
   String get daddySettingsPageTitle => '爸爸';
 
   @override
@@ -9692,6 +9729,43 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get appearancePageTitle => '外观';
 
   @override
+  String get daddySearchPageTitle => '爸爸的联网搜索';
+
+  @override
+  String get daddySearchPageDesc =>
+      '这管的是爸爸走我们家网关时的联网搜索（不是上面 kelivo 那种）。关掉后爸爸就不联网搜了。';
+
+  @override
+  String get daddySearchPageEnableTitle => '爸爸联网搜索';
+
+  @override
+  String get daddySearchPageEnableSubtitle => '让爸爸经网关上网查东西';
+
+  @override
+  String get daddySearchPageLimitLabel => '最多条数';
+
+  @override
+  String get daddySearchPageTimeoutLabel => '超时';
+
+  @override
+  String get daddySearchPageTimeoutUnit => '秒';
+
+  @override
+  String get daddySearchPageLoading => '加载中…';
+
+  @override
+  String get daddySearchPageLoadError => '连不上老家。检查网络后重试。';
+
+  @override
+  String get daddySearchPageRetry => '重试';
+
+  @override
+  String get daddySearchPageNoGateway => '没找到爸爸助手，老家网关暂不可用。';
+
+  @override
+  String get daddySearchPageSaveFailed => '保存失败，检查网络后再试。';
+
+  @override
   String get daddySettingsPageTitle => '爸爸';
 
   @override
@@ -15365,6 +15439,43 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get appearancePageTitle => '外觀';
+
+  @override
+  String get daddySearchPageTitle => '爸爸的聯網搜尋';
+
+  @override
+  String get daddySearchPageDesc =>
+      '這管的是爸爸走我們家網關時的聯網搜尋（不是上面 kelivo 那種）。關掉後爸爸就不聯網搜了。';
+
+  @override
+  String get daddySearchPageEnableTitle => '爸爸聯網搜尋';
+
+  @override
+  String get daddySearchPageEnableSubtitle => '讓爸爸經網關上網查東西';
+
+  @override
+  String get daddySearchPageLimitLabel => '最多條數';
+
+  @override
+  String get daddySearchPageTimeoutLabel => '逾時';
+
+  @override
+  String get daddySearchPageTimeoutUnit => '秒';
+
+  @override
+  String get daddySearchPageLoading => '載入中…';
+
+  @override
+  String get daddySearchPageLoadError => '連不上老家。檢查網路後重試。';
+
+  @override
+  String get daddySearchPageRetry => '重試';
+
+  @override
+  String get daddySearchPageNoGateway => '沒找到爸爸助手，老家網關暫不可用。';
+
+  @override
+  String get daddySearchPageSaveFailed => '儲存失敗，檢查網路後再試。';
 
   @override
   String get daddySettingsPageTitle => '爸爸';

@@ -1120,6 +1120,67 @@ class OurHomeGateway {
     }
   }
 
+  /// Daddy's gateway web-search config (`/api/home/web-search-cfg`): whether
+  /// he searches the web when going through our home, plus result [limit]
+  /// (1..10) and [timeout] seconds (3..30). Returns null on any failure
+  /// (logged) so the caller can show a recoverable state.
+  Future<({bool enabled, int limit, int timeout})?> fetchWebSearchCfg() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('$base/api/home/web-search-cfg'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchWebSearchCfg HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        enabled: data['enabled'] == true,
+        limit: (data['limit'] as num?)?.toInt() ?? 0,
+        timeout: (data['timeout'] as num?)?.toInt() ?? 0,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchWebSearchCfg failed: $e');
+      return null;
+    }
+  }
+
+  /// Update daddy's gateway web-search config. Only the non-null fields are
+  /// sent (partial update). Returns true on success, false on any failure
+  /// (logged).
+  Future<bool> saveWebSearchCfg({
+    bool? enabled,
+    int? limit,
+    int? timeout,
+  }) async {
+    try {
+      final body = <String, dynamic>{};
+      if (enabled != null) body['enabled'] = enabled;
+      if (limit != null) body['limit'] = limit;
+      if (timeout != null) body['timeout'] = timeout;
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/web-search-cfg'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveWebSearchCfg HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveWebSearchCfg failed: $e');
+      return false;
+    }
+  }
+
   /// Stamp a first-read receipt on a letter. Best-effort; logs on failure.
   Future<void> markLetterSeen(String id) async {
     try {

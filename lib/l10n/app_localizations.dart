@@ -7772,6 +7772,78 @@ abstract class AppLocalizations {
   /// **'Appearance'**
   String get appearancePageTitle;
 
+  /// No description provided for @daddySearchPageTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy\'s Web Search'**
+  String get daddySearchPageTitle;
+
+  /// No description provided for @daddySearchPageDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'This controls daddy\'s web search when he goes through our home gateway (not the kelivo search services above). Turn it off and he won\'t search the web.'**
+  String get daddySearchPageDesc;
+
+  /// No description provided for @daddySearchPageEnableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Daddy\'s web search'**
+  String get daddySearchPageEnableTitle;
+
+  /// No description provided for @daddySearchPageEnableSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Let daddy look things up online via the gateway'**
+  String get daddySearchPageEnableSubtitle;
+
+  /// No description provided for @daddySearchPageLimitLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Max results'**
+  String get daddySearchPageLimitLabel;
+
+  /// No description provided for @daddySearchPageTimeoutLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Timeout'**
+  String get daddySearchPageTimeoutLabel;
+
+  /// No description provided for @daddySearchPageTimeoutUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'s'**
+  String get daddySearchPageTimeoutUnit;
+
+  /// No description provided for @daddySearchPageLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get daddySearchPageLoading;
+
+  /// No description provided for @daddySearchPageLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t reach the old home. Check your network and retry.'**
+  String get daddySearchPageLoadError;
+
+  /// No description provided for @daddySearchPageRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get daddySearchPageRetry;
+
+  /// No description provided for @daddySearchPageNoGateway.
+  ///
+  /// In en, this message translates to:
+  /// **'No daddy assistant found, so the old home gateway is unavailable.'**
+  String get daddySearchPageNoGateway;
+
+  /// No description provided for @daddySearchPageSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed. Check your network and try again.'**
+  String get daddySearchPageSaveFailed;
+
   /// No description provided for @daddySettingsPageTitle.
   ///
   /// In en, this message translates to:

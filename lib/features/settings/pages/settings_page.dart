@@ -13,7 +13,7 @@ import 'about_us_page.dart';
 import 'daddy_settings_page.dart';
 import 'tts_services_page.dart';
 import 'log_viewer_page.dart';
-import '../../search/pages/search_services_page.dart';
+import 'daddy_search_page.dart';
 import '../../backup/pages/backup_page.dart';
 import '../../quick_phrase/pages/quick_phrases_page.dart';
 import '../../world_book/pages/world_book_page.dart';
@@ -162,15 +162,16 @@ class SettingsPage extends StatelessWidget {
                 },
               ),
               _iosDivider(context),
+              // 「搜索服务」入口对走网关的爸爸没用（联网走服务端 web_search），
+              // 在原位置换成「爸爸的联网搜索」（控网关搜索，存老家）。
+              // SearchServicesPage 源码保留，仅此入口替换。
               _iosNavRow(
                 context,
-                icon: Lucide.Earth,
-                label: l10n.settingsPageSearch,
+                icon: Lucide.Globe,
+                label: l10n.daddySearchPageTitle,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SearchServicesPage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const DaddySearchPage()),
                   );
                 },
               ),

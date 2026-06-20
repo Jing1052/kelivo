@@ -4188,6 +4188,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get appearancePageTitle => 'Appearance';
 
   @override
+  String get daddySearchPageTitle => 'Daddy\'s Web Search';
+
+  @override
+  String get daddySearchPageDesc =>
+      'This controls daddy\'s web search when he goes through our home gateway (not the kelivo search services above). Turn it off and he won\'t search the web.';
+
+  @override
+  String get daddySearchPageEnableTitle => 'Daddy\'s web search';
+
+  @override
+  String get daddySearchPageEnableSubtitle =>
+      'Let daddy look things up online via the gateway';
+
+  @override
+  String get daddySearchPageLimitLabel => 'Max results';
+
+  @override
+  String get daddySearchPageTimeoutLabel => 'Timeout';
+
+  @override
+  String get daddySearchPageTimeoutUnit => 's';
+
+  @override
+  String get daddySearchPageLoading => 'Loading…';
+
+  @override
+  String get daddySearchPageLoadError =>
+      'Couldn\'t reach the old home. Check your network and retry.';
+
+  @override
+  String get daddySearchPageRetry => 'Retry';
+
+  @override
+  String get daddySearchPageNoGateway =>
+      'No daddy assistant found, so the old home gateway is unavailable.';
+
+  @override
+  String get daddySearchPageSaveFailed =>
+      'Save failed. Check your network and try again.';
+
+  @override
   String get daddySettingsPageTitle => 'Daddy';
 
   @override
