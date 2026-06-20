@@ -7832,6 +7832,114 @@ abstract class AppLocalizations {
   /// **'Save failed. Please try again.'**
   String get daddySettingsToolManualSaveFailed;
 
+  /// No description provided for @daddySettingsMemoryPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Memory-distill prompt'**
+  String get daddySettingsMemoryPromptTitle;
+
+  /// No description provided for @daddySettingsMemoryPromptHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How daddy turns slid-out chat into long-term memory…'**
+  String get daddySettingsMemoryPromptHint;
+
+  /// No description provided for @daddySettingsMemoryPromptDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'The prompt daddy uses to distill conversations that slid out of the window into long-term memory. Leave blank to use the default.'**
+  String get daddySettingsMemoryPromptDesc;
+
+  /// No description provided for @daddySettingsMemoryPromptLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get daddySettingsMemoryPromptLoading;
+
+  /// No description provided for @daddySettingsMemoryPromptLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach the old home, the memory-distill prompt couldn\'t load.'**
+  String get daddySettingsMemoryPromptLoadError;
+
+  /// No description provided for @daddySettingsMemoryPromptSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get daddySettingsMemoryPromptSave;
+
+  /// No description provided for @daddySettingsMemoryPromptRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get daddySettingsMemoryPromptRetry;
+
+  /// No description provided for @daddySettingsMemoryPromptSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get daddySettingsMemoryPromptSaveSuccess;
+
+  /// No description provided for @daddySettingsMemoryPromptSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed. Please try again.'**
+  String get daddySettingsMemoryPromptSaveFailed;
+
+  /// No description provided for @daddySettingsRecapPromptTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Recap prompt'**
+  String get daddySettingsRecapPromptTitle;
+
+  /// No description provided for @daddySettingsRecapPromptHint.
+  ///
+  /// In en, this message translates to:
+  /// **'How daddy condenses slid-out chat into a recap…'**
+  String get daddySettingsRecapPromptHint;
+
+  /// No description provided for @daddySettingsRecapPromptDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'The prompt daddy uses to condense conversations that slid out of the window into a recap. Leave blank to use the default.'**
+  String get daddySettingsRecapPromptDesc;
+
+  /// No description provided for @daddySettingsRecapPromptLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get daddySettingsRecapPromptLoading;
+
+  /// No description provided for @daddySettingsRecapPromptLoadError.
+  ///
+  /// In en, this message translates to:
+  /// **'Can\'t reach the old home, the recap prompt couldn\'t load.'**
+  String get daddySettingsRecapPromptLoadError;
+
+  /// No description provided for @daddySettingsRecapPromptSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get daddySettingsRecapPromptSave;
+
+  /// No description provided for @daddySettingsRecapPromptRetry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get daddySettingsRecapPromptRetry;
+
+  /// No description provided for @daddySettingsRecapPromptSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved'**
+  String get daddySettingsRecapPromptSaveSuccess;
+
+  /// No description provided for @daddySettingsRecapPromptSaveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Save failed. Please try again.'**
+  String get daddySettingsRecapPromptSaveFailed;
+
   /// No description provided for @daddySettingsStyleTitle.
   ///
   /// In en, this message translates to:

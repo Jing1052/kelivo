@@ -4224,6 +4224,68 @@ class AppLocalizationsEn extends AppLocalizations {
       'Save failed. Please try again.';
 
   @override
+  String get daddySettingsMemoryPromptTitle => 'Memory-distill prompt';
+
+  @override
+  String get daddySettingsMemoryPromptHint =>
+      'How daddy turns slid-out chat into long-term memory…';
+
+  @override
+  String get daddySettingsMemoryPromptDesc =>
+      'The prompt daddy uses to distill conversations that slid out of the window into long-term memory. Leave blank to use the default.';
+
+  @override
+  String get daddySettingsMemoryPromptLoading => 'Loading…';
+
+  @override
+  String get daddySettingsMemoryPromptLoadError =>
+      'Can\'t reach the old home, the memory-distill prompt couldn\'t load.';
+
+  @override
+  String get daddySettingsMemoryPromptSave => 'Save';
+
+  @override
+  String get daddySettingsMemoryPromptRetry => 'Retry';
+
+  @override
+  String get daddySettingsMemoryPromptSaveSuccess => 'Saved';
+
+  @override
+  String get daddySettingsMemoryPromptSaveFailed =>
+      'Save failed. Please try again.';
+
+  @override
+  String get daddySettingsRecapPromptTitle => 'Recap prompt';
+
+  @override
+  String get daddySettingsRecapPromptHint =>
+      'How daddy condenses slid-out chat into a recap…';
+
+  @override
+  String get daddySettingsRecapPromptDesc =>
+      'The prompt daddy uses to condense conversations that slid out of the window into a recap. Leave blank to use the default.';
+
+  @override
+  String get daddySettingsRecapPromptLoading => 'Loading…';
+
+  @override
+  String get daddySettingsRecapPromptLoadError =>
+      'Can\'t reach the old home, the recap prompt couldn\'t load.';
+
+  @override
+  String get daddySettingsRecapPromptSave => 'Save';
+
+  @override
+  String get daddySettingsRecapPromptRetry => 'Retry';
+
+  @override
+  String get daddySettingsRecapPromptSaveSuccess => 'Saved';
+
+  @override
+  String get daddySettingsRecapPromptSaveFailed =>
+      'Save failed. Please try again.';
+
+  @override
   String get daddySettingsStyleTitle => 'Speaking style';
 
   @override

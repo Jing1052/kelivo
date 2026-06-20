@@ -46,7 +46,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   final TextEditingController _soulCtrl = TextEditingController();
   final TextEditingController _profileCtrl = TextEditingController();
   final TextEditingController _manualCtrl = TextEditingController();
-  final TextEditingController _styleCtrl = TextEditingController();
+  final TextEditingController _memoryPromptCtrl = TextEditingController();
+  final TextEditingController _recapPromptCtrl = TextEditingController();
   final TextEditingController _keepCtrl = TextEditingController();
   final TextEditingController _triggerCtrl = TextEditingController();
 
@@ -64,10 +65,15 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   bool _manualLoadFailed = false;
   bool _manualSaving = false;
 
-  // 说话风格 (server-backed) state.
-  bool _styleLoading = true;
-  bool _styleLoadFailed = false;
-  bool _styleSaving = false;
+  // 整理记忆提示词 (server-backed) state.
+  bool _memoryPromptLoading = true;
+  bool _memoryPromptLoadFailed = false;
+  bool _memoryPromptSaving = false;
+
+  // 前情提要提示词 (server-backed) state.
+  bool _recapPromptLoading = true;
+  bool _recapPromptLoadFailed = false;
+  bool _recapPromptSaving = false;
 
   // iPhone 联动：日历/提醒事项授权状态（仅 iOS 有意义）。
   bool _iphoneCalendarAuthorized = false;
@@ -91,7 +97,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _keepCtrl.text = settings.daddyKeepCount.toString();
     _triggerCtrl.text = settings.daddyTriggerCount.toString();
     _loadToolManual();
-    _loadStyle();
+    _loadMemoryPrompt();
+    _loadRecapPrompt();
     _loadIphoneStatus();
   }
 
@@ -162,39 +169,78 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     );
   }
 
-  Future<void> _loadStyle() async {
+  Future<void> _loadMemoryPrompt() async {
     setState(() {
-      _styleLoading = true;
-      _styleLoadFailed = false;
+      _memoryPromptLoading = true;
+      _memoryPromptLoadFailed = false;
     });
     final gateway = OurHomeGateway.fromContext(context);
-    final style = await gateway?.fetchStyle();
+    final result = await gateway?.fetchMemoryPrompt();
     if (!mounted) return;
     setState(() {
-      _styleLoading = false;
-      if (style == null) {
-        _styleLoadFailed = true;
+      _memoryPromptLoading = false;
+      if (result == null) {
+        _memoryPromptLoadFailed = true;
       } else {
-        _styleLoadFailed = false;
-        _styleCtrl.text = style;
+        _memoryPromptLoadFailed = false;
+        _memoryPromptCtrl.text = result.prompt;
       }
     });
   }
 
-  Future<void> _saveStyle() async {
-    if (_styleSaving) return;
+  Future<void> _saveMemoryPrompt() async {
+    if (_memoryPromptSaving) return;
     final l10n = AppLocalizations.of(context)!;
     final gateway = OurHomeGateway.fromContext(context);
-    setState(() => _styleSaving = true);
+    setState(() => _memoryPromptSaving = true);
     final ok =
-        await (gateway?.saveStyle(_styleCtrl.text) ?? Future.value(false));
+        await (gateway?.saveMemoryPrompt(_memoryPromptCtrl.text) ??
+            Future.value(false));
     if (!mounted) return;
-    setState(() => _styleSaving = false);
+    setState(() => _memoryPromptSaving = false);
     showAppSnackBar(
       context,
       message: ok
-          ? l10n.daddySettingsStyleSaveSuccess
-          : l10n.daddySettingsStyleSaveFailed,
+          ? l10n.daddySettingsMemoryPromptSaveSuccess
+          : l10n.daddySettingsMemoryPromptSaveFailed,
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _loadRecapPrompt() async {
+    setState(() {
+      _recapPromptLoading = true;
+      _recapPromptLoadFailed = false;
+    });
+    final gateway = OurHomeGateway.fromContext(context);
+    final result = await gateway?.fetchRecapPrompt();
+    if (!mounted) return;
+    setState(() {
+      _recapPromptLoading = false;
+      if (result == null) {
+        _recapPromptLoadFailed = true;
+      } else {
+        _recapPromptLoadFailed = false;
+        _recapPromptCtrl.text = result.prompt;
+      }
+    });
+  }
+
+  Future<void> _saveRecapPrompt() async {
+    if (_recapPromptSaving) return;
+    final l10n = AppLocalizations.of(context)!;
+    final gateway = OurHomeGateway.fromContext(context);
+    setState(() => _recapPromptSaving = true);
+    final ok =
+        await (gateway?.saveRecapPrompt(_recapPromptCtrl.text) ??
+            Future.value(false));
+    if (!mounted) return;
+    setState(() => _recapPromptSaving = false);
+    showAppSnackBar(
+      context,
+      message: ok
+          ? l10n.daddySettingsRecapPromptSaveSuccess
+          : l10n.daddySettingsRecapPromptSaveFailed,
       type: ok ? NotificationType.success : NotificationType.error,
     );
   }
@@ -205,7 +251,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _soulCtrl.dispose();
     _profileCtrl.dispose();
     _manualCtrl.dispose();
-    _styleCtrl.dispose();
+    _memoryPromptCtrl.dispose();
+    _recapPromptCtrl.dispose();
     _keepCtrl.dispose();
     _triggerCtrl.dispose();
     super.dispose();
@@ -251,10 +298,11 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     if (_profileCtrl.text != settings.daddyProfile) {
       settings.setDaddyProfile(_profileCtrl.text);
     }
-    // 工具使用说明书 / 说话风格 now live on 老家 (/api/home/tool-manual,
-    // /api/home/style) and are saved via explicit buttons, not silently on
-    // dispose. See _saveToolManual / _saveStyle. SettingsProvider.daddyStyle is
-    // kept intact but no longer fed from here.
+    // 工具使用说明书 / 整理记忆 / 前情提要提示词 now live on 老家
+    // (/api/home/tool-manual, /api/home/memory-prompt, /api/home/recap-prompt)
+    // and are saved via explicit buttons, not silently on dispose. See
+    // _saveToolManual / _saveMemoryPrompt / _saveRecapPrompt. 说话风格 moved out
+    // to the shared StyleSheet (chat "+" menu + settings entry).
     final keep = int.tryParse(_keepCtrl.text.trim());
     if (keep != null && keep != settings.daddyKeepCount) {
       settings.setDaddyKeepCount(keep);
@@ -360,8 +408,12 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             _iosSectionCard(children: _toolManualSection(context, l10n)),
             const SizedBox(height: 12),
 
-            // 说话风格 style（老家共用，server-backed）
-            _iosSectionCard(children: _styleSection(context, l10n)),
+            // 整理记忆提示词（老家共用，server-backed）
+            _iosSectionCard(children: _memoryPromptSection(context, l10n)),
+            const SizedBox(height: 12),
+
+            // 前情提要提示词（老家共用，server-backed）
+            _iosSectionCard(children: _recapPromptSection(context, l10n)),
             const SizedBox(height: 12),
 
             // 记忆浮现
@@ -514,9 +566,26 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     ];
   }
 
-  List<Widget> _styleSection(BuildContext context, AppLocalizations l10n) {
+  /// Generic server-backed prompt section (loading / error+retry / editor),
+  /// mirroring [_toolManualSection]. Used for both 整理记忆 and 前情提要 prompts.
+  List<Widget> _promptSection(
+    BuildContext context, {
+    required bool loading,
+    required bool loadFailed,
+    required bool saving,
+    required String title,
+    required String hint,
+    required String desc,
+    required String loadingText,
+    required String loadErrorText,
+    required String retryLabel,
+    required String saveLabel,
+    required TextEditingController controller,
+    required VoidCallback onRetry,
+    required VoidCallback onSave,
+  }) {
     final cs = Theme.of(context).colorScheme;
-    if (_styleLoading) {
+    if (loading) {
       return [
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
@@ -532,7 +601,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
               ),
               const SizedBox(width: 12),
               Text(
-                l10n.daddySettingsStyleLoading,
+                loadingText,
                 style: TextStyle(
                   fontSize: 13,
                   color: cs.onSurface.withValues(alpha: 0.6),
@@ -543,12 +612,12 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
         ),
       ];
     }
-    if (_styleLoadFailed) {
+    if (loadFailed) {
       return [
         Padding(
           padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
           child: Text(
-            l10n.daddySettingsStyleLoadError,
+            loadErrorText,
             style: TextStyle(
               fontSize: 13,
               color: cs.onSurface.withValues(alpha: 0.7),
@@ -561,9 +630,9 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: IosTileButton(
-              label: l10n.daddySettingsStyleRetry,
+              label: retryLabel,
               icon: Lucide.RefreshCw,
-              onTap: _loadStyle,
+              onTap: onRetry,
             ),
           ),
         ),
@@ -573,29 +642,73 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
         child: IosFormTextField(
-          label: l10n.daddySettingsStyleTitle,
-          controller: _styleCtrl,
-          hintText: l10n.daddySettingsStyleHint,
-          minLines: 3,
-          maxLines: 10,
+          label: title,
+          controller: controller,
+          hintText: hint,
+          minLines: 4,
+          maxLines: 12,
           outerPadding: EdgeInsets.zero,
         ),
       ),
-      _caption(context, l10n.daddySettingsStyleDesc),
+      _caption(context, desc),
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
         child: Align(
           alignment: Alignment.centerLeft,
           child: IosTileButton(
-            label: l10n.daddySettingsStyleSave,
+            label: saveLabel,
             icon: Lucide.Check,
-            enabled: !_styleSaving,
+            enabled: !saving,
             backgroundColor: cs.primary,
-            onTap: _saveStyle,
+            onTap: onSave,
           ),
         ),
       ),
     ];
+  }
+
+  List<Widget> _memoryPromptSection(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
+    return _promptSection(
+      context,
+      loading: _memoryPromptLoading,
+      loadFailed: _memoryPromptLoadFailed,
+      saving: _memoryPromptSaving,
+      title: l10n.daddySettingsMemoryPromptTitle,
+      hint: l10n.daddySettingsMemoryPromptHint,
+      desc: l10n.daddySettingsMemoryPromptDesc,
+      loadingText: l10n.daddySettingsMemoryPromptLoading,
+      loadErrorText: l10n.daddySettingsMemoryPromptLoadError,
+      retryLabel: l10n.daddySettingsMemoryPromptRetry,
+      saveLabel: l10n.daddySettingsMemoryPromptSave,
+      controller: _memoryPromptCtrl,
+      onRetry: _loadMemoryPrompt,
+      onSave: _saveMemoryPrompt,
+    );
+  }
+
+  List<Widget> _recapPromptSection(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) {
+    return _promptSection(
+      context,
+      loading: _recapPromptLoading,
+      loadFailed: _recapPromptLoadFailed,
+      saving: _recapPromptSaving,
+      title: l10n.daddySettingsRecapPromptTitle,
+      hint: l10n.daddySettingsRecapPromptHint,
+      desc: l10n.daddySettingsRecapPromptDesc,
+      loadingText: l10n.daddySettingsRecapPromptLoading,
+      loadErrorText: l10n.daddySettingsRecapPromptLoadError,
+      retryLabel: l10n.daddySettingsRecapPromptRetry,
+      saveLabel: l10n.daddySettingsRecapPromptSave,
+      controller: _recapPromptCtrl,
+      onRetry: _loadRecapPrompt,
+      onSave: _saveRecapPrompt,
+    );
   }
 
   List<Widget> _iphoneLinkSection(
@@ -686,13 +799,6 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ? l10n.daddySettingsStatusEmpty
             : l10n.daddySettingsStatusFilled,
         active: _manualCtrl.text.trim().isNotEmpty,
-      ),
-      (
-        label: l10n.daddySettingsModuleStyle,
-        status: _styleCtrl.text.trim().isEmpty
-            ? l10n.daddySettingsStatusEmpty
-            : l10n.daddySettingsStatusFilled,
-        active: _styleCtrl.text.trim().isNotEmpty,
       ),
       (
         label: l10n.daddySettingsModuleMemory,

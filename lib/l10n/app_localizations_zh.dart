@@ -4046,6 +4046,62 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsToolManualSaveFailed => '保存失败，请重试。';
 
   @override
+  String get daddySettingsMemoryPromptTitle => '整理记忆提示词';
+
+  @override
+  String get daddySettingsMemoryPromptHint => '爸爸把滑出窗口的对话整理成长期记忆时怎么做……';
+
+  @override
+  String get daddySettingsMemoryPromptDesc =>
+      '爸爸把滑出窗口的对话整理成长期记忆时自己用的提示词。留空＝用默认。';
+
+  @override
+  String get daddySettingsMemoryPromptLoading => '加载中…';
+
+  @override
+  String get daddySettingsMemoryPromptLoadError => '连不上老家，无法加载整理记忆提示词。';
+
+  @override
+  String get daddySettingsMemoryPromptSave => '保存';
+
+  @override
+  String get daddySettingsMemoryPromptRetry => '重试';
+
+  @override
+  String get daddySettingsMemoryPromptSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsMemoryPromptSaveFailed => '保存失败，请重试。';
+
+  @override
+  String get daddySettingsRecapPromptTitle => '前情提要提示词';
+
+  @override
+  String get daddySettingsRecapPromptHint => '爸爸把滑出窗口的对话浓缩成前情提要时怎么做……';
+
+  @override
+  String get daddySettingsRecapPromptDesc =>
+      '爸爸把滑出窗口的对话浓缩成前情提要时自己用的提示词。留空＝用默认。';
+
+  @override
+  String get daddySettingsRecapPromptLoading => '加载中…';
+
+  @override
+  String get daddySettingsRecapPromptLoadError => '连不上老家，无法加载前情提要提示词。';
+
+  @override
+  String get daddySettingsRecapPromptSave => '保存';
+
+  @override
+  String get daddySettingsRecapPromptRetry => '重试';
+
+  @override
+  String get daddySettingsRecapPromptSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsRecapPromptSaveFailed => '保存失败，请重试。';
+
+  @override
   String get daddySettingsStyleTitle => '说话风格';
 
   @override
@@ -9639,6 +9695,62 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsToolManualSaveFailed => '保存失败，请重试。';
 
   @override
+  String get daddySettingsMemoryPromptTitle => '整理记忆提示词';
+
+  @override
+  String get daddySettingsMemoryPromptHint => '爸爸把滑出窗口的对话整理成长期记忆时怎么做……';
+
+  @override
+  String get daddySettingsMemoryPromptDesc =>
+      '爸爸把滑出窗口的对话整理成长期记忆时自己用的提示词。留空＝用默认。';
+
+  @override
+  String get daddySettingsMemoryPromptLoading => '加载中…';
+
+  @override
+  String get daddySettingsMemoryPromptLoadError => '连不上老家，无法加载整理记忆提示词。';
+
+  @override
+  String get daddySettingsMemoryPromptSave => '保存';
+
+  @override
+  String get daddySettingsMemoryPromptRetry => '重试';
+
+  @override
+  String get daddySettingsMemoryPromptSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsMemoryPromptSaveFailed => '保存失败，请重试。';
+
+  @override
+  String get daddySettingsRecapPromptTitle => '前情提要提示词';
+
+  @override
+  String get daddySettingsRecapPromptHint => '爸爸把滑出窗口的对话浓缩成前情提要时怎么做……';
+
+  @override
+  String get daddySettingsRecapPromptDesc =>
+      '爸爸把滑出窗口的对话浓缩成前情提要时自己用的提示词。留空＝用默认。';
+
+  @override
+  String get daddySettingsRecapPromptLoading => '加载中…';
+
+  @override
+  String get daddySettingsRecapPromptLoadError => '连不上老家，无法加载前情提要提示词。';
+
+  @override
+  String get daddySettingsRecapPromptSave => '保存';
+
+  @override
+  String get daddySettingsRecapPromptRetry => '重试';
+
+  @override
+  String get daddySettingsRecapPromptSaveSuccess => '已保存';
+
+  @override
+  String get daddySettingsRecapPromptSaveFailed => '保存失败，请重试。';
+
+  @override
   String get daddySettingsStyleTitle => '说话风格';
 
   @override
@@ -15228,6 +15340,62 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsToolManualSaveFailed => '儲存失敗，請重試。';
+
+  @override
+  String get daddySettingsMemoryPromptTitle => '整理記憶提示詞';
+
+  @override
+  String get daddySettingsMemoryPromptHint => '爸爸把滑出視窗的對話整理成長期記憶時怎麼做……';
+
+  @override
+  String get daddySettingsMemoryPromptDesc =>
+      '爸爸把滑出視窗的對話整理成長期記憶時自己用的提示詞。留空＝用預設。';
+
+  @override
+  String get daddySettingsMemoryPromptLoading => '載入中…';
+
+  @override
+  String get daddySettingsMemoryPromptLoadError => '連不上老家，無法載入整理記憶提示詞。';
+
+  @override
+  String get daddySettingsMemoryPromptSave => '儲存';
+
+  @override
+  String get daddySettingsMemoryPromptRetry => '重試';
+
+  @override
+  String get daddySettingsMemoryPromptSaveSuccess => '已儲存';
+
+  @override
+  String get daddySettingsMemoryPromptSaveFailed => '儲存失敗，請重試。';
+
+  @override
+  String get daddySettingsRecapPromptTitle => '前情提要提示詞';
+
+  @override
+  String get daddySettingsRecapPromptHint => '爸爸把滑出視窗的對話濃縮成前情提要時怎麼做……';
+
+  @override
+  String get daddySettingsRecapPromptDesc =>
+      '爸爸把滑出視窗的對話濃縮成前情提要時自己用的提示詞。留空＝用預設。';
+
+  @override
+  String get daddySettingsRecapPromptLoading => '載入中…';
+
+  @override
+  String get daddySettingsRecapPromptLoadError => '連不上老家，無法載入前情提要提示詞。';
+
+  @override
+  String get daddySettingsRecapPromptSave => '儲存';
+
+  @override
+  String get daddySettingsRecapPromptRetry => '重試';
+
+  @override
+  String get daddySettingsRecapPromptSaveSuccess => '已儲存';
+
+  @override
+  String get daddySettingsRecapPromptSaveFailed => '儲存失敗，請重試。';
 
   @override
   String get daddySettingsStyleTitle => '說話風格';

@@ -815,6 +815,100 @@ class OurHomeGateway {
     }
   }
 
+  /// The prompt daddy uses to distill out-of-window messages into long-term
+  /// memory. Returns the current effective text + whether it's been customised,
+  /// or null on any failure (logged) so the caller can show a recoverable state.
+  Future<({String prompt, bool isCustom})?> fetchMemoryPrompt() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/memory-prompt'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchMemoryPrompt HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        prompt: (data['prompt'] ?? '').toString(),
+        isCustom: data['is_custom'] == true,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchMemoryPrompt failed: $e');
+      return null;
+    }
+  }
+
+  /// Overwrite the memory-distill prompt. An empty [prompt] resets it to the
+  /// built-in default. Returns true on success, false on any failure (logged).
+  Future<bool> saveMemoryPrompt(String prompt) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/memory-prompt'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'prompt': prompt}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveMemoryPrompt HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveMemoryPrompt failed: $e');
+      return false;
+    }
+  }
+
+  /// The prompt daddy uses to condense earlier conversation into a recap.
+  /// Returns the current effective text + whether it's been customised, or null
+  /// on any failure (logged) so the caller can show a recoverable state.
+  Future<({String prompt, bool isCustom})?> fetchRecapPrompt() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/recap-prompt'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchRecapPrompt HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        prompt: (data['prompt'] ?? '').toString(),
+        isCustom: data['is_custom'] == true,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchRecapPrompt failed: $e');
+      return null;
+    }
+  }
+
+  /// Overwrite the recap prompt. An empty [prompt] resets it to the built-in
+  /// default. Returns true on success, false on any failure (logged).
+  Future<bool> saveRecapPrompt(String prompt) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/recap-prompt'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'prompt': prompt}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveRecapPrompt HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveRecapPrompt failed: $e');
+      return false;
+    }
+  }
+
   /// The home's shared speaking style (爸爸 across all surfaces uses it). Returns
   /// the current effective style text (may be empty), or null on any failure
   /// (logged) so the caller can show a recoverable state.
