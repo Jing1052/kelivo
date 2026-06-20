@@ -5,6 +5,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../core/services/ourhome/itunes_artwork.dart';
+import '../../../../shared/pages/webview_page.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_checkbox.dart';
 import 'room_state_hint.dart';
@@ -23,9 +24,10 @@ class _LoungePageState extends State<LoungePage> {
   OurHomeGateway? _gateway;
   List<OurHomeFoyerItem> _items = const [];
   List<OurHomeSong> _songs = const [];
+  List<OurHomeGame> _games = const [];
   bool _loading = true;
   bool _error = false;
-  int _tab = 0; // 0 = screen (foyer), 1 = songs
+  int _tab = 0; // 0 = screen (foyer), 1 = songs, 2 = game corner
 
   @override
   void initState() {
@@ -47,10 +49,12 @@ class _LoungePageState extends State<LoungePage> {
     }
     final ci = gateway.peekList('/api/home/foyer?all=1', OurHomeFoyerItem.fromJson);
     final cs2 = gateway.peekList('/api/home/songs?all=1', OurHomeSong.fromJson);
-    if ((ci.isNotEmpty || cs2.isNotEmpty) && mounted) {
+    final cg = gateway.peekList('/api/home/games', OurHomeGame.fromJson);
+    if ((ci.isNotEmpty || cs2.isNotEmpty || cg.isNotEmpty) && mounted) {
       setState(() {
         _items = ci;
         _songs = cs2;
+        _games = cg;
         _loading = false;
       });
     }
@@ -58,11 +62,13 @@ class _LoungePageState extends State<LoungePage> {
       final results = await Future.wait([
         gateway.fetchFoyer(),
         gateway.fetchSongs(),
+        gateway.fetchGames(),
       ]);
       if (!mounted) return;
       setState(() {
         _items = results[0] as List<OurHomeFoyerItem>;
         _songs = results[1] as List<OurHomeSong>;
+        _games = results[2] as List<OurHomeGame>;
         _loading = false;
       });
     } catch (e) {
@@ -253,7 +259,11 @@ class _LoungePageState extends State<LoungePage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: [t(0, zh ? '影视' : 'Screen'), t(1, zh ? '歌单' : 'Songs')],
+        children: [
+          t(0, zh ? '影视' : 'Screen'),
+          t(1, zh ? '歌单' : 'Songs'),
+          t(2, zh ? '游戏角' : 'Games'),
+        ],
       ),
     );
   }
@@ -277,7 +287,72 @@ class _LoungePageState extends State<LoungePage> {
         onTap: _load,
       );
     }
-    return _tab == 0 ? _screenView(zh, cs) : _songsView(zh, cs);
+    if (_tab == 1) return _songsView(zh, cs);
+    if (_tab == 2) return _gamesView(zh, cs);
+    return _screenView(zh, cs);
+  }
+
+  Widget _gamesView(bool zh, ColorScheme cs) {
+    if (_games.isEmpty) {
+      return RoomStateHint(
+        icon: Lucide.Gamepad2,
+        text: zh ? '游戏角还空着。' : 'No games yet.',
+      );
+    }
+    final base = _gateway?.base ?? '';
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        itemCount: _games.length,
+        itemBuilder: (context, i) {
+          final g = _games[i];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: IosCardPress(
+              borderRadius: BorderRadius.circular(14),
+              baseColor: cs.onSurface.withValues(alpha: 0.04),
+              padding: const EdgeInsets.all(14),
+              onTap: () {
+                Haptics.soft();
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => WebViewPage(url: '$base/games/${g.file}'),
+                  ),
+                );
+              },
+              child: Row(
+                children: [
+                  Icon(
+                    Lucide.Gamepad2,
+                    size: 20,
+                    color: const Color(0xFF8F7FC9),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      g.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: AppFontWeights.medium,
+                        color: cs.onSurface,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Lucide.ChevronRight,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.3),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Widget _screenView(bool zh, ColorScheme cs) {

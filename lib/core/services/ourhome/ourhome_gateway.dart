@@ -400,6 +400,19 @@ class OurHomeSong {
   );
 }
 
+/// An HTML mini-game in the lounge's game corner (游戏角). [file] is the html
+/// filename; the playable page is served (no auth) at `<base>/games/<file>`.
+class OurHomeGame {
+  const OurHomeGame({required this.file, required this.title});
+  final String file;
+  final String title;
+
+  factory OurHomeGame.fromJson(Map<String, dynamic> j) => OurHomeGame(
+    file: (j['file'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+  );
+}
+
 /// A little theater (小剧场) — one alternate-world role-play setting. [title] is
 /// the world's name, [setting] its description, [bringMemory] whether the
 /// real-life memory is carried in. Each maps 1:1 to a bound chat conversation.
@@ -792,6 +805,11 @@ class OurHomeGateway {
   /// songs the web home hardcodes (otherwise the songbook looks incomplete).
   Future<List<OurHomeSong>> fetchSongs() =>
       _getList('/api/home/songs?all=1', OurHomeSong.fromJson);
+
+  /// HTML mini-games in the lounge's game corner. Each plays at
+  /// `<base>/games/<file>` (served without auth).
+  Future<List<OurHomeGame>> fetchGames() =>
+      _getList('/api/home/games', OurHomeGame.fromJson);
 
   /// The study's shared bookshelf. Newest first.
   Future<List<OurHomeBook>> fetchBooks() =>
