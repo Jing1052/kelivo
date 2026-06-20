@@ -1,17 +1,26 @@
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show PlatformException;
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:syncfusion_flutter_core/theme.dart';
+import 'package:syncfusion_flutter_sliders/sliders.dart';
 
 import '../../../core/models/assistant.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/haptics.dart';
 import '../../../core/services/iphone_link_service.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
+import '../../home/widgets/assistant_avatar.dart';
+import '../../../shared/widgets/emoji_picker_dialog.dart';
 import '../../../shared/widgets/ios_form_text_field.dart';
 import '../../../shared/widgets/ios_switch.dart';
+import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../theme/app_font_weights.dart';
@@ -43,6 +52,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   // assistant and carries its memory token.
   static final RegExp _marker = RegExp(r'\[\[ourhome(?::[^\]]+)?\]\]');
 
+  final TextEditingController _nameCtrl = TextEditingController();
   final TextEditingController _soulCtrl = TextEditingController();
   final TextEditingController _profileCtrl = TextEditingController();
   final TextEditingController _manualCtrl = TextEditingController();
@@ -88,6 +98,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     final daddy = _findDaddy(assistants);
     if (daddy != null) {
       _daddyId = daddy.id;
+      _nameCtrl.text = daddy.name;
       final m = _marker.firstMatch(daddy.systemPrompt);
       if (m != null) _markerStr = m.group(0)!;
       _soulCtrl.text = daddy.systemPrompt.replaceAll(_marker, '').trim();
@@ -248,6 +259,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   @override
   void dispose() {
     _persist();
+    _nameCtrl.dispose();
     _soulCtrl.dispose();
     _profileCtrl.dispose();
     _manualCtrl.dispose();
@@ -318,6 +330,9 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final settings = context.watch<SettingsProvider>();
+    // Watch so the basic section (avatar / temperature / stream) reflects edits
+    // immediately after updateAssistant.
+    context.watch<AssistantProvider>();
     final hasDaddy = _daddyId != null;
 
     return Scaffold(
@@ -354,6 +369,11 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             ),
 
           if (hasDaddy) ...[
+            // 基础：头像 / 名字 / 温度 / 流式输出（直接改这个爸爸助手）
+            _sectionTitle(context, l10n.daddySettingsBasicSectionTitle),
+            _iosSectionCard(children: _basicSection(context, l10n)),
+            const SizedBox(height: 12),
+
             // 魂
             _iosSectionCard(
               children: [
@@ -838,6 +858,505 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     }
     return rows;
   }
+
+  /// 当前爸爸助手对象。仅在 hasDaddy（_daddyId != null）时调用。
+  Assistant _daddy() {
+    return _assistantProvider.assistants.firstWhere((a) => a.id == _daddyId);
+  }
+
+  /// 基础 section：头像 / 名字 / 温度 / 流式输出。都直接改这个爸爸助手。
+  /// 头像选择、温度交互照搬通用助手页（assistant_settings_edit_basic_tab.dart），
+  /// 存储格式（avatar 字段：本地路径 / emoji / url）与那边完全一致。
+  List<Widget> _basicSection(BuildContext context, AppLocalizations l10n) {
+    final cs = Theme.of(context).colorScheme;
+    final daddy = _daddy();
+    return [
+      // 头像
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 12, 12),
+        child: Row(
+          children: [
+            InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => _showAvatarPicker(context),
+              child: AssistantAvatar(
+                assistant: daddy,
+                fallbackName: '爸',
+                size: 56,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.daddySettingsAvatarTitle,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: cs.onSurface.withValues(alpha: 0.9),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.daddySettingsUseAssistantAvatarSubtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            IosSwitch(
+              value: daddy.useAssistantAvatar,
+              onChanged: (v) => _assistantProvider.updateAssistant(
+                daddy.copyWith(useAssistantAvatar: v),
+              ),
+            ),
+          ],
+        ),
+      ),
+      _iosDivider(context),
+      // 名字
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: IosFormTextField(
+          label: l10n.daddySettingsNameTitle,
+          controller: _nameCtrl,
+          hintText: l10n.daddySettingsNameHint,
+          outerPadding: EdgeInsets.zero,
+          onChanged: (v) =>
+              _assistantProvider.updateAssistant(_daddy().copyWith(name: v)),
+        ),
+      ),
+      _iosDivider(context),
+      // 温度
+      _iosNavRow(
+        context,
+        icon: Lucide.Thermometer,
+        label: l10n.daddySettingsTemperatureTitle,
+        detailText: daddy.temperature != null
+            ? daddy.temperature!.toStringAsFixed(2)
+            : l10n.assistantEditParameterDisabled,
+        onTap: () => _showTemperatureSheet(context),
+      ),
+      _caption(context, l10n.daddySettingsTemperatureDesc),
+      _iosDivider(context),
+      // 流式输出
+      _switchRow(
+        context,
+        icon: Lucide.Zap,
+        label: l10n.daddySettingsStreamOutputTitle,
+        value: daddy.streamOutput,
+        onChanged: (v) => _assistantProvider.updateAssistant(
+          _daddy().copyWith(streamOutput: v),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _showAvatarPicker(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        final maxH = MediaQuery.of(ctx).size.height * 0.8;
+        Widget row(String text, Future<void> Function() action) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: SizedBox(
+              height: 48,
+              child: IosCardPress(
+                borderRadius: BorderRadius.circular(14),
+                baseColor: cs.surface,
+                duration: const Duration(milliseconds: 260),
+                onTap: () async {
+                  Haptics.light();
+                  Navigator.of(ctx).pop();
+                  await Future<void>.delayed(const Duration(milliseconds: 10));
+                  await action();
+                },
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    text,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.medium,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        return SafeArea(
+          top: false,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxH),
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: cs.onSurface.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    row(
+                      l10n.assistantEditAvatarChooseImage,
+                      () async => _pickLocalImage(context),
+                    ),
+                    row(l10n.assistantEditAvatarChooseEmoji, () async {
+                      final emoji = await showEmojiPickerDialog(context);
+                      if (!context.mounted || emoji == null) return;
+                      await _assistantProvider.updateAssistant(
+                        _daddy().copyWith(avatar: emoji),
+                      );
+                    }),
+                    row(
+                      l10n.assistantEditAvatarEnterLink,
+                      () async => _inputAvatarUrl(context),
+                    ),
+                    row(
+                      l10n.assistantEditAvatarImportQQ,
+                      () async => _inputQQAvatar(context),
+                    ),
+                    row(l10n.assistantEditAvatarReset, () async {
+                      await _assistantProvider.updateAssistant(
+                        _daddy().copyWith(clearAvatar: true),
+                      );
+                    }),
+                    const SizedBox(height: 4),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _pickLocalImage(BuildContext context) async {
+    if (kIsWeb) {
+      await _inputAvatarUrl(context);
+      return;
+    }
+    try {
+      final picker = ImagePicker();
+      final XFile? file = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        imageQuality: 90,
+      );
+      if (file == null) return;
+      await _assistantProvider.updateAssistant(
+        _daddy().copyWith(avatar: file.path),
+      );
+    } on PlatformException {
+      if (!context.mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      showAppSnackBar(
+        context,
+        message: l10n.assistantEditGalleryErrorMessage,
+        type: NotificationType.error,
+      );
+      await _inputAvatarUrl(context);
+    } catch (_) {
+      if (!context.mounted) return;
+      final l10n = AppLocalizations.of(context)!;
+      showAppSnackBar(
+        context,
+        message: l10n.assistantEditGeneralErrorMessage,
+        type: NotificationType.error,
+      );
+      await _inputAvatarUrl(context);
+    }
+  }
+
+  Future<void> _inputAvatarUrl(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        bool valid(String s) =>
+            s.trim().startsWith('http://') || s.trim().startsWith('https://');
+        String value = '';
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: cs.surface,
+              title: Text(l10n.assistantEditImageUrlDialogTitle),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: l10n.assistantEditImageUrlDialogHint,
+                  filled: true,
+                  fillColor: Theme.of(ctx).brightness == Brightness.dark
+                      ? Colors.white10
+                      : const Color(0xFFF2F3F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: cs.primary.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                onChanged: (v) => setLocal(() => value = v),
+                onSubmitted: (_) {
+                  if (valid(value)) Navigator.of(ctx).pop(true);
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(l10n.assistantEditImageUrlDialogCancel),
+                ),
+                TextButton(
+                  onPressed: valid(value)
+                      ? () => Navigator.of(ctx).pop(true)
+                      : null,
+                  child: Text(
+                    l10n.assistantEditImageUrlDialogSave,
+                    style: TextStyle(
+                      color: valid(value)
+                          ? cs.primary
+                          : cs.onSurface.withValues(alpha: 0.38),
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (ok == true) {
+      final url = controller.text.trim();
+      if (url.isEmpty) return;
+      await _assistantProvider.updateAssistant(_daddy().copyWith(avatar: url));
+    }
+  }
+
+  Future<void> _inputQQAvatar(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        String value = '';
+        bool valid(String s) => RegExp(r'^[0-9]{5,12}$').hasMatch(s.trim());
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              backgroundColor: cs.surface,
+              title: Text(l10n.assistantEditQQAvatarDialogTitle),
+              content: TextField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: l10n.assistantEditQQAvatarDialogHint,
+                  filled: true,
+                  fillColor: Theme.of(ctx).brightness == Brightness.dark
+                      ? Colors.white10
+                      : const Color(0xFFF2F3F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.transparent),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: cs.primary.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+                onChanged: (v) => setLocal(() => value = v),
+                onSubmitted: (_) {
+                  if (valid(value)) Navigator.of(ctx).pop(true);
+                },
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(l10n.assistantEditQQAvatarDialogCancel),
+                ),
+                TextButton(
+                  onPressed: valid(value)
+                      ? () => Navigator.of(ctx).pop(true)
+                      : null,
+                  child: Text(
+                    l10n.assistantEditQQAvatarDialogSave,
+                    style: TextStyle(
+                      color: valid(value)
+                          ? cs.primary
+                          : cs.onSurface.withValues(alpha: 0.38),
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    if (ok == true) {
+      final qq = controller.text.trim();
+      if (qq.isEmpty) return;
+      final url = 'https://q2.qlogo.cn/headimg_dl?dst_uin=$qq&spec=100';
+      await _assistantProvider.updateAssistant(_daddy().copyWith(avatar: url));
+    }
+  }
+
+  Future<void> _showTemperatureSheet(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      isScrollControlled: false,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 18),
+            child: Builder(
+              builder: (context) {
+                final cs = Theme.of(context).colorScheme;
+                final daddy = context
+                    .watch<AssistantProvider>()
+                    .assistants
+                    .firstWhere((a) => a.id == _daddyId);
+                final value = daddy.temperature ?? 0.6;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: cs.onSurface.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            l10n.daddySettingsTemperatureTitle,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: AppFontWeights.semibold,
+                            ),
+                          ),
+                        ),
+                        IosSwitch(
+                          value: daddy.temperature != null,
+                          onChanged: (v) async {
+                            final navigator = Navigator.of(ctx);
+                            if (v) {
+                              await _assistantProvider.updateAssistant(
+                                _daddy().copyWith(temperature: 0.6),
+                              );
+                            } else {
+                              await _assistantProvider.updateAssistant(
+                                _daddy().copyWith(clearTemperature: true),
+                              );
+                            }
+                            if (navigator.mounted) navigator.pop();
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (daddy.temperature != null) ...[
+                      _DaddyTempSlider(
+                        value: value.clamp(0.0, 2.0),
+                        onChanged: (v) => _assistantProvider.updateAssistant(
+                          _daddy().copyWith(temperature: v),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        l10n.daddySettingsTemperatureDesc,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ] else ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          l10n.assistantEditParameterDisabled,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
 }
 
 Widget _sectionTitle(BuildContext context, String text) {
@@ -956,6 +1475,206 @@ Widget _switchRow(
       ],
     ),
   );
+}
+
+/// iOS 风格的可点击导航行：左图标 + 标题，右侧灰色数值 + 箭头。点击有轻微缩放反馈，
+/// 不引入 Material ripple。用于温度行（点开 sheet 编辑）。
+Widget _iosNavRow(
+  BuildContext context, {
+  required IconData icon,
+  required String label,
+  required String detailText,
+  required VoidCallback onTap,
+}) {
+  return _NavRow(
+    icon: icon,
+    label: label,
+    detailText: detailText,
+    onTap: onTap,
+  );
+}
+
+class _NavRow extends StatefulWidget {
+  const _NavRow({
+    required this.icon,
+    required this.label,
+    required this.detailText,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String detailText;
+  final VoidCallback onTap;
+
+  @override
+  State<_NavRow> createState() => _NavRowState();
+}
+
+class _NavRowState extends State<_NavRow> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.985 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            children: [
+              Icon(
+                widget.icon,
+                size: 20,
+                color: cs.onSurface.withValues(alpha: 0.9),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: cs.onSurface.withValues(alpha: 0.9),
+                  ),
+                ),
+              ),
+              Text(
+                widget.detailText,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.55),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Icon(
+                Lucide.ChevronRight,
+                size: 18,
+                color: cs.onSurface.withValues(alpha: 0.35),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 温度滑块：0.0–2.0，步长 0.1。视觉与通用助手页一致（同款 SfSlider 配置）。
+class _DaddyTempSlider extends StatelessWidget {
+  const _DaddyTempSlider({required this.value, required this.onChanged});
+
+  final double value;
+  final ValueChanged<double> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final active = cs.primary;
+    final inactive = cs.onSurface.withValues(alpha: isDark ? 0.25 : 0.20);
+    final label = value.toStringAsFixed(2);
+    return Row(
+      children: [
+        Expanded(
+          child: SfSliderTheme(
+            data: SfSliderThemeData(
+              activeTrackHeight: 8,
+              inactiveTrackHeight: 8,
+              overlayRadius: 14,
+              activeTrackColor: active,
+              inactiveTrackColor: inactive,
+              tooltipBackgroundColor: cs.primary,
+              tooltipTextStyle: TextStyle(
+                color: cs.onPrimary,
+                fontWeight: AppFontWeights.semibold,
+              ),
+              thumbStrokeColor: Colors.transparent,
+              thumbStrokeWidth: 0,
+              activeTickColor: cs.onSurface.withValues(
+                alpha: isDark ? 0.45 : 0.35,
+              ),
+              inactiveTickColor: cs.onSurface.withValues(
+                alpha: isDark ? 0.30 : 0.25,
+              ),
+              activeMinorTickColor: cs.onSurface.withValues(
+                alpha: isDark ? 0.34 : 0.28,
+              ),
+              inactiveMinorTickColor: cs.onSurface.withValues(
+                alpha: isDark ? 0.24 : 0.20,
+              ),
+            ),
+            child: SfSlider(
+              value: value.clamp(0.0, 2.0),
+              min: 0.0,
+              max: 2.0,
+              stepSize: 0.1,
+              enableTooltip: true,
+              shouldAlwaysShowTooltip: false,
+              showTicks: true,
+              showLabels: true,
+              interval: 0.5,
+              minorTicksPerInterval: 4,
+              activeColor: active,
+              inactiveColor: inactive,
+              tooltipTextFormatterCallback: (actual, text) => label,
+              tooltipShape: const SfPaddleTooltipShape(),
+              labelFormatterCallback: (actual, formattedText) =>
+                  actual.toStringAsFixed(1),
+              thumbIcon: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: isDark
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                ),
+              ),
+              onChanged: (v) =>
+                  onChanged(v is num ? v.toDouble() : (v as double)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: isDark ? Colors.white10 : cs.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: cs.primary.withValues(alpha: isDark ? 0.28 : 0.22),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            child: Text(
+              label,
+              style: TextStyle(
+                color: cs.primary,
+                fontWeight: AppFontWeights.emphasis,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 Widget _iosSectionCard({required List<Widget> children}) {

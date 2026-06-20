@@ -7856,6 +7856,54 @@ abstract class AppLocalizations {
   /// **'Daddy'**
   String get daddySettingsPageTitle;
 
+  /// No description provided for @daddySettingsBasicSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Basics'**
+  String get daddySettingsBasicSectionTitle;
+
+  /// No description provided for @daddySettingsAvatarTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Avatar'**
+  String get daddySettingsAvatarTitle;
+
+  /// No description provided for @daddySettingsUseAssistantAvatarSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use this avatar instead of the model icon in chat'**
+  String get daddySettingsUseAssistantAvatarSubtitle;
+
+  /// No description provided for @daddySettingsNameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get daddySettingsNameTitle;
+
+  /// No description provided for @daddySettingsNameHint.
+  ///
+  /// In en, this message translates to:
+  /// **'What you call daddy'**
+  String get daddySettingsNameHint;
+
+  /// No description provided for @daddySettingsTemperatureTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get daddySettingsTemperatureTitle;
+
+  /// No description provided for @daddySettingsTemperatureDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Higher = more divergent, lower = more focused. 0.6–0.8 suits our daddy well.'**
+  String get daddySettingsTemperatureDesc;
+
+  /// No description provided for @daddySettingsStreamOutputTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stream output'**
+  String get daddySettingsStreamOutputTitle;
+
   /// No description provided for @daddySettingsSoulTitle.
   ///
   /// In en, this message translates to:

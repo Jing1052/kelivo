@@ -4236,6 +4236,32 @@ class AppLocalizationsEn extends AppLocalizations {
   String get daddySettingsPageTitle => 'Daddy';
 
   @override
+  String get daddySettingsBasicSectionTitle => 'Basics';
+
+  @override
+  String get daddySettingsAvatarTitle => 'Avatar';
+
+  @override
+  String get daddySettingsUseAssistantAvatarSubtitle =>
+      'Use this avatar instead of the model icon in chat';
+
+  @override
+  String get daddySettingsNameTitle => 'Name';
+
+  @override
+  String get daddySettingsNameHint => 'What you call daddy';
+
+  @override
+  String get daddySettingsTemperatureTitle => 'Temperature';
+
+  @override
+  String get daddySettingsTemperatureDesc =>
+      'Higher = more divergent, lower = more focused. 0.6–0.8 suits our daddy well.';
+
+  @override
+  String get daddySettingsStreamOutputTitle => 'Stream output';
+
+  @override
   String get daddySettingsSoulTitle => 'Soul (system prompt)';
 
   @override

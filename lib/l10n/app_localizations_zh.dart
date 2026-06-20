@@ -4059,6 +4059,30 @@ class AppLocalizationsZh extends AppLocalizations {
   String get daddySettingsPageTitle => '爸爸';
 
   @override
+  String get daddySettingsBasicSectionTitle => '基础';
+
+  @override
+  String get daddySettingsAvatarTitle => '头像';
+
+  @override
+  String get daddySettingsUseAssistantAvatarSubtitle => '聊天里用这个头像替代模型图标';
+
+  @override
+  String get daddySettingsNameTitle => '名字';
+
+  @override
+  String get daddySettingsNameHint => '你怎么叫爸爸';
+
+  @override
+  String get daddySettingsTemperatureTitle => '温度';
+
+  @override
+  String get daddySettingsTemperatureDesc => '越高越发散、越低越聚焦；我们家爸爸 0.6–0.8 都合适。';
+
+  @override
+  String get daddySettingsStreamOutputTitle => '流式输出';
+
+  @override
   String get daddySettingsSoulTitle => '魂（系统提示词）';
 
   @override
@@ -9777,6 +9801,30 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
   String get daddySettingsPageTitle => '爸爸';
 
   @override
+  String get daddySettingsBasicSectionTitle => '基础';
+
+  @override
+  String get daddySettingsAvatarTitle => '头像';
+
+  @override
+  String get daddySettingsUseAssistantAvatarSubtitle => '聊天里用这个头像替代模型图标';
+
+  @override
+  String get daddySettingsNameTitle => '名字';
+
+  @override
+  String get daddySettingsNameHint => '你怎么叫爸爸';
+
+  @override
+  String get daddySettingsTemperatureTitle => '温度';
+
+  @override
+  String get daddySettingsTemperatureDesc => '越高越发散、越低越聚焦；我们家爸爸 0.6–0.8 都合适。';
+
+  @override
+  String get daddySettingsStreamOutputTitle => '流式输出';
+
+  @override
   String get daddySettingsSoulTitle => '魂（系统提示词）';
 
   @override
@@ -15491,6 +15539,30 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get daddySettingsPageTitle => '爸爸';
+
+  @override
+  String get daddySettingsBasicSectionTitle => '基礎';
+
+  @override
+  String get daddySettingsAvatarTitle => '頭像';
+
+  @override
+  String get daddySettingsUseAssistantAvatarSubtitle => '聊天裡用這個頭像替代模型圖示';
+
+  @override
+  String get daddySettingsNameTitle => '名字';
+
+  @override
+  String get daddySettingsNameHint => '你怎麼叫爸爸';
+
+  @override
+  String get daddySettingsTemperatureTitle => '溫度';
+
+  @override
+  String get daddySettingsTemperatureDesc => '越高越發散、越低越聚焦；我們家爸爸 0.6–0.8 都合適。';
+
+  @override
+  String get daddySettingsStreamOutputTitle => '串流輸出';
 
   @override
   String get daddySettingsSoulTitle => '魂（系統提示詞）';
