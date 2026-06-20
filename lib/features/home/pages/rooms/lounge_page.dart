@@ -45,8 +45,8 @@ class _LoungePageState extends State<LoungePage> {
       if (mounted) setState(() => _loading = false);
       return;
     }
-    final ci = gateway.peekList('/api/home/foyer', OurHomeFoyerItem.fromJson);
-    final cs2 = gateway.peekList('/api/home/songs', OurHomeSong.fromJson);
+    final ci = gateway.peekList('/api/home/foyer?all=1', OurHomeFoyerItem.fromJson);
+    final cs2 = gateway.peekList('/api/home/songs?all=1', OurHomeSong.fromJson);
     if ((ci.isNotEmpty || cs2.isNotEmpty) && mounted) {
       setState(() {
         _items = ci;
@@ -344,8 +344,8 @@ class _LoungePageState extends State<LoungePage> {
         borderRadius: BorderRadius.circular(14),
         baseColor: cs.onSurface.withValues(alpha: 0.04),
         padding: const EdgeInsets.all(10),
-        onTap: () => _toggle(it),
-        onLongPress: () => _delete(it),
+        onTap: it.seed ? null : () => _toggle(it),
+        onLongPress: it.seed ? null : () => _delete(it),
         child: Row(
           children: [
             _Artwork(
@@ -359,7 +359,7 @@ class _LoungePageState extends State<LoungePage> {
             const SizedBox(width: 12),
             IosCheckbox(
               value: it.done,
-              onChanged: (_) => _toggle(it),
+              onChanged: it.seed ? null : (_) => _toggle(it),
               size: 21,
             ),
             const SizedBox(width: 10),

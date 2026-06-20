@@ -273,12 +273,14 @@ class OurHomeFoyerItem {
     required this.status,
     required this.title,
     required this.note,
+    this.seed = false,
   });
   final String id;
   final String kind; // film / show / game
   final String status; // want / done
   final String title;
   final String note;
+  final bool seed; // web-home seed item: read-only (no toggle / delete)
 
   bool get done => status == 'done';
 
@@ -288,6 +290,7 @@ class OurHomeFoyerItem {
     status: (j['status'] ?? 'want').toString(),
     title: (j['title'] ?? '').toString(),
     note: (j['note'] ?? '').toString(),
+    seed: j['seed'] == true,
   );
 }
 
@@ -747,7 +750,7 @@ class OurHomeGateway {
 
   // ---- Lounge (foyer) ----
   Future<List<OurHomeFoyerItem>> fetchFoyer() =>
-      _getList('/api/home/foyer', OurHomeFoyerItem.fromJson);
+      _getList('/api/home/foyer?all=1', OurHomeFoyerItem.fromJson);
 
   Future<void> addFoyer(String kind, String title, String note) => _postJson(
     '/api/home/foyer',
@@ -785,9 +788,10 @@ class OurHomeGateway {
   Future<List<OurHomePlaylog>> fetchPlaylog() =>
       _getList('/api/home/playlog', OurHomePlaylog.fromJson);
 
-  /// The song wall. Newest first.
+  /// The song wall. Newest first. `?all=1` so the App also gets the 12 seed
+  /// songs the web home hardcodes (otherwise the songbook looks incomplete).
   Future<List<OurHomeSong>> fetchSongs() =>
-      _getList('/api/home/songs', OurHomeSong.fromJson);
+      _getList('/api/home/songs?all=1', OurHomeSong.fromJson);
 
   /// The study's shared bookshelf. Newest first.
   Future<List<OurHomeBook>> fetchBooks() =>
