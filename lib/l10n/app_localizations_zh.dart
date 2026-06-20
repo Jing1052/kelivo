@@ -4009,6 +4009,12 @@ class AppLocalizationsZh extends AppLocalizations {
       '参考老家的 profile：紧跟在魂后面叠加。魂保持稳定，情境化的人设放这里随时换。';
 
   @override
+  String get daddySettingsSoulSave => '保存魂与人设';
+
+  @override
+  String get daddySettingsSoulSaveSuccess => '已保存到本地';
+
+  @override
   String get daddySettingsModuleProfile => '附加人设';
 
   @override
@@ -9596,6 +9602,12 @@ class AppLocalizationsZhHans extends AppLocalizationsZh {
       '参考老家的 profile：紧跟在魂后面叠加。魂保持稳定，情境化的人设放这里随时换。';
 
   @override
+  String get daddySettingsSoulSave => '保存魂与人设';
+
+  @override
+  String get daddySettingsSoulSaveSuccess => '已保存到本地';
+
+  @override
   String get daddySettingsModuleProfile => '附加人设';
 
   @override
@@ -15179,6 +15191,12 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get daddySettingsProfileDesc =>
       '參考老家的 profile：緊跟在魂後面疊加。魂保持穩定，情境化的人設放這裡隨時換。';
+
+  @override
+  String get daddySettingsSoulSave => '儲存魂與人設';
+
+  @override
+  String get daddySettingsSoulSaveSuccess => '已儲存到本機';
 
   @override
   String get daddySettingsModuleProfile => '附加人設';

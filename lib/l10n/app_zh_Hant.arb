@@ -1359,6 +1359,8 @@
   "daddySettingsProfileTitle": "附加人設檔案",
   "daddySettingsProfileHint": "一段疊加在魂之上的可選人設……",
   "daddySettingsProfileDesc": "參考老家的 profile：緊跟在魂後面疊加。魂保持穩定，情境化的人設放這裡隨時換。",
+  "daddySettingsSoulSave": "儲存魂與人設",
+  "daddySettingsSoulSaveSuccess": "已儲存到本機",
   "daddySettingsModuleProfile": "附加人設",
   "daddySettingsToolManualTitle": "工具使用說明書",
   "daddySettingsToolManualHint": "寫爸爸該怎麼用這些工具……",

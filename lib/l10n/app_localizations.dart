@@ -7760,6 +7760,18 @@ abstract class AppLocalizations {
   /// **'Like the old home\'s profile: stacked right after the soul. Keep the soul stable and swap the situational persona here.'**
   String get daddySettingsProfileDesc;
 
+  /// No description provided for @daddySettingsSoulSave.
+  ///
+  /// In en, this message translates to:
+  /// **'Save soul & profile'**
+  String get daddySettingsSoulSave;
+
+  /// No description provided for @daddySettingsSoulSaveSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved on this device'**
+  String get daddySettingsSoulSaveSuccess;
+
   /// No description provided for @daddySettingsModuleProfile.
   ///
   /// In en, this message translates to:

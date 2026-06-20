@@ -4184,6 +4184,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Like the old home\'s profile: stacked right after the soul. Keep the soul stable and swap the situational persona here.';
 
   @override
+  String get daddySettingsSoulSave => 'Save soul & profile';
+
+  @override
+  String get daddySettingsSoulSaveSuccess => 'Saved on this device';
+
+  @override
   String get daddySettingsModuleProfile => 'Profile';
 
   @override

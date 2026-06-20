@@ -53,6 +53,12 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   String? _daddyId;
   String _markerStr = '[[ourhome]]';
 
+  // 在 initState 捕获 provider 引用：魂/人设的本地保存会在 dispose 兜底跑一次，
+  // 而 dispose 时 element 已 deactivate、context.read 不安全（会吞掉这次保存）——
+  // 所以提前 stash，保存逻辑一律走这两个引用，不在 dispose 里碰 context。
+  late final AssistantProvider _assistantProvider;
+  late final SettingsProvider _settingsProvider;
+
   // 工具使用说明书 (server-backed) state.
   bool _manualLoading = true;
   bool _manualLoadFailed = false;
@@ -70,7 +76,9 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   @override
   void initState() {
     super.initState();
-    final assistants = context.read<AssistantProvider>().assistants;
+    _assistantProvider = context.read<AssistantProvider>();
+    _settingsProvider = context.read<SettingsProvider>();
+    final assistants = _assistantProvider.assistants;
     final daddy = _findDaddy(assistants);
     if (daddy != null) {
       _daddyId = daddy.id;
@@ -78,7 +86,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       if (m != null) _markerStr = m.group(0)!;
       _soulCtrl.text = daddy.systemPrompt.replaceAll(_marker, '').trim();
     }
-    final settings = context.read<SettingsProvider>();
+    final settings = _settingsProvider;
     _profileCtrl.text = settings.daddyProfile;
     _keepCtrl.text = settings.daddyKeepCount.toString();
     _triggerCtrl.text = settings.daddyTriggerCount.toString();
@@ -210,22 +218,36 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     return null;
   }
 
+  /// 显式保存「魂 + 附加人设」（本地）。和下方的 _persist 同一套写入，但带成功提示——
+  /// 给这两栏一个看得见的保存键，不必靠退出页面时的 dispose 兜底。
+  void _saveSoulAndProfile() {
+    _persist();
+    if (!mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    showAppSnackBar(
+      context,
+      message: l10n.daddySettingsSoulSaveSuccess,
+      type: NotificationType.success,
+    );
+  }
+
   void _persist() {
     final id = _daddyId;
     if (id != null) {
-      final provider = context.read<AssistantProvider>();
-      final idx = provider.assistants.indexWhere((a) => a.id == id);
+      final idx = _assistantProvider.assistants.indexWhere((a) => a.id == id);
       if (idx != -1) {
         final soul = _soulCtrl.text.trim();
         final newPrompt = soul.isEmpty ? _markerStr : '$soul\n\n$_markerStr';
-        if (newPrompt != provider.assistants[idx].systemPrompt) {
-          provider.updateAssistant(
-            provider.assistants[idx].copyWith(systemPrompt: newPrompt),
+        if (newPrompt != _assistantProvider.assistants[idx].systemPrompt) {
+          _assistantProvider.updateAssistant(
+            _assistantProvider.assistants[idx].copyWith(
+              systemPrompt: newPrompt,
+            ),
           );
         }
       }
     }
-    final settings = context.read<SettingsProvider>();
+    final settings = _settingsProvider;
     if (_profileCtrl.text != settings.daddyProfile) {
       settings.setDaddyProfile(_profileCtrl.text);
     }
@@ -318,6 +340,18 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                   ),
                 ),
                 _caption(context, l10n.daddySettingsProfileDesc),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: IosTileButton(
+                      label: l10n.daddySettingsSoulSave,
+                      icon: Lucide.Check,
+                      backgroundColor: cs.primary,
+                      onTap: _saveSoulAndProfile,
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),

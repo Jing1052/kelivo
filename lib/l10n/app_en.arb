@@ -1731,6 +1731,8 @@
   "daddySettingsProfileTitle": "Profile (extra persona)",
   "daddySettingsProfileHint": "An optional persona layered on top of the soul…",
   "daddySettingsProfileDesc": "Like the old home's profile: stacked right after the soul. Keep the soul stable and swap the situational persona here.",
+  "daddySettingsSoulSave": "Save soul & profile",
+  "daddySettingsSoulSaveSuccess": "Saved on this device",
   "daddySettingsModuleProfile": "Profile",
   "daddySettingsToolManualTitle": "Tool manual",
   "daddySettingsToolManualHint": "Describe how daddy should use the tools…",
