@@ -332,3 +332,66 @@ class CcBridgeConfig {
     );
   }
 }
+
+/// Snapshot of the tmux pane from `GET /tmux/capture` (terminal mirror).
+///
+/// The server may key the pane text under any of `content` / `text` / `output`
+/// / `pane`; parsing is defensive and falls back across them.
+class CcTmuxCapture {
+  /// The captured pane text (monospace).
+  final String content;
+  final String? session;
+  final int? lines;
+
+  const CcTmuxCapture({required this.content, this.session, this.lines});
+
+  factory CcTmuxCapture.fromJson(Map<String, dynamic> json) {
+    final raw =
+        json['content'] ?? json['text'] ?? json['output'] ?? json['pane'];
+    return CcTmuxCapture(
+      content: raw?.toString() ?? '',
+      session: json['session']?.toString(),
+      lines: (json['lines'] is int)
+          ? json['lines'] as int
+          : int.tryParse('${json['lines']}'),
+    );
+  }
+}
+
+/// One tmux/claude session entry from `GET /chain/sessions`.
+class CcChainSession {
+  final String sid;
+  final bool active;
+
+  const CcChainSession({required this.sid, required this.active});
+
+  factory CcChainSession.fromJson(Map<String, dynamic> json) => CcChainSession(
+        sid: json['sid']?.toString() ?? '',
+        active: json['active'] == true,
+      );
+}
+
+/// Result of `GET /chain/sessions`: the session list plus the active sid.
+class CcChainSessions {
+  final List<CcChainSession> sessions;
+  final String? activeSid;
+
+  const CcChainSessions({required this.sessions, this.activeSid});
+
+  static const CcChainSessions empty =
+      CcChainSessions(sessions: <CcChainSession>[]);
+
+  factory CcChainSessions.fromJson(Map<String, dynamic> json) {
+    final raw = json['sessions'];
+    final list = (raw is List)
+        ? raw
+            .whereType<Map>()
+            .map((e) => CcChainSession.fromJson(Map<String, dynamic>.from(e)))
+            .toList(growable: false)
+        : const <CcChainSession>[];
+    return CcChainSessions(
+      sessions: list,
+      activeSid: json['active_sid']?.toString(),
+    );
+  }
+}

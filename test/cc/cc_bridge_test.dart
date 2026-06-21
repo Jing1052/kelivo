@@ -148,6 +148,151 @@ void main() {
     });
   });
 
+  group('CcTmuxCapture.fromJson', () {
+    test('reads content key', () {
+      final c = CcTmuxCapture.fromJson({
+        'content': r'$ claude',
+        'session': 'cc',
+        'lines': 120,
+      });
+      expect(c.content, r'$ claude');
+      expect(c.session, 'cc');
+      expect(c.lines, 120);
+    });
+
+    test('falls back across text/output/pane keys', () {
+      expect(CcTmuxCapture.fromJson({'text': 'a'}).content, 'a');
+      expect(CcTmuxCapture.fromJson({'output': 'b'}).content, 'b');
+      expect(CcTmuxCapture.fromJson({'pane': 'c'}).content, 'c');
+    });
+
+    test('boundary: empty json yields empty content', () {
+      final c = CcTmuxCapture.fromJson({});
+      expect(c.content, '');
+      expect(c.session, isNull);
+      expect(c.lines, isNull);
+    });
+  });
+
+  group('CcChainSessions.fromJson', () {
+    test('happy path parses sessions and active sid', () {
+      final s = CcChainSessions.fromJson({
+        'sessions': [
+          {'sid': 'cc', 'active': true},
+          {'sid': 'cc2', 'active': false},
+        ],
+        'active_sid': 'cc',
+      });
+      expect(s.sessions.length, 2);
+      expect(s.sessions.first.sid, 'cc');
+      expect(s.sessions.first.active, isTrue);
+      expect(s.activeSid, 'cc');
+    });
+
+    test('boundary: missing/garbage sessions yields empty', () {
+      expect(CcChainSessions.fromJson({}).sessions, isEmpty);
+      expect(
+        CcChainSessions.fromJson({'sessions': 'nope'}).sessions,
+        isEmpty,
+      );
+    });
+  });
+
+  group('CcBridgeClient RC endpoints against a local server', () {
+    late HttpServer server;
+    late CcBridgeClient client;
+    String? seenPath;
+    Map<String, dynamic>? seenBody;
+
+    setUp(() async {
+      seenPath = null;
+      seenBody = null;
+      server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((req) async {
+        seenPath = req.uri.path;
+        req.response.headers.contentType = ContentType.json;
+        switch (req.uri.path) {
+          case '/tmux/capture':
+            req.response.write(jsonEncode({
+              'content': 'pane for ${req.uri.queryParameters['session']}',
+              'session': req.uri.queryParameters['session'],
+              'lines': int.tryParse(req.uri.queryParameters['lines'] ?? ''),
+            }));
+            break;
+          case '/chain/sessions':
+            req.response.write(jsonEncode({
+              'sessions': [
+                {'sid': 'cc', 'active': true},
+              ],
+              'active_sid': 'cc',
+            }));
+            break;
+          default:
+            final bodyText = await utf8.decoder.bind(req).join();
+            if (bodyText.isNotEmpty) {
+              seenBody = jsonDecode(bodyText) as Map<String, dynamic>;
+            }
+            req.response.write(jsonEncode({'ok': true}));
+        }
+        await req.response.close();
+      });
+      client = CcBridgeClient(
+        baseUrl: 'http://127.0.0.1:${server.port}',
+        sharedSecret: 'secret',
+      );
+    });
+
+    tearDown(() async {
+      client.dispose();
+      await server.close(force: true);
+    });
+
+    test('tmuxCapture passes session/lines and parses content', () async {
+      final cap = await client.tmuxCapture(session: 'cc', lines: 80);
+      expect(cap.content, 'pane for cc');
+      expect(cap.session, 'cc');
+      expect(seenPath, '/tmux/capture');
+    });
+
+    test('tmuxSend sends literal keys with enter flag', () async {
+      await client.tmuxSend(session: 'cc', keys: '/compact', enter: true);
+      expect(seenPath, '/tmux/send');
+      expect(seenBody?['session'], 'cc');
+      expect(seenBody?['keys'], '/compact');
+      expect(seenBody?['enter'], true);
+    });
+
+    test('tmuxSend sends a whitelisted special key', () async {
+      await client.tmuxSend(session: 'cc', key: 'C-c');
+      expect(seenBody?['key'], 'C-c');
+    });
+
+    test('tmuxSend rejects a non-whitelisted key', () async {
+      await expectLater(
+        client.tmuxSend(session: 'cc', key: 'rm -rf'),
+        throwsA(isA<CcBridgeException>()),
+      );
+    });
+
+    test('chainSessions parses the list and active sid', () async {
+      final s = await client.chainSessions();
+      expect(s.sessions.single.sid, 'cc');
+      expect(s.activeSid, 'cc');
+    });
+
+    test('chainSwitch posts the sid', () async {
+      await client.chainSwitch('cc2');
+      expect(seenPath, '/chain/switch');
+      expect(seenBody?['sid'], 'cc2');
+    });
+
+    test('chainClear posts the session', () async {
+      await client.chainClear('cc');
+      expect(seenPath, '/chain/clear');
+      expect(seenBody?['session'], 'cc');
+    });
+  });
+
   group('CcBridgeClient against a local server', () {
     late HttpServer server;
     late CcBridgeClient client;

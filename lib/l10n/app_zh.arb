@@ -1989,5 +1989,20 @@
   "ccBridgeSleepingStatus": "休眠中",
   "ccBridgeNotConfiguredTitle": "尚未配置 CC 端",
   "ccBridgeNotConfiguredHint": "填写服务器地址和共享密钥，连接家里的 CC 端。",
-  "ccBridgeOpenSettingsButton": "前往设置"
+  "ccBridgeOpenSettingsButton": "前往设置",
+  "ccBridgeTerminalTitle": "终端",
+  "ccBridgeTerminalOpenButton": "打开终端",
+  "ccBridgeTerminalRefresh": "刷新",
+  "ccBridgeTerminalInputHint": "发送到终端…",
+  "ccBridgeTerminalEmptyHint": "暂无输出",
+  "ccBridgeTerminalActionFailed": "操作失败",
+  "ccBridgeChainList": "会话列表",
+  "ccBridgeChainNew": "新建",
+  "ccBridgeChainStop": "中断",
+  "ccBridgeChainClear": "清空",
+  "ccBridgeChainRestart": "重启",
+  "ccBridgeChainCompact": "压缩",
+  "ccBridgeChainSwitchTitle": "切换会话",
+  "ccBridgeChainNoSessions": "没有会话",
+  "ccBridgeChainActiveLabel": "当前"
 }

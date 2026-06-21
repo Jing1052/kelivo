@@ -235,6 +235,114 @@ class CcBridgeProvider extends ChangeNotifier {
   String attachmentUrl(String relativePath) =>
       _client?.attachmentUrl(relativePath) ?? relativePath;
 
+  // ---- Remote control: terminal mirror + slash commands ----
+  //
+  // All gated on [CcBridgeConfig.remoteControlEnabled] except [clearSession],
+  // which the bridge contract allows without remote control. Failures set
+  // [lastError] and return null/false (surfaced by the UI), never silently
+  // swallowed.
+
+  bool get remoteControlEnabled => _config.remoteControlEnabled;
+
+  /// Capture the tmux pane. Returns null when offline or remote control is off.
+  Future<CcTmuxCapture?> captureTerminal({int lines = 120}) async {
+    final c = _client;
+    if (c == null || !_config.remoteControlEnabled) return null;
+    try {
+      final cap = await c.tmuxCapture(session: _config.session, lines: lines);
+      _lastError = null;
+      return cap;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _lastError = e.toString();
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// List the available tmux/claude sessions. Null when off/unavailable.
+  Future<CcChainSessions?> listSessions() async {
+    final c = _client;
+    if (c == null || !_config.remoteControlEnabled) return null;
+    try {
+      final s = await c.chainSessions();
+      _lastError = null;
+      return s;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _lastError = e.toString();
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<bool> sendKeys({String? keys, bool enter = false, String? key}) =>
+      _rcAction(
+        (c) => c.tmuxSend(
+          session: _config.session,
+          keys: keys,
+          enter: enter,
+          key: key,
+        ),
+      );
+
+  Future<bool> newSession() => _rcAction((c) => c.chainNewSession());
+
+  Future<bool> switchSession(String sid) =>
+      _rcAction((c) => c.chainSwitch(sid));
+
+  Future<bool> abortSession() =>
+      _rcAction((c) => c.chainAbort(_config.session));
+
+  Future<bool> restartSession() =>
+      _rcAction((c) => c.chainRestart(_config.session));
+
+  /// Clear context. Per the bridge contract this does NOT require remote
+  /// control, so it is allowed whenever connected.
+  Future<bool> clearSession() async {
+    final c = _client;
+    if (c == null) return false;
+    try {
+      await c.chainClear(_config.session);
+      _lastError = null;
+      unawaited(_pollOnce());
+      return true;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _lastError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Shared remote-control gating + error handling for fire-and-forget actions.
+  Future<bool> _rcAction(Future<void> Function(CcBridgeClient c) action) async {
+    final c = _client;
+    if (c == null || !_config.remoteControlEnabled) return false;
+    try {
+      await action(c);
+      _lastError = null;
+      return true;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _lastError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   @override
   void dispose() {
     _pollTimer?.cancel();

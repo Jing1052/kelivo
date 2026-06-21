@@ -1989,5 +1989,20 @@
   "ccBridgeSleepingStatus": "休眠中",
   "ccBridgeNotConfiguredTitle": "尚未設定 CC 端",
   "ccBridgeNotConfiguredHint": "填寫伺服器位址與共用密鑰，連接家裡的 CC 端。",
-  "ccBridgeOpenSettingsButton": "前往設定"
+  "ccBridgeOpenSettingsButton": "前往設定",
+  "ccBridgeTerminalTitle": "終端",
+  "ccBridgeTerminalOpenButton": "開啟終端",
+  "ccBridgeTerminalRefresh": "重新整理",
+  "ccBridgeTerminalInputHint": "傳送到終端…",
+  "ccBridgeTerminalEmptyHint": "暫無輸出",
+  "ccBridgeTerminalActionFailed": "操作失敗",
+  "ccBridgeChainList": "工作階段清單",
+  "ccBridgeChainNew": "新增",
+  "ccBridgeChainStop": "中斷",
+  "ccBridgeChainClear": "清空",
+  "ccBridgeChainRestart": "重新啟動",
+  "ccBridgeChainCompact": "壓縮",
+  "ccBridgeChainSwitchTitle": "切換工作階段",
+  "ccBridgeChainNoSessions": "沒有工作階段",
+  "ccBridgeChainActiveLabel": "目前"
 }

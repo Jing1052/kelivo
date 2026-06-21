@@ -20,6 +20,7 @@ import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_form_text_field.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
 import 'cc_chat_page.dart';
+import 'cc_terminal_page.dart';
 
 class CcBridgePage extends StatefulWidget {
   const CcBridgePage({super.key});
@@ -212,6 +213,16 @@ class _CcBridgePageState extends State<CcBridgePage> {
             icon: Lucide.Terminal,
             onTap: _openChat,
           ),
+          if (_remoteControl) ...[
+            const SizedBox(height: 10),
+            IosTileButton(
+              label: l10n.ccBridgeTerminalOpenButton,
+              icon: Lucide.ListTree,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CcTerminalPage()),
+              ),
+            ),
+          ],
         ],
       ),
     );

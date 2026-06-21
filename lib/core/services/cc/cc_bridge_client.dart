@@ -216,6 +216,96 @@ class CcBridgeClient {
     return CcThinkingRecord.listFromJson(_decodeJson(resp)['records']);
   }
 
+  // ---- Remote control: terminal mirror + slash commands ----
+  //
+  // These endpoints require the server to run with `allow_remote_control=true`.
+  // The provider gates them on [CcBridgeConfig.remoteControlEnabled]; the
+  // client itself stays a thin HTTP layer. `/chain/clear` is the documented
+  // exception that needs no remote control. See docs/CC_BRIDGE_INTEGRATION.md §5.
+
+  /// Special keys accepted by [tmuxSend]'s `key` argument (server whitelist).
+  static const Set<String> tmuxSpecialKeys = <String>{
+    'Escape',
+    'Up',
+    'Down',
+    'Enter',
+    'Tab',
+    'C-c',
+    'C-l',
+  };
+
+  /// `GET /tmux/capture?session=&lines=` — snapshot the tmux pane.
+  Future<CcTmuxCapture> tmuxCapture({
+    required String session,
+    int lines = 120,
+  }) async {
+    final resp = await _http
+        .get(
+          _uri('/tmux/capture', {'session': session, 'lines': '$lines'}),
+          headers: _authHeaders,
+        )
+        .timeout(timeout);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
+    return CcTmuxCapture.fromJson(_decodeJson(resp));
+  }
+
+  /// `POST /tmux/send` — inject literal text and/or one special key. Provide
+  /// [keys] for literal text (optionally followed by Enter via [enter]) or
+  /// [key] for a whitelisted special key ([tmuxSpecialKeys]).
+  Future<void> tmuxSend({
+    required String session,
+    String? keys,
+    bool enter = false,
+    String? key,
+  }) async {
+    if (key != null && !tmuxSpecialKeys.contains(key)) {
+      throw CcBridgeException('unsupported tmux key: $key');
+    }
+    await _postExpectOk('/tmux/send', <String, dynamic>{
+      'session': session,
+      if (keys != null) 'keys': keys,
+      'enter': enter,
+      if (key != null) 'key': key,
+    });
+  }
+
+  /// `GET /chain/sessions` — list tmux/claude sessions and the active one.
+  Future<CcChainSessions> chainSessions() async {
+    final resp = await _http
+        .get(_uri('/chain/sessions'), headers: _authHeaders)
+        .timeout(timeout);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
+    return CcChainSessions.fromJson(_decodeJson(resp));
+  }
+
+  /// `POST /chain/new_session` — create a new tmux+claude session (no switch).
+  Future<void> chainNewSession() =>
+      _postExpectOk('/chain/new_session', const <String, dynamic>{});
+
+  /// `POST /chain/switch {sid}` — make [sid] the active session.
+  Future<void> chainSwitch(String sid) =>
+      _postExpectOk('/chain/switch', <String, dynamic>{'sid': sid});
+
+  /// `POST /chain/abort {session}` — interrupt the agent (3× Escape).
+  Future<void> chainAbort(String session) =>
+      _postExpectOk('/chain/abort', <String, dynamic>{'session': session});
+
+  /// `POST /chain/clear {session}` — clear context. The documented exception
+  /// that does NOT require remote control.
+  Future<void> chainClear(String session) =>
+      _postExpectOk('/chain/clear', <String, dynamic>{'session': session});
+
+  /// `POST /chain/restart {session}` — `C-c C-c` then `claude --resume`.
+  Future<void> chainRestart(String session) =>
+      _postExpectOk('/chain/restart', <String, dynamic>{'session': session});
+
+  Future<void> _postExpectOk(String path, Map<String, dynamic> payload) async {
+    final resp = await _http
+        .post(_uri(path), headers: _jsonHeaders, body: jsonEncode(payload))
+        .timeout(timeout);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
+  }
+
   /// Absolute URL for an attachment relative path (`/attachments/<name>`).
   String attachmentUrl(String relativePath) {
     if (relativePath.startsWith('http')) return relativePath;

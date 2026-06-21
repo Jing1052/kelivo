@@ -2412,5 +2412,20 @@
   "ccBridgeSleepingStatus": "sleeping",
   "ccBridgeNotConfiguredTitle": "CC bridge not set up",
   "ccBridgeNotConfiguredHint": "Add the server address and shared secret to connect to your home CC agent.",
-  "ccBridgeOpenSettingsButton": "Open settings"
+  "ccBridgeOpenSettingsButton": "Open settings",
+  "ccBridgeTerminalTitle": "Terminal",
+  "ccBridgeTerminalOpenButton": "Open terminal",
+  "ccBridgeTerminalRefresh": "Refresh",
+  "ccBridgeTerminalInputHint": "Send to terminal…",
+  "ccBridgeTerminalEmptyHint": "No output yet",
+  "ccBridgeTerminalActionFailed": "Action failed",
+  "ccBridgeChainList": "Sessions",
+  "ccBridgeChainNew": "New",
+  "ccBridgeChainStop": "Stop",
+  "ccBridgeChainClear": "Clear",
+  "ccBridgeChainRestart": "Restart",
+  "ccBridgeChainCompact": "Compact",
+  "ccBridgeChainSwitchTitle": "Switch session",
+  "ccBridgeChainNoSessions": "No sessions",
+  "ccBridgeChainActiveLabel": "active"
 }
