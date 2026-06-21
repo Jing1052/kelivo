@@ -13,6 +13,7 @@ import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../assistant/widgets/assistant_select_sheet.dart';
 import '../widgets/assistant_avatar.dart';
+import '../../cc/pages/cc_chat_page.dart';
 import 'home_page.dart';
 
 /// Full-screen conversation list — the root of the Still Here "Chat" tab.
@@ -32,6 +33,13 @@ class ConversationListPage extends StatelessWidget {
           onBack: () => Navigator.of(ctx).maybePop(),
         ),
       ),
+    );
+  }
+
+  void _openCc(BuildContext context) {
+    Haptics.soft();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const CcChatPage()),
     );
   }
 
@@ -114,6 +122,7 @@ class ConversationListPage extends StatelessWidget {
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
               children: [
+                _CcEntryTile(onTap: () => _openCc(context)),
                 if (pinned.isNotEmpty) ...[
                   _SectionHeader(label: l10n.sideDrawerPinnedLabel),
                   for (final c in pinned)
@@ -397,6 +406,58 @@ class _ConversationTile extends StatelessWidget {
                 fontSize: 12,
                 color: cs.onSurface.withValues(alpha: 0.45),
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry tile pinned at the top of the chat list that opens the CC bridge chat
+/// (the home tmux `cc` agent), distinct from gateway conversations.
+class _CcEntryTile extends StatelessWidget {
+  const _CcEntryTile({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        onTap: onTap,
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Lucide.Terminal, size: 20, color: cs.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                l10n.ccBridgeChatTitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.35),
             ),
           ],
         ),

@@ -95,7 +95,7 @@ class _CcChatPageState extends State<CcChatPage> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: AppFontWeights.regular,
-                color: cs.onSurface.withOpacity(0.55),
+                color: cs.onSurface.withValues(alpha: 0.55),
               ),
             ),
           ],
@@ -163,7 +163,7 @@ class _CcChatPageState extends State<CcChatPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Lucide.Terminal, size: 40, color: cs.onSurface.withOpacity(0.4)),
+            Icon(Lucide.Terminal, size: 40, color: cs.onSurface.withValues(alpha: 0.4)),
             const SizedBox(height: 16),
             Text(
               l10n.ccBridgeNotConfiguredTitle,
@@ -180,7 +180,7 @@ class _CcChatPageState extends State<CcChatPage> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: cs.onSurface.withOpacity(0.6),
+                color: cs.onSurface.withValues(alpha: 0.6),
               ),
             ),
             const SizedBox(height: 20),
@@ -210,7 +210,7 @@ class _CcChatPageState extends State<CcChatPage> {
                     l10n.ccBridgeEmptyHint,
                     style: TextStyle(
                       fontSize: 13,
-                      color: cs.onSurface.withOpacity(0.5),
+                      color: cs.onSurface.withValues(alpha: 0.5),
                     ),
                   ),
                 )
@@ -239,7 +239,7 @@ class _CcChatPageState extends State<CcChatPage> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withOpacity(0.5),
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -255,7 +255,7 @@ class _CcChatPageState extends State<CcChatPage> {
                     border: InputBorder.none,
                     hintText: l10n.ccBridgeChatInputHint,
                     hintStyle: TextStyle(
-                      color: cs.onSurface.withOpacity(0.4),
+                      color: cs.onSurface.withValues(alpha: 0.4),
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -313,7 +313,7 @@ class _ChatBubbleState extends State<_ChatBubble> {
           child: Text(
             r.text,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: cs.onSurface.withOpacity(0.5)),
+            style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
           ),
         ),
       );
@@ -330,8 +330,8 @@ class _ChatBubbleState extends State<_ChatBubble> {
               .toList()
         : const <String>[];
     final bg = isUser
-        ? cs.primary.withOpacity(0.12)
-        : cs.surfaceContainerHighest.withOpacity(0.5);
+        ? cs.primary.withValues(alpha: 0.12)
+        : cs.surfaceContainerHighest.withValues(alpha: 0.5);
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -401,16 +401,16 @@ class _ThinkingToggle extends StatelessWidget {
             Icon(
               expanded ? Lucide.ChevronDown : Lucide.ChevronRight,
               size: 14,
-              color: cs.onSurface.withOpacity(0.5),
+              color: cs.onSurface.withValues(alpha: 0.5),
             ),
             const SizedBox(width: 2),
-            Icon(Lucide.Brain, size: 13, color: cs.onSurface.withOpacity(0.5)),
+            Icon(Lucide.Brain, size: 13, color: cs.onSurface.withValues(alpha: 0.5)),
             const SizedBox(width: 4),
             Text(
               expanded ? l10n.ccBridgeHideThinking : l10n.ccBridgeShowThinking,
               style: TextStyle(
                 fontSize: 12,
-                color: cs.onSurface.withOpacity(0.5),
+                color: cs.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ],
@@ -431,9 +431,9 @@ class _ThinkingCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.35),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.25)),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: SelectableText(
         text,
@@ -441,7 +441,7 @@ class _ThinkingCard extends StatelessWidget {
           fontSize: 13,
           height: 1.4,
           fontStyle: FontStyle.italic,
-          color: cs.onSurface.withOpacity(0.7),
+          color: cs.onSurface.withValues(alpha: 0.7),
         ),
       ),
     );
@@ -488,14 +488,14 @@ class _Attachment extends StatelessWidget {
                   Icon(
                     Lucide.ImageOff,
                     size: 16,
-                    color: cs.onSurface.withOpacity(0.6),
+                    color: cs.onSurface.withValues(alpha: 0.6),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     record.attachmentFilename ?? l10n.ccBridgeAttachmentLabel,
                     style: TextStyle(
                       fontSize: 13,
-                      color: cs.onSurface.withOpacity(0.7),
+                      color: cs.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -511,14 +511,14 @@ class _Attachment extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Lucide.FileText, size: 16, color: cs.onSurface.withOpacity(0.7)),
+          Icon(Lucide.FileText, size: 16, color: cs.onSurface.withValues(alpha: 0.7)),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
               record.attachmentFilename ?? l10n.ccBridgeAttachmentLabel,
               style: TextStyle(
                 fontSize: 13,
-                color: cs.onSurface.withOpacity(0.85),
+                color: cs.onSurface.withValues(alpha: 0.85),
               ),
             ),
           ),

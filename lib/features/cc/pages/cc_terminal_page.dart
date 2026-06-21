@@ -20,9 +20,14 @@ import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/services/cc/cc_bridge_models.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
+import 'cc_bridge_page.dart';
 
 class CcTerminalPage extends StatefulWidget {
-  const CcTerminalPage({super.key});
+  const CcTerminalPage({super.key, this.embedded = false});
+
+  /// When true, render as a bottom-nav tab: no back button, and a
+  /// not-configured placeholder pointing to settings instead of a bare terminal.
+  final bool embedded;
 
   @override
   State<CcTerminalPage> createState() => _CcTerminalPageState();
@@ -139,15 +144,18 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: Tooltip(
-          message: l10n.settingsPageBackButton,
-          child: IosIconButton(
-            icon: Lucide.ArrowLeft,
-            color: cs.onSurface,
-            size: 22,
-            onTap: () => Navigator.of(context).maybePop(),
-          ),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.embedded
+            ? null
+            : Tooltip(
+                message: l10n.settingsPageBackButton,
+                child: IosIconButton(
+                  icon: Lucide.ArrowLeft,
+                  color: cs.onSurface,
+                  size: 22,
+                  onTap: () => Navigator.of(context).maybePop(),
+                ),
+              ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -158,7 +166,7 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: AppFontWeights.regular,
-                color: cs.onSurface.withOpacity(0.55),
+                color: cs.onSurface.withValues(alpha: 0.55),
               ),
             ),
           ],
@@ -175,13 +183,62 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(child: _terminalView(context)),
-          _commandBar(context, provider),
-          _keysRow(context, provider),
-          _inputBar(context, provider),
-        ],
+      body: provider.isConfigured
+          ? Column(
+              children: [
+                Expanded(child: _terminalView(context)),
+                _commandBar(context, provider),
+                _keysRow(context, provider),
+                _inputBar(context, provider),
+              ],
+            )
+          : _notConfigured(context),
+    );
+  }
+
+  Widget _notConfigured(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Lucide.Terminal,
+              size: 40,
+              color: cs.onSurface.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              l10n.ccBridgeNotConfiguredTitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: AppFontWeights.semibold,
+                color: cs.onSurface,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              l10n.ccBridgeNotConfiguredHint,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 20),
+            IosTileButton(
+              label: l10n.ccBridgeOpenSettingsButton,
+              icon: Lucide.Cable,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const CcBridgePage()),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -194,9 +251,9 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withOpacity(0.4),
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.25)),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: _content.trim().isEmpty
           ? Center(
@@ -204,7 +261,7 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
                 l10n.ccBridgeTerminalEmptyHint,
                 style: TextStyle(
                   fontSize: 13,
-                  color: cs.onSurface.withOpacity(0.5),
+                  color: cs.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             )
@@ -216,7 +273,7 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
                   fontFamily: 'monospace',
                   fontSize: 12,
                   height: 1.35,
-                  color: cs.onSurface.withOpacity(0.9),
+                  color: cs.onSurface.withValues(alpha: 0.9),
                 ),
               ),
             ),
@@ -307,7 +364,7 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withOpacity(0.5),
+                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(22),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -328,7 +385,7 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
                     border: InputBorder.none,
                     hintText: l10n.ccBridgeTerminalInputHint,
                     hintStyle: TextStyle(
-                      color: cs.onSurface.withOpacity(0.4),
+                      color: cs.onSurface.withValues(alpha: 0.4),
                     ),
                     contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
@@ -344,7 +401,7 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
               child: Icon(
                 Lucide.CornerDownLeft,
                 size: 20,
-                color: rc ? cs.onPrimary : cs.onSurface.withOpacity(0.4),
+                color: rc ? cs.onPrimary : cs.onSurface.withValues(alpha: 0.4),
               ),
             ),
           ],
@@ -372,14 +429,14 @@ class _KeyCap extends StatelessWidget {
     return IosCardPress(
       onTap: enabled ? onTap : () {},
       borderRadius: BorderRadius.circular(10),
-      baseColor: cs.surfaceContainerHighest.withOpacity(enabled ? 0.5 : 0.25),
+      baseColor: cs.surfaceContainerHighest.withValues(alpha: enabled ? 0.5 : 0.25),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Text(
         label,
         style: TextStyle(
           fontFamily: 'monospace',
           fontSize: 13,
-          color: cs.onSurface.withOpacity(enabled ? 0.85 : 0.35),
+          color: cs.onSurface.withValues(alpha: enabled ? 0.85 : 0.35),
         ),
       ),
     );

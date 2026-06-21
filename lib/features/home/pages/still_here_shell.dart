@@ -7,6 +7,7 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/ourhome/proactive_notifier.dart';
 import '../../../theme/app_font_weights.dart';
+import '../../cc/pages/cc_terminal_page.dart';
 import '../../settings/pages/settings_page.dart';
 import 'conversation_list_page.dart';
 import 'still_home_page.dart';
@@ -104,45 +105,13 @@ class _StillHereShellState extends State<StillHereShell>
                 StillHomePage(),
                 StillRoomsPage(),
                 ConversationListPage(),
-                _ComingSoonTab(icon: Lucide.History),
+                CcTerminalPage(embedded: true),
                 SettingsPage(),
               ],
             ),
           ),
           if (!keyboardOpen) _BottomDock(index: _index, onSelect: _select),
         ],
-      ),
-    );
-  }
-}
-
-/// Placeholder tab shown for sections not yet rebuilt natively.
-class _ComingSoonTab extends StatelessWidget {
-  const _ComingSoonTab({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final cs = Theme.of(context).colorScheme;
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 64, color: cs.onSurface.withValues(alpha: 0.32)),
-            const SizedBox(height: 16),
-            Text(
-              l10n.stillHereTabComingSoon,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: AppFontWeights.medium,
-                color: cs.onSurface.withValues(alpha: 0.6),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -164,7 +133,7 @@ class _BottomDock extends StatelessWidget {
       _DockSpec(Lucide.House, l10n.stillHereTabHome),
       _DockSpec(Lucide.LayoutGrid, l10n.stillHereTabRooms),
       _DockSpec(Lucide.MessageCircle, l10n.stillHereTabChat),
-      _DockSpec(Lucide.History, l10n.stillHereTabTimeline),
+      _DockSpec(Lucide.Terminal, l10n.stillHereTabTerminal),
       _DockSpec(Lucide.Settings, l10n.stillHereTabSettings),
     ];
 

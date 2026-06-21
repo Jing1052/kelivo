@@ -265,7 +265,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
                         provider.activeBaseUrl!,
                         style: TextStyle(
                           fontSize: 12,
-                          color: cs.onSurface.withOpacity(0.55),
+                          color: cs.onSurface.withValues(alpha: 0.55),
                         ),
                       ),
                     ],
@@ -295,7 +295,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
       case CcConnectionState.unauthorized:
         return (const Color(0xFFFF3B30), l10n.ccBridgeStatusUnauthorized);
       case CcConnectionState.idle:
-        return (cs.onSurface.withOpacity(0.3), l10n.ccBridgeStatusIdle);
+        return (cs.onSurface.withValues(alpha: 0.3), l10n.ccBridgeStatusIdle);
     }
   }
 
@@ -327,7 +327,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
                   description,
                   style: TextStyle(
                     fontSize: 12,
-                    color: cs.onSurface.withOpacity(0.55),
+                    color: cs.onSurface.withValues(alpha: 0.55),
                   ),
                 ),
               ],
@@ -347,9 +347,9 @@ class _CcBridgePageState extends State<CcBridgePage> {
     final cs = Theme.of(context).colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: cs.surfaceContainerLow.withOpacity(0.6),
+        color: cs.surfaceContainerLow.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cs.outlineVariant.withOpacity(0.25)),
+        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.25)),
       ),
       child: Column(mainAxisSize: MainAxisSize.min, children: children),
     );
