@@ -1,4 +1,7 @@
 {
+  "ccBridgeShowThinking": "Show thinking",
+  "ccBridgeHideThinking": "Hide thinking",
+  "ccBridgeAttachmentLabel": "Attachment",
   "helloWorld": "Hello World!",
   "settingsPageBackButton": "Back",
   "settingsPageTitle": "Settings",

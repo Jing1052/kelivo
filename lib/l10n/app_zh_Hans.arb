@@ -1,4 +1,7 @@
 {
+  "ccBridgeShowThinking": "显示思考过程",
+  "ccBridgeHideThinking": "隐藏思考过程",
+  "ccBridgeAttachmentLabel": "附件",
   "helloWorld": "你好，世界！",
   "settingsPageBackButton": "返回",
   "settingsPageTitle": "设置",
