@@ -1,8 +1,9 @@
 // CC bridge HTTP client.
 //
-// Talks to a single CcCompanion `apns-server` base URL over plain HTTP
-// (security is provided by the Tailscale overlay, not TLS). The model is
-// write-then-poll: POST /chat/send, then GET /chat/poll on a cursor.
+// Talks to a single CcCompanion `apns-server` base URL. In production it is
+// reached over HTTPS via a Cloudflare Tunnel (cloudflared fronts the local
+// 127.0.0.1:8795); auth is the shared secret, not TLS client identity. The
+// model is write-then-poll: POST /chat/send, then GET /chat/poll on a cursor.
 //
 // Endpoint selection across multiple base URLs (ping the live one) lives in the
 // provider layer; this client targets exactly one base URL. See

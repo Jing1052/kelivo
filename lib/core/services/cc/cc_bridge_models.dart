@@ -253,8 +253,9 @@ class CcSendResult {
 
 /// Persisted configuration for the CC bridge connection.
 class CcBridgeConfig {
-  /// Candidate server base URLs (e.g. Tailscale 100.x + LAN). The first that
-  /// answers `/health` is used. Stored without trailing slash.
+  /// Candidate server base URLs (e.g. the Cloudflare Tunnel subdomain + a LAN
+  /// fallback). The first that answers `/health` is used. Stored without
+  /// trailing slash.
   final List<String> endpoints;
 
   /// Shared secret sent as `X-Auth-Token` on every request. May be empty when
