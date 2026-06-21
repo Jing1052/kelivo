@@ -3,6 +3,7 @@ import UIKit
 import BackgroundTasks
 import UserNotifications
 import ActivityKit
+import EventKit
 
 private let backgroundRefreshIdentifier = "psyche.kelivo.background-generation.refresh"
 private let backgroundProcessingIdentifier = "psyche.kelivo.background-generation.processing"
@@ -11,6 +12,7 @@ private let backgroundProcessingIdentifier = "psyche.kelivo.background-generatio
 @objc class AppDelegate: FlutterAppDelegate {
   private let fileSaveHandler = NativeFileSaveHandler()
   private let backgroundGenerationHandler = IosBackgroundGenerationHandler()
+  private let calendarHandler = IosCalendarHandler()
 
   override func application(
     _ application: UIApplication,
@@ -56,6 +58,11 @@ private let backgroundProcessingIdentifier = "psyche.kelivo.background-generatio
       iosBackgroundChannel.setMethodCallHandler { [weak self] call, result in
         self?.backgroundGenerationHandler.handle(call: call, result: result)
       }
+
+      let calendarChannel = FlutterMethodChannel(name: "app.calendar", binaryMessenger: controller.binaryMessenger)
+      calendarChannel.setMethodCallHandler { [weak self] call, result in
+        self?.calendarHandler.handle(call: call, result: result)
+      }
     }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -63,6 +70,148 @@ private let backgroundProcessingIdentifier = "psyche.kelivo.background-generatio
   override func applicationDidBecomeActive(_ application: UIApplication) {
     super.applicationDidBecomeActive(application)
     backgroundGenerationHandler.dismissFinishedLiveActivityIfNeeded()
+  }
+}
+
+// iPhone 联动：把 daddy 回话里的 [[cal]]/[[remind]] 暗号真写进系统日历 / 提醒事项（EventKit）。
+private final class IosCalendarHandler {
+  private let store = EKEventStore()
+
+  func handle(call: FlutterMethodCall, result: @escaping FlutterResult) {
+    switch call.method {
+    case "getStatus":
+      result([
+        "calendar": IosCalendarHandler.isGranted(EKEventStore.authorizationStatus(for: .event)),
+        "reminders": IosCalendarHandler.isGranted(EKEventStore.authorizationStatus(for: .reminder)),
+      ])
+    case "requestAccess":
+      requestAccess(result: result)
+    case "addEvent":
+      addEvent(args: call.arguments as? [String: Any] ?? [:], result: result)
+    case "addReminder":
+      addReminder(args: call.arguments as? [String: Any] ?? [:], result: result)
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  private static func isGranted(_ status: EKAuthorizationStatus) -> Bool {
+    if #available(iOS 17.0, *) {
+      return status == .fullAccess
+    }
+    return status == .authorized
+  }
+
+  private func requestAccess(result: @escaping FlutterResult) {
+    let group = DispatchGroup()
+    var calOK = false
+    var remOK = false
+
+    group.enter()
+    if #available(iOS 17.0, *) {
+      store.requestFullAccessToEvents { granted, _ in calOK = granted; group.leave() }
+    } else {
+      store.requestAccess(to: .event) { granted, _ in calOK = granted; group.leave() }
+    }
+
+    group.enter()
+    if #available(iOS 17.0, *) {
+      store.requestFullAccessToReminders { granted, _ in remOK = granted; group.leave() }
+    } else {
+      store.requestAccess(to: .reminder) { granted, _ in remOK = granted; group.leave() }
+    }
+
+    group.notify(queue: .main) {
+      result(["calendar": calOK, "reminders": remOK])
+    }
+  }
+
+  // "YYYY-MM-DD" -> DateComponents(y/m/d); nil if malformed.
+  private func dayComponents(_ dateStr: String) -> DateComponents? {
+    let parts = dateStr.split(separator: "-")
+    guard parts.count == 3,
+          let y = Int(parts[0]), let mo = Int(parts[1]), let d = Int(parts[2]) else {
+      return nil
+    }
+    var c = DateComponents()
+    c.year = y
+    c.month = mo
+    c.day = d
+    return c
+  }
+
+  // "HH:MM" -> (hour, minute); nil if malformed.
+  private func hourMinute(_ timeStr: String) -> (Int, Int)? {
+    let parts = timeStr.split(separator: ":")
+    guard parts.count == 2, let h = Int(parts[0]), let m = Int(parts[1]) else { return nil }
+    return (h, m)
+  }
+
+  private func addEvent(args: [String: Any], result: @escaping FlutterResult) {
+    let title = (args["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let dateStr = (args["date"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let timeStr = (args["time"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !title.isEmpty, var comps = dayComponents(dateStr) else { result(false); return }
+
+    let cal = Calendar.current
+    let event = EKEvent(eventStore: store)
+    event.title = title
+    event.calendar = store.defaultCalendarForNewEvents
+
+    if let timeStr = timeStr, !timeStr.isEmpty, let (h, m) = hourMinute(timeStr) {
+      comps.hour = h
+      comps.minute = m
+      guard let start = cal.date(from: comps) else { result(false); return }
+      event.startDate = start
+      event.endDate = start.addingTimeInterval(3600)
+      event.isAllDay = false
+    } else {
+      comps.hour = 0
+      comps.minute = 0
+      guard let start = cal.date(from: comps) else { result(false); return }
+      event.startDate = start
+      event.endDate = start
+      event.isAllDay = true
+    }
+
+    do {
+      try store.save(event, span: .thisEvent)
+      result(true)
+    } catch {
+      result(false)
+    }
+  }
+
+  private func addReminder(args: [String: Any], result: @escaping FlutterResult) {
+    let text = (args["text"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    let dueStr = (args["due"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !text.isEmpty, let calendar = store.defaultCalendarForNewReminders() else {
+      result(false)
+      return
+    }
+
+    let reminder = EKReminder(eventStore: store)
+    reminder.title = text
+    reminder.calendar = calendar
+
+    // due: "YYYY-MM-DD HH:MM"（HH:MM 可省）
+    if let dueStr = dueStr, !dueStr.isEmpty {
+      let segs = dueStr.split(separator: " ")
+      if let datePart = segs.first, var comps = dayComponents(String(datePart)) {
+        if segs.count > 1, let (h, m) = hourMinute(String(segs[1])) {
+          comps.hour = h
+          comps.minute = m
+        }
+        reminder.dueDateComponents = comps
+      }
+    }
+
+    do {
+      try store.save(reminder, commit: true)
+      result(true)
+    } catch {
+      result(false)
+    }
   }
 }
 

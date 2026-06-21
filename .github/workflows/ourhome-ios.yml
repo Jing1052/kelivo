@@ -1,0 +1,68 @@
+name: Still Here · iOS auto (push)
+
+# 我们的小家专用：往开发分支推代码、且提交信息带 [build] 时，
+# 自动构建未签名 iOS .ipa 并发到 Release（直链下载，AltStore 直接装）。
+# 不带 [build] 的普通提交不会触发，避免每次推都跑 macOS 构建。
+on:
+  push:
+    branches:
+      - claude/kelivo-ios-design-ref-nh9t5v
+
+env:
+  FLUTTER_VERSION: '3.44.1'
+
+jobs:
+  ios:
+    if: contains(github.event.head_commit.message, '[build]')
+    name: 构建 iOS（无签名）→ Release
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📦 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 🐦 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 🔧 关闭 Swift Package Manager
+        run: flutter config --no-enable-swift-package-manager
+
+      - name: 📝 注入 fallback（占位/CI 密钥，沿用现有构建流）
+        shell: bash
+        run: |
+          mkdir -p lib/secrets
+          cat > lib/secrets/fallback.dart <<'EOF'
+          const String siliconflowFallbackKey = '${{ secrets.SILICONFLOW_KEY }}';
+          EOF
+
+      - name: 🏷️ 版本号与标签
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BASE=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+          echo "VERSION=${BASE}_${SHORT_SHA}" >> $GITHUB_ENV
+          echo "TAG=stillhere-${SHORT_SHA}" >> $GITHUB_ENV
+
+      - name: 🏗️ 构建 iOS（无签名）+ 干净打包
+        run: |
+          flutter build ios --release --no-codesign
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          find Payload -name '.DS_Store' -delete
+          zip -r -X ../../../StillHere_ios_${VERSION}.ipa Payload
+
+      - name: 🚀 发到 Release（直链 .ipa）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Still Here · ${{ env.TAG }}
+          prerelease: true
+          files: StillHere_ios_*.ipa

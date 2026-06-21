@@ -287,6 +287,7 @@ class ChatService extends ChangeNotifier {
   Future<Conversation> createConversation({
     String? title,
     String? assistantId,
+    String? theaterId,
   }) async {
     if (!_initialized) await init();
     _discardTemporaryConversation(_currentConversationId);
@@ -294,6 +295,7 @@ class ChatService extends ChangeNotifier {
     final conversation = Conversation(
       title: title ?? _defaultConversationTitle,
       assistantId: assistantId,
+      theaterId: theaterId,
     );
 
     await _conversationsBox.put(conversation.id, conversation);
@@ -729,6 +731,32 @@ class ChatService extends ChangeNotifier {
 
     conversation.summary = summary;
     conversation.lastSummarizedMessageCount = messageCount;
+    await conversation.save();
+    notifyListeners();
+  }
+
+  /// 我们的家·长聊记忆：持久化滚动前情提要 + 已蒸馏高水位线。
+  /// recap 为 null 时不动 recap 字段，只更新 digestedCount。
+  Future<void> updateConversationOurHome(
+    String id, {
+    String? recap,
+    required int digestedCount,
+  }) async {
+    if (!_initialized) return;
+
+    if (_draftConversations.containsKey(id)) {
+      final draft = _draftConversations[id]!;
+      if (recap != null) draft.ourHomeRecap = recap;
+      draft.ourHomeDigestedCount = digestedCount;
+      notifyListeners();
+      return;
+    }
+
+    final conversation = _conversationsBox.get(id);
+    if (conversation == null) return;
+
+    if (recap != null) conversation.ourHomeRecap = recap;
+    conversation.ourHomeDigestedCount = digestedCount;
     await conversation.save();
     notifyListeners();
   }

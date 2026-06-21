@@ -21,6 +21,7 @@ class ThemePalette {
 
 class ThemePalettes {
   static const String defaultId = 'default';
+  static const String warmPaperId = 'warm_paper'; // 我们的家·暖纸/漆金
   static const String blueId = 'blue';
   static const String greenId = 'green';
   static const String purpleId = 'purple';
@@ -630,7 +631,325 @@ class ThemePalettes {
       surfaceTint: Color(0xFF00B96B),
     ),
   );
-  static const List<ThemePalette> all = <ThemePalette>[
+  // 我们的家 · 暖纸/漆金（纸感底、墨色字、珊瑚 primary、漆金 tertiary）
+  static const ThemePalette warmPaper = ThemePalette(
+    id: warmPaperId,
+    zhName: '暖纸',
+    enName: 'Warm Paper',
+    light: ColorScheme(
+      brightness: Brightness.light,
+      primary: Color(0xFFAA5D3C), // coral-deep
+      onPrimary: Color(0xFFFFFFFF),
+      primaryContainer: Color(0xFFF3DACE), // 珊瑚浅染（气泡/高亮底）
+      onPrimaryContainer: Color(0xFF4A2418),
+      secondary: Color(0xFF6D6456), // soft
+      onSecondary: Color(0xFFFFFFFF),
+      secondaryContainer: Color(0xFFECE3D6),
+      onSecondaryContainer: Color(0xFF2A241B),
+      tertiary: Color(0xFFB0894E), // gold
+      onTertiary: Color(0xFFFFFFFF),
+      tertiaryContainer: Color(0xFFF0E2C4),
+      onTertiaryContainer: Color(0xFF3A2C12),
+      error: Color(0xFFB3261E),
+      onError: Color(0xFFFFFFFF),
+      errorContainer: Color(0xFFF9DEDC),
+      onErrorContainer: Color(0xFF410E0B),
+      surface: Color(0xFFFAF6ED), // paper
+      onSurface: Color(0xFF33302A), // ink
+      onSurfaceVariant: Color(0xFF6D6456),
+      outline: Color(0xFFB7AD9A),
+      outlineVariant: Color(0xFFE3D9C9),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      inverseSurface: Color(0xFF33302A),
+      onInverseSurface: Color(0xFFFAF6ED),
+      inversePrimary: Color(0xFFDDA07E),
+      surfaceTint: Color(0xFFAA5D3C),
+    ),
+    dark: ColorScheme(
+      brightness: Brightness.dark,
+      primary: Color(0xFFDD8D6F), // coral (night)
+      onPrimary: Color(0xFF3A1E12),
+      primaryContainer: Color(0xFF4A2E20),
+      onPrimaryContainer: Color(0xFFF7D9C8),
+      secondary: Color(0xFFB5AB97), // soft (night)
+      onSecondary: Color(0xFF2A241B),
+      secondaryContainer: Color(0xFF38322A),
+      onSecondaryContainer: Color(0xFFE8DECB),
+      tertiary: Color(0xFFCDA35E), // gold (night)
+      onTertiary: Color(0xFF3A2C12),
+      tertiaryContainer: Color(0xFF4A3A1E),
+      onTertiaryContainer: Color(0xFFF0E2C4),
+      error: Color(0xFFF2B8B5),
+      onError: Color(0xFF601410),
+      errorContainer: Color(0xFF8C1D18),
+      onErrorContainer: Color(0xFFF9DEDC),
+      surface: Color(0xFF18140F), // warm near-black（非冷黑）
+      onSurface: Color(0xFFF1E9DA), // ink (night)
+      onSurfaceVariant: Color(0xFFB5AB97),
+      outline: Color(0xFF6E6555),
+      outlineVariant: Color(0xFF4A4339),
+      shadow: Color(0xFF000000),
+      scrim: Color(0xFF000000),
+      inverseSurface: Color(0xFFF1E9DA),
+      onInverseSurface: Color(0xFF2A241B),
+      inversePrimary: Color(0xFFAA5D3C),
+      surfaceTint: Color(0xFFDD8D6F),
+    ),
+  );
+
+  // ===== 我们的家·全套皮肤（从招牌色种子生成整套 ColorScheme）=====
+  // 种子：primary(招牌色) / tertiary(漆金) / surface / onSurface(墨) / onSurfaceVariant(soft)。
+  // 容器/描边/反色由种子推导，省去手写每套 30 个字段。源自 home.html 各 data-palette。
+  static ColorScheme _scheme(
+    Brightness b,
+    Color primary,
+    Color tertiary,
+    Color surface,
+    Color onSurface,
+    Color onVariant,
+  ) {
+    final dark = b == Brightness.dark;
+    Color lerp(Color a, Color c, double t) => Color.lerp(a, c, t)!;
+    Color onOf(Color c) =>
+        c.computeLuminance() > 0.55 ? const Color(0xFF2A1A12) : Colors.white;
+    return ColorScheme(
+      brightness: b,
+      primary: primary,
+      onPrimary: onOf(primary),
+      primaryContainer: lerp(surface, primary, dark ? 0.30 : 0.20),
+      onPrimaryContainer: onSurface,
+      secondary: onVariant,
+      onSecondary: dark ? const Color(0xFF221E18) : Colors.white,
+      secondaryContainer: lerp(surface, onVariant, dark ? 0.22 : 0.16),
+      onSecondaryContainer: onSurface,
+      tertiary: tertiary,
+      onTertiary: onOf(tertiary),
+      tertiaryContainer: lerp(surface, tertiary, dark ? 0.28 : 0.20),
+      onTertiaryContainer: onSurface,
+      error: dark ? const Color(0xFFF2B8B5) : const Color(0xFFB3261E),
+      onError: dark ? const Color(0xFF601410) : Colors.white,
+      errorContainer: dark ? const Color(0xFF8C1D18) : const Color(0xFFF9DEDC),
+      onErrorContainer: dark
+          ? const Color(0xFFF9DEDC)
+          : const Color(0xFF410E0B),
+      surface: surface,
+      onSurface: onSurface,
+      onSurfaceVariant: onVariant,
+      outline: lerp(surface, onSurface, dark ? 0.34 : 0.32),
+      outlineVariant: lerp(surface, onSurface, dark ? 0.16 : 0.12),
+      shadow: const Color(0xFF000000),
+      scrim: const Color(0xFF000000),
+      inverseSurface: onSurface,
+      onInverseSurface: surface,
+      inversePrimary: primary,
+      surfaceTint: primary,
+    );
+  }
+
+  static ThemePalette _home(
+    String id,
+    String zh,
+    String en, {
+    required Color pL,
+    required Color tL,
+    required Color sL,
+    required Color iL,
+    required Color vL,
+    required Color pD,
+    required Color tD,
+    required Color sD,
+    required Color iD,
+    required Color vD,
+  }) {
+    return ThemePalette(
+      id: id,
+      zhName: zh,
+      enName: en,
+      light: _scheme(Brightness.light, pL, tL, sL, iL, vL),
+      dark: _scheme(Brightness.dark, pD, tD, sD, iD, vD),
+    );
+  }
+
+  static final ThemePalette macaron = _home(
+    'macaron',
+    '马卡龙',
+    'Macaron',
+    pL: const Color(0xFFC2734F),
+    tL: const Color(0xFFB0894E),
+    sL: const Color(0xFFFDFBF8),
+    iL: const Color(0xFF33302A),
+    vL: const Color(0xFF6D6456),
+    pD: const Color(0xFFE2A3B0),
+    tD: const Color(0xFFCAB47E),
+    sD: const Color(0xFF141A26),
+    iD: const Color(0xFFE9EEF8),
+    vD: const Color(0xFFA9B3C9),
+  );
+  static final ThemePalette peach = _home(
+    'peach',
+    '蜜桃',
+    'Peach',
+    pL: const Color(0xFFD9774A),
+    tL: const Color(0xFFB0894E),
+    sL: const Color(0xFFFEFAF6),
+    iL: const Color(0xFF33302A),
+    vL: const Color(0xFF6D6456),
+    pD: const Color(0xFFEFA278),
+    tD: const Color(0xFFDFB47E),
+    sD: const Color(0xFF1A1410),
+    iD: const Color(0xFFF6ECE1),
+    vD: const Color(0xFFC3AE9B),
+  );
+  static final ThemePalette mint = _home(
+    'mint',
+    '薄荷',
+    'Mint',
+    pL: const Color(0xFF3F9E82),
+    tL: const Color(0xFF8FA85E),
+    sL: const Color(0xFFF6FBF6),
+    iL: const Color(0xFF33302A),
+    vL: const Color(0xFF6D6456),
+    pD: const Color(0xFF86CFBD),
+    tD: const Color(0xFFBCCD8E),
+    sD: const Color(0xFF0F181B),
+    iD: const Color(0xFFE6F1EE),
+    vD: const Color(0xFFA2BFBA),
+  );
+  static final ThemePalette lavender = _home(
+    'lavender',
+    '薰衣草',
+    'Lavender',
+    pL: const Color(0xFF8A6FC0),
+    tL: const Color(0xFF9D7FB0),
+    sL: const Color(0xFFFBF8FC),
+    iL: const Color(0xFF33302A),
+    vL: const Color(0xFF6D6456),
+    pD: const Color(0xFFCDA6E4),
+    tD: const Color(0xFFC6B4E6),
+    sD: const Color(0xFF16131F),
+    iD: const Color(0xFFECE8F6),
+    vD: const Color(0xFFB2AAC8),
+  );
+  static final ThemePalette sky = _home(
+    'sky',
+    '天青',
+    'Sky',
+    pL: const Color(0xFF5B83C4),
+    tL: const Color(0xFF7E98CA),
+    sL: const Color(0xFFF6FAFD),
+    iL: const Color(0xFF33302A),
+    vL: const Color(0xFF6D6456),
+    pD: const Color(0xFF92B4E2),
+    tD: const Color(0xFFB4BFDA),
+    sD: const Color(0xFF0B0E16),
+    iD: const Color(0xFFDFE7F5),
+    vD: const Color(0xFF9FAFCC),
+  );
+  static final ThemePalette milk = _home(
+    'milk',
+    '燕麦奶',
+    'Oat Milk',
+    pL: const Color(0xFFB58A66),
+    tL: const Color(0xFFB08F44),
+    sL: const Color(0xFFFDFCFA),
+    iL: const Color(0xFF4A463F),
+    vL: const Color(0xFF7A7160),
+    pD: const Color(0xFFD2A68A),
+    tD: const Color(0xFFC4AE84),
+    sD: const Color(0xFF171513),
+    iD: const Color(0xFFF0EAE0),
+    vD: const Color(0xFFB8AE9E),
+  );
+  static final ThemePalette morandi = _home(
+    'morandi',
+    '莫兰迪',
+    'Morandi',
+    pL: const Color(0xFF9A7263),
+    tL: const Color(0xFF9C8D63),
+    sL: const Color(0xFFF3F1EC),
+    iL: const Color(0xFF4A463F),
+    vL: const Color(0xFF7D776C),
+    pD: const Color(0xFFC2A298),
+    tD: const Color(0xFFB3A682),
+    sD: const Color(0xFF16171A),
+    iD: const Color(0xFFE6E6E3),
+    vD: const Color(0xFFA8A8A2),
+  );
+  static final ThemePalette rococo = _home(
+    'rococo',
+    '洛可可',
+    'Rococo',
+    pL: const Color(0xFFC16A78),
+    tL: const Color(0xFFBC8E54),
+    sL: const Color(0xFFFCF4F1),
+    iL: const Color(0xFF5A3F44),
+    vL: const Color(0xFF8A6A6A),
+    pD: const Color(0xFFE698A8),
+    tD: const Color(0xFFD9B07A),
+    sD: const Color(0xFF1A1217),
+    iD: const Color(0xFFF5E7EB),
+    vD: const Color(0xFFC3A5B0),
+  );
+  static final ThemePalette memphis = _home(
+    'memphis',
+    '孟菲斯',
+    'Memphis',
+    pL: const Color(0xFFE8512F),
+    tL: const Color(0xFFE0A21E),
+    sL: const Color(0xFFFDFBF4),
+    iL: const Color(0xFF27241F),
+    vL: const Color(0xFF5A5249),
+    pD: const Color(0xFF5FAEF8),
+    tD: const Color(0xFFF2C75E),
+    sD: const Color(0xFF0D1524),
+    iD: const Color(0xFFE9F1FC),
+    vD: const Color(0xFFA6BAD8),
+  );
+  static final ThemePalette dopamine = _home(
+    'dopamine',
+    '多巴胺',
+    'Dopamine',
+    pL: const Color(0xFFF0563A),
+    tL: const Color(0xFFE8A41E),
+    sL: const Color(0xFFFFFDF5),
+    iL: const Color(0xFF2C2820),
+    vL: const Color(0xFF5E574B),
+    pD: const Color(0xFFF0904E),
+    tD: const Color(0xFFF0C24A),
+    sD: const Color(0xFF101B2C),
+    iD: const Color(0xFFF1EEE4),
+    vD: const Color(0xFFB4BAC0),
+  );
+  static final ThemePalette whitegold = _home(
+    'whitegold',
+    '白金',
+    'White Gold',
+    pL: const Color(0xFFB0923C),
+    tL: const Color(0xFF9A7C32),
+    sL: const Color(0xFFFDFBF6),
+    iL: const Color(0xFF3A352A),
+    vL: const Color(0xFF7A7160),
+    pD: const Color(0xFFDDC065),
+    tD: const Color(0xFFE6C75E),
+    sD: const Color(0xFF14110B),
+    iD: const Color(0xFFF3ECD6),
+    vD: const Color(0xFFC6BA92),
+  );
+
+  static final List<ThemePalette> all = <ThemePalette>[
+    macaron,
+    peach,
+    mint,
+    lavender,
+    sky,
+    milk,
+    morandi,
+    rococo,
+    whitegold,
+    memphis,
+    dopamine,
+    warmPaper,
     defaultPalette,
     blue,
     green,

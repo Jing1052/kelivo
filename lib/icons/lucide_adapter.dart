@@ -186,4 +186,19 @@ class Lucide {
   static const IconData clock = lucide.LucideIcons.clock;
   static const IconData Wallet = lucide.LucideIcons.walletMinimal;
   static const IconData Coins = lucide.LucideIcons.coins;
+  static const IconData House = lucide.LucideIcons.house;
+  static const IconData LayoutGrid = lucide.LucideIcons.layoutGrid;
+  static const IconData Mail = lucide.LucideIcons.mail;
+  static const IconData Lock = lucide.LucideIcons.lock;
+  static const IconData Sprout = lucide.LucideIcons.sprout;
+  static const IconData Clapperboard = lucide.LucideIcons.clapperboard;
+  static const IconData Bed = lucide.LucideIcons.bed;
+  static const IconData Archive = lucide.LucideIcons.archive;
+  static const IconData MapPin = lucide.LucideIcons.mapPin;
+  static const IconData Battery = lucide.LucideIcons.battery;
+  static const IconData BatteryCharging = lucide.LucideIcons.batteryCharging;
+  static const IconData CloudSun = lucide.LucideIcons.cloudSun;
+  static const IconData Gamepad2 = lucide.LucideIcons.gamepad2;
+  static const IconData Tv = lucide.LucideIcons.tv;
+  static const IconData Send = lucide.LucideIcons.send;
 }

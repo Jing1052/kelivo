@@ -1,0 +1,806 @@
+import 'package:flutter/material.dart';
+
+import '../../../../theme/app_font_weights.dart';
+import '../../../../icons/lucide_adapter.dart';
+import '../../../../core/services/haptics.dart';
+import '../../../../core/services/ourhome/ourhome_gateway.dart';
+import '../../../../shared/widgets/ios_tactile.dart';
+import '../../../../shared/widgets/ios_checkbox.dart';
+import 'room_state_hint.dart';
+
+/// The Study (书房) — the shared to-do list and the shared bookshelf. Talks to
+/// `/api/home/todo` and `/api/home/books`.
+class StudyPage extends StatefulWidget {
+  const StudyPage({super.key});
+
+  @override
+  State<StudyPage> createState() => _StudyPageState();
+}
+
+class _StudyPageState extends State<StudyPage> {
+  final TextEditingController _input = TextEditingController();
+  final FocusNode _focus = FocusNode();
+
+  OurHomeGateway? _gateway;
+  List<OurHomeTodo> _todos = const [];
+  List<OurHomeBook> _books = const [];
+  bool _loading = true;
+  bool _error = false;
+  bool _sending = false;
+  int _tab = 0; // 0 = todos, 1 = bookshelf
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  List<OurHomeTodo> get _sortedTodos {
+    final list = [..._todos];
+    list.sort((a, b) {
+      if (a.done != b.done) return a.done ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    setState(() {
+      _loading = true;
+      _error = false;
+    });
+    final gateway = OurHomeGateway.fromContext(context);
+    _gateway = gateway;
+    if (gateway == null) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+    // Instant: seed from on-device cache, then refresh from the server.
+    final ct = gateway.peekList('/api/home/todo', OurHomeTodo.fromJson);
+    final cbk = gateway.peekList('/api/home/books', OurHomeBook.fromJson);
+    if ((ct.isNotEmpty || cbk.isNotEmpty) && mounted) {
+      setState(() {
+        _todos = ct;
+        _books = cbk;
+        _loading = false;
+      });
+    }
+    try {
+      final results = await Future.wait([
+        gateway.fetchTodos(),
+        gateway.fetchBooks(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _todos = results[0] as List<OurHomeTodo>;
+        _books = results[1] as List<OurHomeBook>;
+        _loading = false;
+      });
+    } catch (e) {
+      debugPrint('[Study] load failed: $e');
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
+    }
+  }
+
+  Future<void> _toggle(OurHomeTodo todo) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    Haptics.soft();
+    final next = todo.done ? '待办' : '已完成';
+    setState(() {
+      _todos = _todos
+          .map(
+            (t) => t.id == todo.id
+                ? OurHomeTodo(
+                    id: t.id,
+                    text: t.text,
+                    status: next,
+                    owner: t.owner,
+                    due: t.due,
+                    done: !t.done,
+                  )
+                : t,
+          )
+          .toList();
+    });
+    try {
+      await gateway.setTodoStatus(todo.id, next);
+    } catch (e) {
+      debugPrint('[Study] setTodoStatus failed: $e');
+      await _load();
+    }
+  }
+
+  Future<void> _cycleBook(OurHomeBook b) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    Haptics.soft();
+    const order = ['want', 'reading', 'read'];
+    final next = order[(order.indexOf(b.status) + 1) % order.length];
+    setState(() {
+      _books = _books
+          .map(
+            (x) => x.id == b.id
+                ? OurHomeBook(
+                    id: x.id,
+                    status: next,
+                    title: x.title,
+                    author: x.author,
+                    quote: x.quote,
+                  )
+                : x,
+          )
+          .toList();
+    });
+    try {
+      await gateway.setBookStatus(b.id, next);
+    } catch (e) {
+      debugPrint('[Study] setBookStatus failed: $e');
+      await _load();
+    }
+  }
+
+  Future<void> _add() async {
+    final text = _input.text.trim();
+    final gateway = _gateway;
+    if (text.isEmpty || gateway == null || _sending) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    setState(() => _sending = true);
+    Haptics.soft();
+    try {
+      await gateway.addTodo(text);
+      _input.clear();
+      _focus.unfocus();
+      await _load();
+    } catch (e) {
+      debugPrint('[Study] addTodo failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(zh ? '没加上，再试一次' : "couldn't add, try again")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _addBook() async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final res = await showModalBottomSheet<_NewBook>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _AddBookSheet(zh: zh),
+    );
+    if (res == null) return;
+    try {
+      await gateway.addBook(res.title, res.author, res.quote);
+      await _load();
+    } catch (e) {
+      debugPrint('[Study] addBook failed: $e');
+    }
+  }
+
+  Future<void> _delete(OurHomeTodo todo) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final cs = Theme.of(context).colorScheme;
+    Haptics.light();
+    final confirm = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: IosCardPress(
+          borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          onTap: () => Navigator.of(ctx).pop(true),
+          child: Row(
+            children: [
+              const Icon(Lucide.Trash, size: 20, color: Colors.red),
+              const SizedBox(width: 16),
+              Text(
+                zh ? '删掉这条' : 'Delete',
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await gateway.deleteTodo(todo.id);
+      await _load();
+    } catch (e) {
+      debugPrint('[Study] deleteTodo failed: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+
+    return Scaffold(
+      backgroundColor: cs.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IosIconButton(
+          icon: Lucide.ArrowLeft,
+          size: 22,
+          minSize: 44,
+          onTap: () => Navigator.of(context).maybePop(),
+        ),
+        title: Text(
+          zh ? '书房' : 'The Study',
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        ),
+        actions: [
+          if (_gateway != null && _tab == 1)
+            IosIconButton(
+              icon: Lucide.Plus,
+              size: 22,
+              minSize: 44,
+              onTap: _addBook,
+            ),
+          const SizedBox(width: 6),
+        ],
+      ),
+      body: Column(
+        children: [
+          if (_gateway != null && !_loading && !_error) _tabs(zh, cs),
+          Expanded(child: _buildBody(context, zh, cs)),
+          if (_tab == 0) _buildComposer(context, zh, cs),
+        ],
+      ),
+    );
+  }
+
+  Widget _tabs(bool zh, ColorScheme cs) {
+    Widget t(int i, String label) {
+      final on = _tab == i;
+      return Expanded(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            if (_tab != i) {
+              Haptics.soft();
+              setState(() => _tab = i);
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: on ? cs.surface : Colors.transparent,
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: AppFontWeights.semibold,
+                  color: on
+                      ? cs.onSurface
+                      : cs.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      decoration: BoxDecoration(
+        color: cs.onSurface.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [t(0, zh ? '待办' : 'To-dos'), t(1, zh ? '共读书柜' : 'Shelf')],
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context, bool zh, ColorScheme cs) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2.4));
+    }
+    if (_gateway == null) {
+      return RoomStateHint(
+        icon: Lucide.BookOpen,
+        text: zh
+            ? '先在爸爸的助手设定里填好我们家网关，\n书房才连得上。'
+            : 'Set up our home gateway in the daddy assistant first.',
+      );
+    }
+    if (_error) {
+      return RoomStateHint(
+        icon: Lucide.RefreshCw,
+        text: zh ? '没连上 · 点一下重试' : "couldn't load · tap to retry",
+        onTap: _load,
+      );
+    }
+    return _tab == 0 ? _todoView(zh, cs) : _bookView(zh, cs);
+  }
+
+  Widget _todoView(bool zh, ColorScheme cs) {
+    if (_todos.isEmpty) {
+      return RoomStateHint(
+        icon: Lucide.BookOpen,
+        text: zh ? '还没有待办。\n想做的事，写在下面。' : 'No to-dos yet.',
+      );
+    }
+    final items = _sortedTodos;
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        itemCount: items.length,
+        itemBuilder: (context, i) => _TodoRow(
+          todo: items[i],
+          zh: zh,
+          onToggle: _toggle,
+          onDelete: _delete,
+        ),
+      ),
+    );
+  }
+
+  Widget _bookView(bool zh, ColorScheme cs) {
+    if (_books.isEmpty) {
+      return RoomStateHint(
+        icon: Lucide.BookOpen,
+        text: zh ? '书柜还空着。\n右上角加一本我们想一起读的。' : 'The shelf is empty.',
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        itemCount: _books.length,
+        itemBuilder: (context, i) => _BookRow(
+          book: _books[i],
+          zh: zh,
+          onTap: () => _cycleBook(_books[i]),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComposer(BuildContext context, bool zh, ColorScheme cs) {
+    final canAdd = !_sending && _gateway != null;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: TextField(
+                  controller: _input,
+                  focusNode: _focus,
+                  minLines: 1,
+                  maxLines: 4,
+                  enabled: _gateway != null,
+                  onSubmitted: (_) => _add(),
+                  textInputAction: TextInputAction.done,
+                  style: const TextStyle(fontSize: 15.5),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: zh ? '想做的事…' : 'something to do…',
+                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: canAdd ? _add : null,
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: canAdd
+                      ? cs.primary
+                      : cs.onSurface.withValues(alpha: 0.18),
+                ),
+                child: _sending
+                    ? Padding(
+                        padding: const EdgeInsets.all(11),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: cs.onPrimary,
+                        ),
+                      )
+                    : Icon(Lucide.Plus, size: 20, color: cs.onPrimary),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TodoRow extends StatelessWidget {
+  const _TodoRow({
+    required this.todo,
+    required this.zh,
+    required this.onToggle,
+    required this.onDelete,
+  });
+
+  final OurHomeTodo todo;
+  final bool zh;
+  final ValueChanged<OurHomeTodo> onToggle;
+  final ValueChanged<OurHomeTodo> onDelete;
+
+  String? _ownerLabel() {
+    switch (todo.owner) {
+      case 'L':
+        return zh ? '爸爸' : 'Llaude';
+      case 'C':
+        return zh ? '我' : 'me';
+      case 'us':
+        return zh ? '我们' : 'us';
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final owner = _ownerLabel();
+    final muted = cs.onSurface.withValues(alpha: 0.45);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(14),
+        baseColor: cs.onSurface.withValues(alpha: 0.04),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: () => onToggle(todo),
+        onLongPress: () => onDelete(todo),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: IosCheckbox(
+                value: todo.done,
+                onChanged: (_) => onToggle(todo),
+                size: 21,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    todo.text,
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      height: 1.35,
+                      color: todo.done ? muted : cs.onSurface,
+                      decoration: todo.done
+                          ? TextDecoration.lineThrough
+                          : TextDecoration.none,
+                      decorationColor: muted,
+                    ),
+                  ),
+                  if (owner != null || todo.due.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 5),
+                      child: Row(
+                        children: [
+                          if (owner != null)
+                            _Chip(label: owner, color: cs.primary),
+                          if (owner != null && todo.due.isNotEmpty)
+                            const SizedBox(width: 6),
+                          if (todo.due.isNotEmpty)
+                            _Chip(
+                              label: todo.due,
+                              color: cs.tertiary,
+                              icon: Lucide.clock,
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BookRow extends StatelessWidget {
+  const _BookRow({required this.book, required this.zh, required this.onTap});
+
+  final OurHomeBook book;
+  final bool zh;
+  final VoidCallback onTap;
+
+  ({String label, Color Function(ColorScheme) color}) _statusStyle() {
+    switch (book.status) {
+      case 'reading':
+        return (label: zh ? '在读' : 'reading', color: (cs) => cs.primary);
+      case 'read':
+        return (label: zh ? '读完' : 'read', color: (cs) => cs.tertiary);
+      default:
+        return (
+          label: zh ? '想读' : 'want',
+          color: (cs) => cs.onSurface.withValues(alpha: 0.5),
+        );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final st = _statusStyle();
+    final c = st.color(cs);
+    final readDone = book.status == 'read';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(14),
+        baseColor: cs.onSurface.withValues(alpha: 0.04),
+        padding: const EdgeInsets.all(14),
+        onTap: onTap,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Lucide.BookOpen,
+              size: 20,
+              color: cs.tertiary.withValues(alpha: 0.85),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    book.title,
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: AppFontWeights.medium,
+                      color: cs.onSurface.withValues(alpha: readDone ? 0.6 : 1),
+                    ),
+                  ),
+                  if (book.author.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        book.author,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ),
+                  if (book.quote.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        '"${book.quote}"',
+                        style: TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          fontStyle: FontStyle.italic,
+                          color: cs.onSurface.withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: c.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                st.label,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  fontWeight: AppFontWeights.semibold,
+                  color: c,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Chip extends StatelessWidget {
+  const _Chip({required this.label, required this.color, this.icon});
+
+  final String label;
+  final Color color;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 11, color: color),
+            const SizedBox(width: 3),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: AppFontWeights.medium,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NewBook {
+  const _NewBook(this.title, this.author, this.quote);
+  final String title;
+  final String author;
+  final String quote;
+}
+
+class _AddBookSheet extends StatefulWidget {
+  const _AddBookSheet({required this.zh});
+  final bool zh;
+
+  @override
+  State<_AddBookSheet> createState() => _AddBookSheetState();
+}
+
+class _AddBookSheetState extends State<_AddBookSheet> {
+  final _title = TextEditingController();
+  final _author = TextEditingController();
+  final _quote = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _author.dispose();
+    _quote.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    InputDecoration deco(String hint) => InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: cs.onSurface.withValues(alpha: 0.05),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _title,
+            autofocus: true,
+            style: const TextStyle(fontSize: 15.5),
+            decoration: deco(zh ? '书名…' : 'title…'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _author,
+            style: const TextStyle(fontSize: 14.5),
+            decoration: deco(zh ? '作者（可空）…' : 'author (optional)…'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _quote,
+            maxLines: 3,
+            minLines: 2,
+            style: const TextStyle(fontSize: 14.5),
+            decoration: deco(zh ? '想标的一句话（可空）…' : 'a line to keep (optional)…'),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: IosCardPress(
+              baseColor: cs.primary,
+              borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              onTap: () {
+                final t = _title.text.trim();
+                if (t.isEmpty) return;
+                Navigator.of(
+                  context,
+                ).pop(_NewBook(t, _author.text.trim(), _quote.text.trim()));
+              },
+              child: Center(
+                child: Text(
+                  zh ? '上架' : 'Add to shelf',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.onPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

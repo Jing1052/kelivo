@@ -18,6 +18,9 @@ import '../../../core/providers/memory_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/tts/tts_text_selection.dart';
 import '../../../core/services/haptics.dart';
+import '../../../core/utils/buzz_markers.dart';
+import '../../../core/utils/iphone_markers.dart';
+import '../../../core/services/iphone_link_service.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../utils/platform_utils.dart';
@@ -82,6 +85,8 @@ class HomePageController extends ChangeNotifier {
     required TextEditingController inputController,
     required ChatInputBarController mediaController,
     required ScrollController scrollController,
+    String? initialConversationId,
+    bool startNewConversation = false,
   }) : this._(
          context,
          vsync,
@@ -91,6 +96,8 @@ class HomePageController extends ChangeNotifier {
          inputController,
          mediaController,
          scrollController,
+         initialConversationId,
+         startNewConversation,
        );
 
   HomePageController._(
@@ -102,6 +109,8 @@ class HomePageController extends ChangeNotifier {
     this._inputController,
     this._mediaController,
     this._scrollController,
+    this._initialConversationId,
+    this._startNewConversation,
   ) {
     _initialize();
   }
@@ -118,6 +127,13 @@ class HomePageController extends ChangeNotifier {
   final TextEditingController _inputController;
   final ChatInputBarController _mediaController;
   final ScrollController _scrollController;
+
+  /// When opened as a chat detail (from the conversation list tab), this is the
+  /// conversation to display on launch. Null means use the default bootstrap.
+  final String? _initialConversationId;
+
+  /// When true, [initChat] starts a fresh conversation regardless of settings.
+  final bool _startNewConversation;
 
   // ============================================================================
   // Services & Controllers (created internally)
@@ -572,6 +588,30 @@ class HomePageController extends ChangeNotifier {
     final prefs = _context.read<SettingsProvider>();
     final assistantProvider = _context.read<AssistantProvider>();
     await _chatService.init();
+    // Opened as a chat detail with an explicit target conversation.
+    final requestedId = _initialConversationId;
+    if (requestedId != null) {
+      final convo = _chatService.getConversation(requestedId);
+      if (convo != null) {
+        if ((convo.assistantId ?? '').isNotEmpty) {
+          try {
+            await assistantProvider.setCurrentAssistant(convo.assistantId!);
+          } catch (_) {}
+        }
+        _chatService.setCurrentConversation(convo.id);
+        _chatController.setCurrentConversation(convo);
+        _streamController.clearGeminiThoughtSigs();
+        _restoreMessageUiState();
+        notifyListeners();
+        _scrollToBottomSoon(animate: false);
+        return;
+      }
+    }
+    // Opened as a chat detail requesting a brand-new conversation.
+    if (_startNewConversation) {
+      await _createNewConversation();
+      return;
+    }
     if (prefs.newChatOnLaunch) {
       await _createNewConversation();
     } else {
@@ -1214,9 +1254,74 @@ class HomePageController extends ChangeNotifier {
 
   void _handleAssistantMessageFinished(ChatMessage message) {
     if (!_context.mounted || message.role != 'assistant') return;
+
+    // Per-message completion hook (fires once when streaming finalizes, never on
+    // rebuild/scroll/history reload). Fire the marker side-effects, then strip
+    // ALL reply markers in ONE pass — separating action from stripping so the
+    // two handlers don't overwrite each other's update.
+    _handleBuzzMarkers(message);
+    _handleIphoneMarkers(message);
+    _stripReplyMarkers(message);
+
     final settings = _context.read<SettingsProvider>();
     if (!settings.ttsAutoPlayAssistantReplies) return;
     unawaited(_speakAssistantMessage(message, autoPlay: true));
+  }
+
+  /// Fires `[[buzz]]` haptics once for [message] (side-effect only; the markers
+  /// are stripped centrally in [_stripReplyMarkers]).
+  void _handleBuzzMarkers(ChatMessage message) {
+    final content = message.content;
+    if (content.isEmpty || !content.contains('[[')) return;
+    // Haptics must never affect the message: failures are swallowed here on top
+    // of Haptics' own internal guards.
+    try {
+      for (final variant in parseBuzzVariants(content)) {
+        Haptics.buzz(variant);
+      }
+    } catch (_) {}
+  }
+
+  /// Writes any `[[cal]]` / `[[remind]]` markers in [message] to the iPhone
+  /// Calendar / Reminders when the iPhone link is enabled (side-effect only; the
+  /// markers are stripped centrally in [_stripReplyMarkers]). Never writes when
+  /// disabled; native failures are swallowed.
+  void _handleIphoneMarkers(ChatMessage message) {
+    final content = message.content;
+    if (content.isEmpty || !content.contains('[[')) return;
+    final settings = _context.read<SettingsProvider>();
+    if (!settings.iphoneLinkEnabled) return;
+    // Fire-and-forget: native failures are swallowed and never touch chat.
+    unawaited(() async {
+      try {
+        for (final ev in parseCalMarkers(content)) {
+          await IphoneLinkService.addEvent(
+            title: ev.title,
+            date: ev.date,
+            time: ev.time,
+          );
+        }
+        for (final r in parseRemindMarkers(content)) {
+          await IphoneLinkService.addReminder(text: r.text, due: r.due);
+        }
+      } catch (_) {}
+    }());
+  }
+
+  /// Strips all reply markers ([[buzz]] / [[cal]] / [[remind]]) from [message]'s
+  /// persisted content in one pass, so they never linger in history, never
+  /// re-fire, and the side-effect handlers above don't clobber each other.
+  void _stripReplyMarkers(ChatMessage message) {
+    final content = message.content;
+    if (content.isEmpty || !content.contains('[[')) return;
+    final stripped = stripIphoneMarkers(stripBuzzMarkers(content));
+    if (stripped == content) return;
+    unawaited(_chatService.updateMessage(message.id, content: stripped));
+    final i = messages.indexWhere((m) => m.id == message.id);
+    if (i != -1) {
+      messages[i] = messages[i].copyWith(content: stripped);
+      notifyListeners();
+    }
   }
 
   Future<void> speakMessage(ChatMessage message) async {

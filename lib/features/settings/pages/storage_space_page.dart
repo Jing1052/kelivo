@@ -79,6 +79,8 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
         return const Color(0xFF22C55E);
       case StorageUsageCategoryKey.assistantData:
         return const Color(0xFF3B82F6); // blue (distinct from chat green)
+      case StorageUsageCategoryKey.ourHome:
+        return const Color(0xFFEC4899); // pink — our home
       case StorageUsageCategoryKey.cache:
         return const Color(0xFFEF4444); // red
       case StorageUsageCategoryKey.logs:
@@ -98,6 +100,8 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
         return Lucide.MessagesSquare;
       case StorageUsageCategoryKey.assistantData:
         return Lucide.Bot;
+      case StorageUsageCategoryKey.ourHome:
+        return Lucide.Heart;
       case StorageUsageCategoryKey.cache:
         return Lucide.Boxes;
       case StorageUsageCategoryKey.logs:
@@ -117,6 +121,8 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
         return l10n.storageSpaceCategoryChatData;
       case StorageUsageCategoryKey.assistantData:
         return l10n.storageSpaceCategoryAssistantData;
+      case StorageUsageCategoryKey.ourHome:
+        return l10n.storageSpaceCategoryOurHome;
       case StorageUsageCategoryKey.cache:
         return l10n.storageSpaceCategoryCache;
       case StorageUsageCategoryKey.logs:
@@ -138,6 +144,8 @@ class _StorageSpacePageState extends State<StorageSpacePage> {
         return l10n.storageSpaceSubAssistantAvatars;
       case 'images':
         return l10n.storageSpaceSubAssistantImages;
+      case 'ourhome_rooms':
+        return l10n.storageSpaceSubOurHomeRooms;
       case 'avatar_cache':
         return l10n.storageSpaceSubCacheAvatars;
       case 'other_cache':

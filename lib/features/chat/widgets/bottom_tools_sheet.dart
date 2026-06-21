@@ -7,9 +7,8 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/world_book_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/ios_tactile.dart';
-import '../../home/widgets/instruction_injection_sheet.dart';
 import '../../home/widgets/world_book_sheet.dart';
-import '../../instruction_injection/pages/instruction_injection_page.dart';
+import '../../settings/widgets/style_sheet.dart';
 import '../../world_book/pages/world_book_page.dart';
 import '../../model/widgets/ocr_prompt_sheet.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
@@ -235,27 +234,12 @@ class _LearningAndClearSectionState extends State<_LearningAndClearSection> {
       mainAxisSize: MainAxisSize.min,
       children: [
         _row(
-          icon: Lucide.Layers,
-          label: l10n.instructionInjectionTitle,
+          icon: Lucide.Wand2,
+          label: l10n.daddySettingsStyleTitle,
           selected: false,
           onTap: () async {
             Haptics.light();
-            await showInstructionInjectionSheet(
-              context,
-              assistantId: widget.assistantId,
-            );
-          },
-          onLongPress: () {
-            Haptics.light();
-            final rootNav = Navigator.of(context, rootNavigator: true);
-            Navigator.of(context).maybePop();
-            Future.microtask(() {
-              rootNav.push(
-                MaterialPageRoute(
-                  builder: (_) => const InstructionInjectionPage(),
-                ),
-              );
-            });
+            await showStyleSheet(context);
           },
           trailing: Icon(
             Lucide.ChevronRight,

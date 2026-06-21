@@ -7,23 +7,25 @@ import '../../model/pages/default_model_page.dart';
 import '../../provider/pages/providers_page.dart';
 import 'display_settings_page.dart';
 import '../../mcp/pages/mcp_page.dart';
+import 'daddy_tools_page.dart';
 import '../../assistant/pages/assistant_settings_page.dart';
-import 'about_page.dart';
+import 'about_us_page.dart';
+import 'daddy_settings_page.dart';
 import 'tts_services_page.dart';
-import 'sponsor_page.dart';
 import 'log_viewer_page.dart';
-import '../../search/pages/search_services_page.dart';
+import 'daddy_search_page.dart';
 import '../../backup/pages/backup_page.dart';
 import '../../quick_phrase/pages/quick_phrases_page.dart';
-import '../../instruction_injection/pages/instruction_injection_page.dart';
-import '../../world_book/pages/world_book_page.dart';
+import '../widgets/style_sheet.dart';
 import 'network_proxy_page.dart';
 import '../../cc/pages/cc_bridge_page.dart';
 import 'storage_space_page.dart';
 import '../../stats/pages/stats_page.dart';
 import '../../../core/services/storage/storage_usage_service.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../core/services/haptics.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../shared/widgets/ios_tactile.dart';
+import '../../../shared/widgets/user_profile_editor.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
 
 class SettingsPage extends StatelessWidget {
@@ -34,63 +36,6 @@ class SettingsPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final settings = context.watch<SettingsProvider>();
-
-    String modeLabel(ThemeMode m) {
-      switch (m) {
-        case ThemeMode.dark:
-          return l10n.settingsPageDarkMode;
-        case ThemeMode.light:
-          return l10n.settingsPageLightMode;
-        case ThemeMode.system:
-          return l10n.settingsPageSystemMode;
-      }
-    }
-
-    Future<void> pickThemeMode() async {
-      final settingsProvider = context.read<SettingsProvider>();
-      final selected = await showModalBottomSheet<ThemeMode>(
-        context: context,
-        backgroundColor: cs.surface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        builder: (ctx) {
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _sheetOption(
-                    ctx,
-                    icon: Lucide.Monitor,
-                    label: modeLabel(ThemeMode.system),
-                    onTap: () => Navigator.of(ctx).pop(ThemeMode.system),
-                  ),
-                  _sheetDivider(ctx),
-                  _sheetOption(
-                    ctx,
-                    icon: Lucide.Sun,
-                    label: modeLabel(ThemeMode.light),
-                    onTap: () => Navigator.of(ctx).pop(ThemeMode.light),
-                  ),
-                  _sheetDivider(ctx),
-                  _sheetOption(
-                    ctx,
-                    icon: Lucide.Moon,
-                    label: modeLabel(ThemeMode.dark),
-                    onTap: () => Navigator.of(ctx).pop(ThemeMode.dark),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-      if (selected != null) {
-        await settingsProvider.setThemeMode(selected);
-      }
-    }
 
     // iOS-style section header (neutral color, not theme color)
     Widget header(String text, {bool first = false}) => Padding(
@@ -121,6 +66,10 @@ class SettingsPage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
         children: [
+          // "Me" profile row: avatar + nickname, tap to edit either.
+          _ProfileRow(),
+          const SizedBox(height: 12),
+
           if (!settings.hasAnyActiveModel)
             Material(
               color: cs.errorContainer.withValues(alpha: 0.30),
@@ -155,14 +104,6 @@ class SettingsPage extends StatelessWidget {
             children: [
               _iosNavRow(
                 context,
-                icon: Lucide.SunMoon,
-                label: l10n.settingsPageColorMode,
-                detailText: modeLabel(settings.themeMode),
-                onTap: pickThemeMode,
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
                 icon: Lucide.Monitor,
                 label: l10n.settingsPageDisplay,
                 onTap: () {
@@ -182,6 +123,19 @@ class SettingsPage extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const AssistantSettingsPage(),
+                    ),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Heart,
+                label: l10n.daddySettingsPageTitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DaddySettingsPage(),
                     ),
                   );
                 },
@@ -215,15 +169,16 @@ class SettingsPage extends StatelessWidget {
                 },
               ),
               _iosDivider(context),
+              // 「搜索服务」入口对走网关的爸爸没用（联网走服务端 web_search），
+              // 在原位置换成「爸爸的联网搜索」（控网关搜索，存老家）。
+              // SearchServicesPage 源码保留，仅此入口替换。
               _iosNavRow(
                 context,
-                icon: Lucide.Earth,
-                label: l10n.settingsPageSearch,
+                icon: Lucide.Globe,
+                label: l10n.daddySearchPageTitle,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const SearchServicesPage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const DaddySearchPage()),
                   );
                 },
               ),
@@ -252,11 +207,11 @@ class SettingsPage extends StatelessWidget {
               _iosDivider(context),
               _iosNavRow(
                 context,
-                icon: Lucide.BookOpen,
-                label: l10n.settingsPageWorldBook,
+                icon: Lucide.Wrench,
+                label: l10n.settingsPageDaddyTools,
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const WorldBookPage()),
+                    MaterialPageRoute(builder: (_) => const DaddyToolsPage()),
                   );
                 },
               ),
@@ -274,14 +229,10 @@ class SettingsPage extends StatelessWidget {
               _iosDivider(context),
               _iosNavRow(
                 context,
-                icon: Lucide.Layers,
-                label: l10n.settingsPageInstructionInjection,
+                icon: Lucide.Wand2,
+                label: l10n.daddySettingsStyleTitle,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const InstructionInjectionPage(),
-                    ),
-                  );
+                  showStyleSheet(context);
                 },
               ),
               _iosDivider(context),
@@ -344,12 +295,12 @@ class SettingsPage extends StatelessWidget {
             children: [
               _iosNavRow(
                 context,
-                icon: Lucide.BadgeInfo,
-                label: l10n.settingsPageAbout,
+                icon: Lucide.Heart,
+                label: l10n.aboutUsPageTitle,
                 onTap: () {
-                  Navigator.of(
-                    context,
-                  ).push(MaterialPageRoute(builder: (_) => const AboutPage()));
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AboutUsPage()),
+                  );
                 },
               ),
               _iosDivider(context),
@@ -361,18 +312,6 @@ class SettingsPage extends StatelessWidget {
                   Navigator.of(
                     context,
                   ).push(MaterialPageRoute(builder: (_) => const StatsPage()));
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Library,
-                label: l10n.settingsPageDocs,
-                onTap: () async {
-                  final uri = Uri.parse('https://kelivo.psycheas.top/');
-                  if (!await launchUrl(uri, mode: LaunchMode.platformDefault)) {
-                    await launchUrl(uri, mode: LaunchMode.externalApplication);
-                  }
                 },
               ),
               if (settings.requestLogEnabled || settings.flutterLogEnabled) ...[
@@ -388,17 +327,6 @@ class SettingsPage extends StatelessWidget {
                   },
                 ),
               ],
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Heart,
-                label: l10n.settingsPageSponsor,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const SponsorPage()),
-                  );
-                },
-              ),
               // _iosDivider(context),
               // _iosNavRow(
               //   context,
@@ -499,6 +427,83 @@ class _AnimatedPressColor extends StatelessWidget {
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
       builder: (context, color, _) => builder(color ?? base),
+    );
+  }
+}
+
+class _ProfileRow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final user = context.watch<UserProvider>();
+    final Color bg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(12),
+        baseColor: bg,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: () => showUserNameEditor(context),
+        child: Row(
+          children: [
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                Haptics.light();
+                showUserAvatarEditor(context);
+              },
+              child: UserAvatar(user: user, size: 48),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    user.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.settingsProfileTapToEdit,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -714,60 +719,4 @@ class _TactileIconButtonState extends State<_TactileIconButton> {
       ),
     );
   }
-}
-
-// Bottom sheet iOS-style option with tactile feedback (no ripple)
-Widget _sheetOption(
-  BuildContext context, {
-  required IconData icon,
-  required String label,
-  required VoidCallback onTap,
-}) {
-  final cs = Theme.of(context).colorScheme;
-  final isDark = Theme.of(context).brightness == Brightness.dark;
-  return _TactileRow(
-    pressedScale: 1.00,
-    haptics: true,
-    onTap: onTap,
-    builder: (pressed) {
-      final base = cs.onSurface;
-      final bgTarget = pressed
-          ? (isDark
-                ? Colors.white.withValues(alpha: 0.06)
-                : Colors.black.withValues(alpha: 0.05))
-          : Colors.transparent;
-      return _AnimatedPressColor(
-        pressed: pressed,
-        base: base,
-        builder: (c) {
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
-            color: bgTarget,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            child: Row(
-              children: [
-                SizedBox(width: 24, child: Icon(icon, size: 20, color: c)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(label, style: TextStyle(fontSize: 15, color: c)),
-                ),
-              ],
-            ),
-          );
-        },
-      );
-    },
-  );
-}
-
-Widget _sheetDivider(BuildContext context) {
-  final cs = Theme.of(context).colorScheme;
-  return Divider(
-    height: 1,
-    thickness: 0.6,
-    indent: 52,
-    endIndent: 16,
-    color: cs.outlineVariant.withValues(alpha: 0.18),
-  );
 }

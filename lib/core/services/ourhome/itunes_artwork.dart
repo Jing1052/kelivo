@@ -1,0 +1,59 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
+
+/// Resolves real artwork (album covers, movie/TV posters) via Apple's free
+/// iTunes Search API — no key, no auth. Mirrors the web home's approach:
+/// query by title (+ artist), take results[0].artworkUrl100, upscale to 600px.
+///
+/// Results are cached in memory for the app session; misses are remembered too
+/// so we don't refetch a query that has no artwork.
+class ItunesArtwork {
+  ItunesArtwork._();
+
+  // term|media -> url ('' means "looked up, none found")
+  static final Map<String, String> _cache = {};
+  static final Map<String, Future<String?>> _inflight = {};
+
+  /// [media] is one of 'music', 'movie', 'tvShow', 'all'.
+  static Future<String?> lookup(String term, {String media = 'music'}) {
+    final q = term.trim();
+    if (q.isEmpty) return Future.value(null);
+    final key = '$q|$media';
+    final cached = _cache[key];
+    if (cached != null) return Future.value(cached.isEmpty ? null : cached);
+    return _inflight[key] ??= _fetch(q, media, key);
+  }
+
+  static Future<String?> _fetch(String term, String media, String key) async {
+    try {
+      final uri = Uri.https('itunes.apple.com', '/search', {
+        'term': term,
+        'media': media,
+        'limit': '1',
+        'country': 'CN',
+      });
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        final results = (data is Map) ? data['results'] : null;
+        if (results is List && results.isNotEmpty) {
+          final art = (results.first['artworkUrl100'] ?? '').toString();
+          if (art.isNotEmpty) {
+            final big = art.replaceAll('100x100', '600x600');
+            _cache[key] = big;
+            return big;
+          }
+        }
+      }
+      _cache[key] = '';
+      return null;
+    } catch (e) {
+      debugPrint('[ItunesArtwork] lookup failed for "$term": $e');
+      return null; // transient: don't poison the cache, allow retry later
+    } finally {
+      _inflight.remove(key);
+    }
+  }
+}

@@ -23,6 +23,7 @@ import '../../../core/models/quick_phrase.dart';
 import '../../../core/models/chat_input_data.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/services/android_process_text.dart';
+import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../utils/sandbox_path_resolver.dart';
 import '../../../utils/platform_utils.dart';
 import '../../../desktop/search_provider_popover.dart';
@@ -35,6 +36,7 @@ import '../../../desktop/world_book_popover.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../chat/widgets/bottom_tools_sheet.dart';
 import '../../chat/widgets/context_management_sheet.dart';
+import '../../chat/widgets/daddy_context_sheet.dart';
 import '../../chat/widgets/reasoning_budget_sheet.dart';
 import '../../search/widgets/search_settings_sheet.dart';
 import '../../model/widgets/model_select_sheet.dart';
@@ -65,7 +67,23 @@ import 'home_mobile_layout.dart';
 import 'home_desktop_layout.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  const HomePage({
+    super.key,
+    this.initialConversationId,
+    this.startNewConversation = false,
+    this.onBack,
+  });
+
+  /// When provided, open this conversation on launch (used when the chat is
+  /// pushed as a detail from the Still Here conversation-list tab).
+  final String? initialConversationId;
+
+  /// When true, start a fresh conversation on launch instead of restoring.
+  final bool startNewConversation;
+
+  /// When provided, the mobile app bar shows a back button invoking this
+  /// instead of the drawer toggle (chat opened as a pushed detail).
+  final VoidCallback? onBack;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -461,6 +479,8 @@ class _HomePageState extends State<HomePage>
       inputController: _inputController,
       mediaController: _mediaController,
       scrollController: _scrollController,
+      initialConversationId: widget.initialConversationId,
+      startNewConversation: widget.startNewConversation,
     );
 
     _controller.addListener(_onControllerChanged);
@@ -632,6 +652,7 @@ class _HomePageState extends State<HomePage>
       providerName: providerName,
       modelDisplay: modelDisplay,
       onToggleDrawer: () => _drawerController.toggle(),
+      onBack: widget.onBack,
       onDismissKeyboard: _controller.dismissKeyboard,
       onSelectConversation: (id) {
         _controller.switchConversationAnimated(id);
@@ -1560,6 +1581,25 @@ class _HomePageState extends State<HomePage>
 
   void _showContextManagementSheet() async {
     final cs = Theme.of(context).colorScheme;
+    // daddy 会话的上下文由我们家网关 keep/trigger 管理，压缩/清空两项会和网关
+    // 的滚动前情提要冲突。改为给 daddy 弹一个内联编辑器，直接调 SettingsProvider
+    // 的 daddyKeepCount/daddyTriggerCount（和爸爸设置页同一组字段，自动同步）。
+    // 非 daddy 走原有 ContextManagementSheet，行为不变。
+    final assistant = context.read<AssistantProvider>().currentAssistant;
+    if (DaddyGatewayRoute.isDaddy(assistant?.systemPrompt)) {
+      await showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: cs.surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (ctx) {
+          return SafeArea(top: false, child: const DaddyContextSheet());
+        },
+      );
+      return;
+    }
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,

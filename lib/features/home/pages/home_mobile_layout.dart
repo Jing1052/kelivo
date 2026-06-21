@@ -36,6 +36,7 @@ class HomeMobileScaffold extends StatelessWidget {
     required this.providerName,
     required this.modelDisplay,
     required this.onToggleDrawer,
+    this.onBack,
     required this.onDismissKeyboard,
     required this.onSelectConversation,
     required this.onNewConversation,
@@ -63,6 +64,10 @@ class HomeMobileScaffold extends StatelessWidget {
   final String? providerName;
   final String? modelDisplay;
   final VoidCallback onToggleDrawer;
+
+  /// When non-null, the app bar leading is a back button invoking this instead
+  /// of the drawer toggle (chat opened as a pushed detail from the list tab).
+  final VoidCallback? onBack;
   final VoidCallback onDismissKeyboard;
   final void Function(String id) onSelectConversation;
   final VoidCallback onNewConversation;
@@ -85,6 +90,18 @@ class HomeMobileScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+
+    // Detail mode (pushed from the conversation-list tab): no side drawer, so
+    // the left-edge swipe is the iOS back gesture instead of fighting it.
+    if (onBack != null) {
+      return Scaffold(
+        key: scaffoldKey,
+        resizeToAvoidBottomInset: true,
+        extendBodyBehindAppBar: true,
+        appBar: appBarOverride ?? _buildAppBar(context, cs),
+        body: body,
+      );
+    }
 
     return InteractiveDrawer(
       controller: drawerController,
@@ -160,6 +177,18 @@ class HomeMobileScaffold extends StatelessWidget {
       scrolledUnderElevation: 0,
       leading: Builder(
         builder: (context) {
+          if (onBack != null) {
+            return IosIconButton(
+              size: 22,
+              padding: const EdgeInsets.all(8),
+              minSize: 40,
+              icon: Lucide.ArrowLeft,
+              onTap: () {
+                onDismissKeyboard();
+                onBack!();
+              },
+            );
+          }
           return IosIconButton(
             size: 20,
             padding: const EdgeInsets.all(8),

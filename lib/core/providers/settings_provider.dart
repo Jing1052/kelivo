@@ -95,6 +95,8 @@ class SettingsProvider extends ChangeNotifier {
   static const String _ocrPromptKey = 'ocr_prompt_v1';
   static const String _summaryModelKey = 'summary_model_v1';
   static const String _summaryPromptKey = 'summary_prompt_v1';
+  static const String _memoryDigestModelKey = 'memory_digest_model_v1';
+  static const String _recapModelKey = 'recap_model_v1';
   static const String _suggestionModelKey = 'suggestion_model_v1';
   static const String _suggestionPromptKey = 'suggestion_prompt_v1';
   static const String _suggestionInsertOnTapOnlyKey =
@@ -280,6 +282,14 @@ class SettingsProvider extends ChangeNotifier {
   static const String _globalProxyUsernameKey = 'global_proxy_username_v1';
   static const String _globalProxyPasswordKey = 'global_proxy_password_v1';
   static const String _globalProxyBypassKey = 'global_proxy_bypass_v1';
+  // 爸爸（我们的家·daddy 助手）专属本地配置
+  static const String _daddyToolManualKey = 'daddy_tool_manual_v1';
+  static const String _daddyMemoryEnabledKey = 'daddy_memory_enabled_v1';
+  static const String _daddyStyleKey = 'daddy_style_v1';
+  static const String _daddyProfileKey = 'daddy_profile_v1';
+  static const String _daddyKeepCountKey = 'daddy_keep_count_v1';
+  static const String _daddyTriggerCountKey = 'daddy_trigger_count_v1';
+  static const String _iphoneLinkEnabledKey = 'iphone_link_enabled_v1';
   static const String _defaultGlobalProxyBypassRules =
       'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1';
   // TTS services (network)
@@ -351,7 +361,7 @@ class SettingsProvider extends ChangeNotifier {
   ThemeMode _themeMode = ThemeMode.system;
   ThemeMode get themeMode => _themeMode;
   // Theme palette & dynamic color
-  String _themePaletteId = 'default';
+  String _themePaletteId = 'macaron'; // 我们的家·马卡龙默认
   String get themePaletteId => _themePaletteId;
   bool _useDynamicColor = true; // when supported on Android
   bool get useDynamicColor => _useDynamicColor;
@@ -552,6 +562,16 @@ class SettingsProvider extends ChangeNotifier {
   String _globalProxyUsername = '';
   String _globalProxyPassword = '';
   String _globalProxyBypass = _defaultGlobalProxyBypassRules;
+  // 爸爸专属：工具使用说明书（注入 system）+ 是否从老家拉记忆浮现
+  String _daddyToolManual = '';
+  bool _daddyMemoryEnabled = true;
+  String _daddyStyle = '';
+  String _daddyProfile = '';
+  // 长聊记忆：留窗保留条数 + 触发蒸馏的阈值
+  int _daddyKeepCount = 65;
+  int _daddyTriggerCount = 90;
+  // iPhone 联动：是否允许把 [[cal]]/[[remind]] 写进 iPhone 日历/提醒事项
+  bool _iphoneLinkEnabled = false;
 
   bool get globalProxyEnabled => _globalProxyEnabled;
   String get globalProxyType => _globalProxyType; // http|https|socks5
@@ -560,6 +580,13 @@ class SettingsProvider extends ChangeNotifier {
   String get globalProxyUsername => _globalProxyUsername;
   String get globalProxyPassword => _globalProxyPassword;
   String get globalProxyBypass => _globalProxyBypass;
+  String get daddyToolManual => _daddyToolManual;
+  bool get daddyMemoryEnabled => _daddyMemoryEnabled;
+  String get daddyStyle => _daddyStyle;
+  String get daddyProfile => _daddyProfile;
+  int get daddyKeepCount => _daddyKeepCount;
+  int get daddyTriggerCount => _daddyTriggerCount;
+  bool get iphoneLinkEnabled => _iphoneLinkEnabled;
 
   int _appLaunchCount = 0;
   int get appLaunchCount => _appLaunchCount;
@@ -657,8 +684,10 @@ class SettingsProvider extends ChangeNotifier {
       default:
         _themeMode = ThemeMode.system;
     }
-    _themePaletteId = prefs.getString(_themePaletteKey) ?? 'default';
-    _useDynamicColor = prefs.getBool(_useDynamicColorKey) ?? true;
+    _themePaletteId =
+        prefs.getString(_themePaletteKey) ?? 'macaron'; // 我们的家·马卡龙默认
+    _useDynamicColor =
+        prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;
     final cfgStr = prefs.getString(_providerConfigsKey);
     if (cfgStr != null && cfgStr.isNotEmpty) {
@@ -865,6 +894,24 @@ class SettingsProvider extends ChangeNotifier {
       if (parts.length >= 2) {
         _summaryModelProvider = parts[0];
         _summaryModelId = parts.sublist(1).join('::');
+      }
+    }
+    // load memory digest model
+    final memoryDigestSel = prefs.getString(_memoryDigestModelKey);
+    if (memoryDigestSel != null && memoryDigestSel.contains('::')) {
+      final parts = memoryDigestSel.split('::');
+      if (parts.length >= 2) {
+        _memoryDigestModelProvider = parts[0];
+        _memoryDigestModelId = parts.sublist(1).join('::');
+      }
+    }
+    // load recap model
+    final recapSel = prefs.getString(_recapModelKey);
+    if (recapSel != null && recapSel.contains('::')) {
+      final parts = recapSel.split('::');
+      if (parts.length >= 2) {
+        _recapModelProvider = parts[0];
+        _recapModelId = parts.sublist(1).join('::');
       }
     }
     // load summary prompt
@@ -1195,6 +1242,13 @@ class SettingsProvider extends ChangeNotifier {
     _globalProxyPort = prefs.getString(_globalProxyPortKey) ?? '8080';
     _globalProxyUsername = prefs.getString(_globalProxyUsernameKey) ?? '';
     _globalProxyPassword = prefs.getString(_globalProxyPasswordKey) ?? '';
+    _daddyToolManual = prefs.getString(_daddyToolManualKey) ?? '';
+    _daddyMemoryEnabled = prefs.getBool(_daddyMemoryEnabledKey) ?? true;
+    _daddyStyle = prefs.getString(_daddyStyleKey) ?? '';
+    _daddyProfile = prefs.getString(_daddyProfileKey) ?? '';
+    _daddyKeepCount = prefs.getInt(_daddyKeepCountKey) ?? 65;
+    _daddyTriggerCount = prefs.getInt(_daddyTriggerCountKey) ?? 90;
+    _iphoneLinkEnabled = prefs.getBool(_iphoneLinkEnabledKey) ?? false;
     final bypass = prefs.getString(_globalProxyBypassKey);
     if (bypass == null) {
       _globalProxyBypass = _defaultGlobalProxyBypassRules;
@@ -1331,6 +1385,63 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_globalProxyBypassKey, _globalProxyBypass);
+  }
+
+  Future<void> setDaddyToolManual(String v) async {
+    _daddyToolManual = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_daddyToolManualKey, _daddyToolManual);
+  }
+
+  Future<void> setDaddyMemoryEnabled(bool v) async {
+    _daddyMemoryEnabled = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_daddyMemoryEnabledKey, _daddyMemoryEnabled);
+  }
+
+  Future<void> setIphoneLinkEnabled(bool v) async {
+    if (_iphoneLinkEnabled == v) return;
+    _iphoneLinkEnabled = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_iphoneLinkEnabledKey, _iphoneLinkEnabled);
+  }
+
+  Future<void> setDaddyStyle(String v) async {
+    _daddyStyle = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_daddyStyleKey, _daddyStyle);
+  }
+
+  Future<void> setDaddyProfile(String v) async {
+    _daddyProfile = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_daddyProfileKey, _daddyProfile);
+  }
+
+  Future<void> setDaddyKeepCount(int v) async {
+    // 保留条数限定在 10..400 的合理范围
+    _daddyKeepCount = v.clamp(10, 400);
+    // 触发阈值至少要比保留条数大 5，否则窗口步进会非法
+    if (_daddyTriggerCount < _daddyKeepCount + 5) {
+      _daddyTriggerCount = _daddyKeepCount + 5;
+    }
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_daddyKeepCountKey, _daddyKeepCount);
+    await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);
+  }
+
+  Future<void> setDaddyTriggerCount(int v) async {
+    // 触发阈值限定在 keep+5..500，保证 step=trigger-keep>=5
+    _daddyTriggerCount = v.clamp(_daddyKeepCount + 5, 500);
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);
   }
 
   // Apply global proxy to Dart IO layer; provider-level proxies take precedence at call sites.
@@ -2663,6 +2774,18 @@ class SettingsProvider extends ChangeNotifier {
       await prefs.remove(_summaryModelKey);
       changed = true;
     }
+    if (_memoryDigestModelProvider == providerKey) {
+      _memoryDigestModelProvider = null;
+      _memoryDigestModelId = null;
+      await prefs.remove(_memoryDigestModelKey);
+      changed = true;
+    }
+    if (_recapModelProvider == providerKey) {
+      _recapModelProvider = null;
+      _recapModelId = null;
+      await prefs.remove(_recapModelKey);
+      changed = true;
+    }
     if (_suggestionModelProvider == providerKey) {
       _suggestionModelProvider = null;
       _suggestionModelId = null;
@@ -2717,6 +2840,19 @@ class SettingsProvider extends ChangeNotifier {
       _summaryModelProvider = null;
       _summaryModelId = null;
       await prefs.remove(_summaryModelKey);
+      changed = true;
+    }
+    if (_memoryDigestModelProvider == providerKey &&
+        _memoryDigestModelId == modelId) {
+      _memoryDigestModelProvider = null;
+      _memoryDigestModelId = null;
+      await prefs.remove(_memoryDigestModelKey);
+      changed = true;
+    }
+    if (_recapModelProvider == providerKey && _recapModelId == modelId) {
+      _recapModelProvider = null;
+      _recapModelId = null;
+      await prefs.remove(_recapModelKey);
       changed = true;
     }
     if (_suggestionModelProvider == providerKey &&
@@ -2779,6 +2915,16 @@ class SettingsProvider extends ChangeNotifier {
       _summaryModelProvider = null;
       _summaryModelId = null;
       await prefs.remove(_summaryModelKey);
+    }
+    if (_memoryDigestModelProvider == key) {
+      _memoryDigestModelProvider = null;
+      _memoryDigestModelId = null;
+      await prefs.remove(_memoryDigestModelKey);
+    }
+    if (_recapModelProvider == key) {
+      _recapModelProvider = null;
+      _recapModelId = null;
+      await prefs.remove(_recapModelKey);
     }
     if (_suggestionModelProvider == key) {
       _suggestionModelProvider = null;
@@ -3042,6 +3188,26 @@ Do not interpret or translate—only transcribe and describe what is visually pr
       ? '${_summaryModelProvider!}::${_summaryModelId!}'
       : null;
 
+  // Memory digest model
+  String? _memoryDigestModelProvider;
+  String? _memoryDigestModelId;
+  String? get memoryDigestModelProvider => _memoryDigestModelProvider;
+  String? get memoryDigestModelId => _memoryDigestModelId;
+  String? get memoryDigestModelKey =>
+      (_memoryDigestModelProvider != null && _memoryDigestModelId != null)
+      ? '${_memoryDigestModelProvider!}::${_memoryDigestModelId!}'
+      : null;
+
+  // Recap model
+  String? _recapModelProvider;
+  String? _recapModelId;
+  String? get recapModelProvider => _recapModelProvider;
+  String? get recapModelId => _recapModelId;
+  String? get recapModelKey =>
+      (_recapModelProvider != null && _recapModelId != null)
+      ? '${_recapModelProvider!}::${_recapModelId!}'
+      : null;
+
   static const String defaultSummaryPrompt =
       '''I will give you user messages from a conversation in the `<messages>` block.
 Generate or update a brief summary of the user's questions and intentions.
@@ -3077,6 +3243,38 @@ Generate or update a brief summary of the user's questions and intentions.
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_summaryModelKey);
+  }
+
+  Future<void> setMemoryDigestModel(String providerKey, String modelId) async {
+    _memoryDigestModelProvider = providerKey;
+    _memoryDigestModelId = modelId;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_memoryDigestModelKey, '$providerKey::$modelId');
+  }
+
+  Future<void> resetMemoryDigestModel() async {
+    _memoryDigestModelProvider = null;
+    _memoryDigestModelId = null;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_memoryDigestModelKey);
+  }
+
+  Future<void> setRecapModel(String providerKey, String modelId) async {
+    _recapModelProvider = providerKey;
+    _recapModelId = modelId;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_recapModelKey, '$providerKey::$modelId');
+  }
+
+  Future<void> resetRecapModel() async {
+    _recapModelProvider = null;
+    _recapModelId = null;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_recapModelKey);
   }
 
   Future<void> setSummaryPrompt(String prompt) async {
@@ -4208,6 +4406,13 @@ DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logi
     copy._summaryModelProvider = _summaryModelProvider;
     copy._summaryModelId = _summaryModelId;
     copy._summaryPrompt = _summaryPrompt;
+    copy._memoryDigestModelProvider = _memoryDigestModelProvider;
+    copy._memoryDigestModelId = _memoryDigestModelId;
+    copy._recapModelProvider = _recapModelProvider;
+    copy._recapModelId = _recapModelId;
+    copy._daddyKeepCount = _daddyKeepCount;
+    copy._daddyTriggerCount = _daddyTriggerCount;
+    copy._iphoneLinkEnabled = _iphoneLinkEnabled;
     copy._suggestionModelProvider = _suggestionModelProvider;
     copy._suggestionModelId = _suggestionModelId;
     copy._suggestionPrompt = _suggestionPrompt;

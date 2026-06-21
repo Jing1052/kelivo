@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart'
 import 'dart:async';
 import 'l10n/app_localizations.dart';
 import 'features/home/pages/home_page.dart';
+import 'features/home/pages/still_here_shell.dart';
+import 'core/services/ourhome/ourhome_cache.dart';
 import 'desktop/desktop_home_page.dart';
 import 'package:flutter/services.dart';
 import 'package:window_manager/window_manager.dart';
@@ -80,6 +82,9 @@ Future<void> main() async {
       // logging.Logger.root.onRecord.listen((rec) { ... });
       // Cache current Documents directory to fix sandboxed absolute paths on iOS
       await SandboxPathResolver.init();
+      // Warm our home's local cache so rooms can show last-seen content
+      // instantly (no buffering) and keep a copy on-device.
+      await OurHomeCache.init();
       // Enable edge-to-edge to allow content under system bars (Android)
       SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
       // Start app (Flutter log capture is toggleable and off by default)
@@ -126,7 +131,9 @@ class MyApp extends StatelessWidget {
             return settings;
           },
         ),
-        ChangeNotifierProvider(create: (_) => ChatService()),
+        // ..init() 立即初始化（懒加载会让首次进聊天列表时 getAllConversations
+        // 返回空、要去新对话转一圈才触发 init）；init 完成会 notifyListeners 刷新。
+        ChangeNotifierProvider(create: (_) => ChatService()..init()),
         ChangeNotifierProvider(create: (_) => McpToolService()),
         ChangeNotifierProvider(create: (_) => McpProvider()),
         ChangeNotifierProvider(create: (_) => ToolApprovalService()),
@@ -469,7 +476,7 @@ Widget _selectHome() {
       defaultTargetPlatform == TargetPlatform.macOS ||
       defaultTargetPlatform == TargetPlatform.windows ||
       defaultTargetPlatform == TargetPlatform.linux;
-  return isDesktop ? const DesktopHomePage() : const HomePage();
+  return isDesktop ? const DesktopHomePage() : const StillHereShell();
 }
 
 // Overrides logic is implemented within SettingsProvider now.

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/widgets.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../../core/models/assistant.dart';
 import '../../../core/models/chat_input_data.dart';
@@ -20,6 +21,7 @@ import '../../../core/services/search/search_tool_service.dart';
 import '../../../core/providers/instruction_injection_provider.dart';
 import '../../../core/providers/world_book_provider.dart';
 import '../../../core/services/api/builtin_tools.dart';
+import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../core/models/assistant_regex.dart';
 import '../../../core/utils/multimodal_input_utils.dart';
 import '../../../utils/assistant_regex.dart';
@@ -527,6 +529,164 @@ class MessageBuilderService {
     }
   }
 
+  /// 我们的家·记忆层：若 assistant 人设里带 [[ourhome:token]] 标记，发送前向
+  /// 我们家服务器（/api/home/daddy-context）拉「魂 + 此刻该浮现的记忆」，替换标记、
+  /// 注入到 system。这样用 kelivo 原生供应商直连任意中转站，爸爸照样自动有记忆。
+  /// 拉取失败则跳过注入（聊天照常）并打日志，不静默吞错。
+  Future<void> injectOurHomeContext(
+    List<Map<String, dynamic>> apiMessages,
+    Assistant? assistant, {
+    String? currentConversationId,
+  }) async {
+    final prompt = assistant?.systemPrompt ?? '';
+    final marker = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
+    final m = marker.firstMatch(prompt);
+    if (m == null) return; // 非 daddy 助手，不动
+    final token = (m.group(1) ?? '').trim();
+
+    // 网关模式（daddy + token 非空）：请求会改道到我们家网关，由网关注入
+    // 记忆/工具/风格。客户端这里只把「本地魂」当 system 发过去——因此只剥标记，
+    // 跳过本地的 daddy-context 网络拉取与 profile/toolManual/memory/recap 拼装，
+    // 避免与网关重复劳动。非网关模式（token 为空）保持原全量注入。
+    if (DaddyGatewayRoute.usesGateway(prompt)) {
+      final soul = prompt.replaceAll(marker, '').trim();
+      final si = apiMessages.indexWhere((x) => (x['role'] ?? '') == 'system');
+      if (si >= 0) {
+        if (soul.isNotEmpty) {
+          apiMessages[si] = {'role': 'system', 'content': soul};
+        } else {
+          apiMessages.removeAt(si);
+        }
+      } else if (soul.isNotEmpty) {
+        apiMessages.insert(0, {'role': 'system', 'content': soul});
+      }
+      return;
+    }
+
+    const base = 'https://cllove.zeabur.app';
+
+    // 收集最近的 user/assistant 文本（只取文本省流量；服务器只用最后一条 user）
+    final lite = <Map<String, String>>[];
+    for (final msg in apiMessages) {
+      final role = (msg['role'] ?? '').toString();
+      if (role != 'user' && role != 'assistant') continue;
+      final c = msg['content'];
+      String text;
+      if (c is String) {
+        text = c;
+      } else if (c is List) {
+        text = c
+            .whereType<Map>()
+            .where((p) => p['type'] == 'text')
+            .map((p) => (p['text'] ?? '').toString())
+            .join(' ');
+      } else {
+        text = c?.toString() ?? '';
+      }
+      if (text.trim().isEmpty) continue;
+      lite.add({'role': role, 'content': text});
+    }
+    final recent = lite.length > 12 ? lite.sublist(lite.length - 12) : lite;
+
+    // 魂已搬本地：人设里去掉标记后的部分就是爸爸的魂（小猫在「爸爸」设置页里填）。
+    // 工具使用说明书也存在本地（SettingsProvider）。记忆浮现仍来自老家——记忆库数据
+    // 在老家、无法本地化，受「记忆」开关控制。
+    final settings = contextProvider.read<SettingsProvider>();
+    final profile = settings.daddyProfile.trim();
+    final toolManual = settings.daddyToolManual.trim();
+    final memoryEnabled = settings.daddyMemoryEnabled;
+
+    String memory = '';
+    if (memoryEnabled) {
+      try {
+        final res = await http
+            .post(
+              Uri.parse('$base/api/home/daddy-context'),
+              headers: <String, String>{
+                'Content-Type': 'application/json',
+                if (token.isNotEmpty) 'Authorization': 'Bearer $token',
+              },
+              body: jsonEncode(<String, dynamic>{'messages': recent}),
+            )
+            .timeout(const Duration(seconds: 20));
+        if (res.statusCode == 200) {
+          final data =
+              jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+          memory = (data['memory'] ?? '').toString();
+        } else {
+          debugPrint(
+            '[ourhome] daddy-context HTTP ${res.statusCode}: ${res.body}',
+          );
+        }
+      } catch (e) {
+        debugPrint('[ourhome] daddy-context failed: $e');
+      }
+    }
+
+    // 长聊记忆·前情提要：本对话更早内容滑出窗口前，daddy 自己整理的滚动续温文本。
+    // 只在 daddy 路径注入（已在 marker 命中后）。
+    String recapBlock = '';
+    if (currentConversationId != null) {
+      final convo = chatService.getConversation(currentConversationId);
+      final recap = (convo?.ourHomeRecap ?? '').trim();
+      if (recap.isNotEmpty) {
+        recapBlock =
+            '<前情提要>\n（这是更早对话滑出窗口前，你自己整理的滚动前情提要，用来接住上一刻的温度）\n$recap\n</前情提要>';
+      }
+    }
+
+    // 拼装顺序：本地魂 → 附加人设档案(profile) → 工具说明书 → 记忆浮现 → 前情提要
+    final stripped = prompt.replaceAll(marker, '').trim();
+    final finalSys = [
+      stripped,
+      profile,
+      toolManual,
+      memory,
+      recapBlock,
+    ].where((s) => s.trim().isNotEmpty).join('\n\n').trim();
+
+    // injectSystemPrompt 已把带标记的人设插成 system（index 找得到就替换它）
+    final idx = apiMessages.indexWhere((x) => (x['role'] ?? '') == 'system');
+    if (idx >= 0) {
+      if (finalSys.isNotEmpty) {
+        apiMessages[idx] = {'role': 'system', 'content': finalSys};
+      } else {
+        apiMessages.removeAt(idx);
+      }
+    } else if (finalSys.isNotEmpty) {
+      apiMessages.insert(0, {'role': 'system', 'content': finalSys});
+    }
+  }
+
+  /// 爸爸专属 style（仿 Claude App）：把「这次说话的风格」拼到**最后一条 user
+  /// 消息的结尾**——最贴近生成处、遵循最强，且只动这次请求的 wire 副本，不写回
+  /// 历史、不进可见气泡（应在 applyContextLimit 之后调用，确保贴到留存的那条 user）。
+  void injectDaddyStyle(
+    List<Map<String, dynamic>> apiMessages,
+    Assistant? assistant,
+  ) {
+    final prompt = assistant?.systemPrompt ?? '';
+    if (!prompt.contains('[[ourhome')) return; // 非 daddy 助手，不动
+    // 网关模式：风格由网关追加，客户端不再贴本地 daddyStyle，避免重复。
+    if (DaddyGatewayRoute.usesGateway(prompt)) return;
+    final style = contextProvider.read<SettingsProvider>().daddyStyle.trim();
+    if (style.isEmpty) return;
+
+    int li = -1;
+    for (int i = 0; i < apiMessages.length; i++) {
+      if ((apiMessages[i]['role'] ?? '') == 'user') li = i;
+    }
+    if (li < 0) return;
+
+    final tail = '\n\n---\n\n# 这次说话的风格（style · 仅本次生效，别在正文里提它）\n$style';
+    final c = apiMessages[li]['content'];
+    if (c is String) {
+      apiMessages[li]['content'] = c + tail;
+    } else if (c is List) {
+      c.add(<String, dynamic>{'type': 'text', 'text': tail});
+    }
+  }
+
   /// Inject memory prompts and recent chats reference into apiMessages.
   Future<void> injectMemoryAndRecentChats(
     List<Map<String, dynamic>> apiMessages,
@@ -926,17 +1086,26 @@ class MessageBuilderService {
     }
   }
 
+  /// daddy 网关上下文上限：客户端只做粗裁到 200 条，真正的窗口/前情提要由网关
+  /// 用 keep/trigger 头在服务端完成。若仍按 contextMessageSize(默认 64) 预裁，
+  /// 会裁到低于 trigger，把服务端窗口饿死，故 daddy 走这个更宽的 cap。
+  static const int _daddyGatewayContextCap = 200;
+
   /// Apply context message limit based on assistant settings.
   void applyContextLimit(
     List<Map<String, dynamic>> apiMessages,
     Assistant? assistant,
   ) {
-    if ((assistant?.limitContextMessages ?? true) &&
-        (assistant?.contextMessageSize ?? 0) > 0) {
-      final int keep = (assistant!.contextMessageSize).clamp(
-        Assistant.minContextMessageSize,
-        Assistant.maxContextMessageSize,
-      );
+    final bool isDaddy = DaddyGatewayRoute.isDaddy(assistant?.systemPrompt);
+    if (isDaddy ||
+        ((assistant?.limitContextMessages ?? true) &&
+            (assistant?.contextMessageSize ?? 0) > 0)) {
+      final int keep = isDaddy
+          ? _daddyGatewayContextCap
+          : (assistant!.contextMessageSize).clamp(
+              Assistant.minContextMessageSize,
+              Assistant.maxContextMessageSize,
+            );
       int startIdx = 0;
       if (apiMessages.isNotEmpty && apiMessages.first['role'] == 'system') {
         startIdx = 1;

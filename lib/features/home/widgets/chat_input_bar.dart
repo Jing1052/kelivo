@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 import 'dart:math' as math;
 import '../../../theme/design_tokens.dart';
 import '../../../icons/lucide_adapter.dart';
-import '../../../icons/reasoning_icons.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../../../l10n/app_localizations.dart';
@@ -18,11 +17,8 @@ import '../../../core/models/chat_input_data.dart';
 import '../../../utils/clipboard_images.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
-import '../../../core/services/search/search_service.dart';
-import '../../../core/services/api/builtin_tools.dart';
 import '../../../core/services/api/chat_api_service.dart';
 import '../../../core/utils/multimodal_input_utils.dart';
-import '../../../utils/brand_assets.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../utils/app_directories.dart';
 import 'package:super_clipboard/super_clipboard.dart';
@@ -377,24 +373,40 @@ class _ChatInputBarState extends State<ChatInputBar>
     final text = _controller.text.trim();
     if (text.isEmpty && _images.isEmpty && _docs.isEmpty) return;
     _isSubmitting = true;
+    // 乐观清空：发送那一下立刻清输入框（不等整轮生成跑完），体验更跟手；
+    // 若发送被明确拒绝，再把刚才的字/附件还原回去，不丢东西。
+    final prevText = _controller.text;
+    final prevImages = List<String>.of(_images);
+    final prevDocs = List<DocumentAttachment>.of(_docs);
+    final input = ChatInputData(
+      text: text,
+      imagePaths: List.of(_images),
+      documents: List.of(_docs),
+      allowImagesApiRouting: _allowImagesApiRouting,
+    );
+    _controller.clear();
+    _images.clear();
+    _docs.clear();
+    setState(() {});
     try {
       final result =
-          await widget.onSend?.call(
-            ChatInputData(
-              text: text,
-              imagePaths: List.of(_images),
-              documents: List.of(_docs),
-              allowImagesApiRouting: _allowImagesApiRouting,
-            ),
-          ) ??
+          await widget.onSend?.call(input) ??
           ChatInputSubmissionResult.rejected;
       if (!mounted) return;
-      if (result == ChatInputSubmissionResult.sent ||
-          result == ChatInputSubmissionResult.queued) {
-        _controller.clear();
-        _images.clear();
-        _docs.clear();
+      if (result == ChatInputSubmissionResult.rejected) {
+        // 被拒：还原刚才输入的内容，别让小猫白打一遍
+        _controller.text = prevText;
+        _controller.selection = TextSelection.collapsed(
+          offset: prevText.length,
+        );
+        _images
+          ..clear()
+          ..addAll(prevImages);
+        _docs
+          ..clear()
+          ..addAll(prevDocs);
         setState(() {});
+      } else {
         // Keep focus on desktop so user can continue typing
         try {
           if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
@@ -958,147 +970,6 @@ class _ChatInputBarState extends State<ChatInputBar>
             ),
           ),
         );
-
-        // Search button (stateful icon depending on provider config)
-        final settings = context.watch<SettingsProvider>();
-        final ap = context.watch<AssistantProvider>();
-        final a = ap.currentAssistant;
-        final currentProviderKey =
-            a?.chatModelProvider ?? settings.currentModelProvider;
-        final currentModelId = a?.chatModelId ?? settings.currentModelId;
-        final cfg = (currentProviderKey != null)
-            ? settings.getProviderConfig(currentProviderKey)
-            : null;
-        // Check built-in tools state using helper
-        final toolsState = BuiltInToolsHelper.getActiveTools(
-          cfg: cfg,
-          modelId: currentModelId,
-        );
-        final builtinSearchActive = toolsState.searchActive;
-        final appSearchEnabled = ap.currentSearchEnabled;
-        final brandAsset = (() {
-          if (!appSearchEnabled || builtinSearchActive) return null;
-          final services = settings.searchServices;
-          final sel = settings.searchServiceSelected.clamp(
-            0,
-            services.isNotEmpty ? services.length - 1 : 0,
-          );
-          final options = services.isNotEmpty
-              ? services[sel]
-              : SearchServiceOptions.defaultOption;
-          final svc = SearchService.getService(options);
-          return BrandAssets.assetForName(svc.name);
-        })();
-
-        // Search button
-        actions.add(
-          _OverflowAction(
-            width: normalButtonW,
-            builder: () {
-              // Not enabled at all -> default globe
-              if (!appSearchEnabled && !builtinSearchActive) {
-                return _CompactIconButton(
-                  tooltip: l10n.chatInputBarOnlineSearchTooltip,
-                  icon: Lucide.Globe,
-                  active: false,
-                  onTap: lockTap(widget.onOpenSearch),
-                );
-              }
-              // Built-in search -> magnifier icon in theme color
-              if (builtinSearchActive) {
-                return _CompactIconButton(
-                  tooltip: l10n.chatInputBarOnlineSearchTooltip,
-                  icon: Lucide.Search,
-                  active: true,
-                  onTap: lockTap(widget.onOpenSearch),
-                );
-              }
-              // External provider search -> brand icon
-              return _CompactIconButton(
-                tooltip: l10n.chatInputBarOnlineSearchTooltip,
-                icon: Lucide.Globe,
-                active: true,
-                onTap: lockTap(widget.onOpenSearch),
-                childBuilder: (c) {
-                  final asset = brandAsset;
-                  if (asset != null) {
-                    if (asset.endsWith('.svg')) {
-                      return SvgPicture.asset(
-                        asset,
-                        width: 20,
-                        height: 20,
-                        colorFilter: ColorFilter.mode(c, BlendMode.srcIn),
-                      );
-                    } else {
-                      return Image.asset(
-                        asset,
-                        width: 20,
-                        height: 20,
-                        color: c,
-                        colorBlendMode: BlendMode.srcIn,
-                      );
-                    }
-                  } else {
-                    return Icon(Lucide.Globe, size: 20, color: c);
-                  }
-                },
-              );
-            },
-            menu: () {
-              // Prefer vector icon if brandAsset is svg, otherwise pick reasonable default
-              if (!appSearchEnabled && !builtinSearchActive) {
-                return DesktopContextMenuItem(
-                  icon: Lucide.Globe,
-                  label: l10n.chatInputBarOnlineSearchTooltip,
-                  onTap: lockTap(widget.onOpenSearch),
-                );
-              }
-              if (builtinSearchActive) {
-                return DesktopContextMenuItem(
-                  icon: Lucide.Search,
-                  label: l10n.chatInputBarOnlineSearchTooltip,
-                  onTap: lockTap(widget.onOpenSearch),
-                );
-              }
-              if (brandAsset != null && brandAsset.endsWith('.svg')) {
-                return DesktopContextMenuItem(
-                  svgAsset: brandAsset,
-                  label: l10n.chatInputBarOnlineSearchTooltip,
-                  onTap: lockTap(widget.onOpenSearch),
-                );
-              }
-              return DesktopContextMenuItem(
-                icon: Lucide.Globe,
-                label: l10n.chatInputBarOnlineSearchTooltip,
-                onTap: lockTap(widget.onOpenSearch),
-              );
-            }(),
-          ),
-        );
-
-        if (widget.supportsReasoning) {
-          actions.add(
-            _OverflowAction(
-              width: normalButtonW,
-              builder: () => _CompactIconButton(
-                tooltip: l10n.chatInputBarReasoningStrengthTooltip,
-                icon: Lucide.Brain,
-                active: widget.reasoningActive,
-                onTap: lockTap(widget.onConfigureReasoning),
-                childBuilder: (c) => ReasoningIcons.budgetIcon(
-                  widget.reasoningBudget,
-                  size: 20,
-                  color: c,
-                ),
-              ),
-              menu: DesktopContextMenuItem(
-                svgAsset: ReasoningIcons.assetForBudget(widget.reasoningBudget),
-                label: l10n.chatInputBarReasoningStrengthTooltip,
-                onTap: lockTap(widget.onConfigureReasoning),
-              ),
-            ),
-          );
-        }
 
         // MCP button
         if (widget.showMcpButton) {

@@ -291,7 +291,7 @@ class McpProvider extends ChangeNotifier {
         _servers = list;
       } catch (_) {}
     }
-    // Ensure built-in @kelivo/fetch is present by default
+    // Ensure built-in fetch server is present by default (migrating legacy name)
     _ensureBuiltinFetchServerPresent();
     // initialize statuses
     for (final s in _servers) {
@@ -307,18 +307,43 @@ class McpProvider extends ChangeNotifier {
     }
   }
 
+  // The built-in fetch server's current display name. Old persisted installs
+  // may still carry the legacy [_legacyBuiltinFetchName]; both must be treated
+  // as the same single built-in server so no duplicate is ever created.
+  static const String _builtinFetchName = '@stillhere/fetch';
+  static const String _legacyBuiltinFetchName = '@kelivo/fetch';
+  static const String _builtinFetchId = 'kelivo_fetch';
+
   void _ensureBuiltinFetchServerPresent() {
+    // Migrate any legacy-named built-in entry to the current display name in
+    // place, so the user never sees the old brand and no second entry appears.
+    var migrated = false;
+    _servers = _servers.map((s) {
+      final isBuiltin =
+          s.transport == McpTransportType.inmemory ||
+          s.id == _builtinFetchId ||
+          s.name == _legacyBuiltinFetchName;
+      if (isBuiltin && s.name != _builtinFetchName) {
+        migrated = true;
+        return s.copyWith(name: _builtinFetchName);
+      }
+      return s;
+    }).toList();
     final exists = _servers.any(
       (s) =>
           s.transport == McpTransportType.inmemory ||
-          s.name == '@kelivo/fetch' ||
-          s.id == 'kelivo_fetch',
+          s.name == _builtinFetchName ||
+          s.name == _legacyBuiltinFetchName ||
+          s.id == _builtinFetchId,
     );
-    if (exists) return;
+    if (exists) {
+      if (migrated) unawaited(_persist());
+      return;
+    }
     final cfg = McpServerConfig(
-      id: 'kelivo_fetch',
+      id: _builtinFetchId,
       enabled: true,
-      name: '@kelivo/fetch',
+      name: _builtinFetchName,
       transport: McpTransportType.inmemory,
       tools: const <McpToolConfig>[], // will refresh on connect
     );
@@ -436,7 +461,7 @@ class McpProvider extends ChangeNotifier {
           final cfg = cfgAny.cast<String, dynamic>();
           final typeLower = (cfg['type'] ?? '').toString().toLowerCase();
           if (typeLower == 'inmemory') {
-            // Built-in @kelivo/fetch control via isActive; ignore name mismatches silently
+            // Built-in fetch server control via isActive; ignore name mismatches silently
             builtinSeen = true;
             builtinEnabled = (cfg['isActive'] as bool?) ?? true;
             return;
@@ -522,9 +547,9 @@ class McpProvider extends ChangeNotifier {
           // Append single built-in server with fixed id/name
           next.add(
             McpServerConfig(
-              id: 'kelivo_fetch',
+              id: _builtinFetchId,
               enabled: builtinEnabled,
-              name: '@kelivo/fetch',
+              name: _builtinFetchName,
               transport: McpTransportType.inmemory,
             ),
           );

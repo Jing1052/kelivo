@@ -15,6 +15,8 @@ import '../../chat/widgets/chat_message_widget.dart' show ToolUIPart;
 import '../services/message_builder_service.dart';
 import '../services/message_generation_service.dart';
 import '../services/chat_suggestion_service.dart';
+import '../services/our_home_window.dart';
+import '../services/our_home_memory_service.dart';
 import 'chat_actions.dart';
 import 'chat_controller.dart';
 import 'generation_controller.dart';
@@ -318,6 +320,8 @@ class HomeViewModel extends ChangeNotifier {
   void _onMaybeGenerateSummary(String conversationId) {
     // Trigger summary generation asynchronously
     _maybeGenerateSummaryFor(conversationId);
+    // 我们的家·长聊记忆：daddy 助手同时尝试蒸馏溢出窗口（后台、不阻塞 UI）
+    _maybeDigestOurHomeFor(conversationId);
   }
 
   void _onMaybeGenerateSuggestions(String conversationId) {
@@ -1376,6 +1380,96 @@ class HomeViewModel extends ChangeNotifier {
       }
     } catch (_) {
       // Keep old summary on failure, ignore silently
+    }
+  }
+
+  // ============================================================================
+  // 我们的家·长聊记忆（仅 daddy 助手）
+  // ============================================================================
+
+  /// daddy 助手（人设带 [[ourhome:token]]）的长聊记忆：当消息总数越过阈值时，
+  /// 把滑出窗口的更早消息块「蒸馏归档 + 续温前情提要」。后台执行，不阻塞 UI。
+  Future<void> _maybeDigestOurHomeFor(String conversationId) async {
+    try {
+      final convo = _chatService.getConversation(conversationId);
+      if (convo == null) return;
+
+      // 必须是 daddy 助手：人设里带 [[ourhome:token]] 标记
+      final assistantProvider = _contextProvider.read<AssistantProvider>();
+      final assistant = convo.assistantId != null
+          ? assistantProvider.getById(convo.assistantId!)
+          : assistantProvider.currentAssistant;
+      final prompt = assistant?.systemPrompt ?? '';
+      final marker = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
+      final m = marker.firstMatch(prompt);
+      if (m == null) return; // 非 daddy
+      final token = (m.group(1) ?? '').trim();
+      // 网关模式（token 非空）：溢出→记忆归档由网关负责，客户端不再本地蒸馏。
+      if (token.isNotEmpty) return;
+
+      final settings = _contextProvider.read<SettingsProvider>();
+      // 完整有序消息列表（含 assistant），按绝对下标计窗口
+      final messages = _chatService.getMessages(convo.id);
+      final keep = settings.daddyKeepCount;
+      final trigger = settings.daddyTriggerCount;
+      final range = ourHomeOverflowRange(
+        n: messages.length,
+        keep: keep,
+        trigger: trigger,
+        digestedCount: convo.ourHomeDigestedCount,
+      );
+      if (range == null) return;
+
+      // ① 蒸馏模型：memoryDigest -> summary -> current
+      final distillProv =
+          settings.memoryDigestModelProvider ??
+          settings.summaryModelProvider ??
+          assistant?.chatModelProvider ??
+          settings.currentModelProvider;
+      final distillId =
+          settings.memoryDigestModelId ??
+          settings.summaryModelId ??
+          assistant?.chatModelId ??
+          settings.currentModelId;
+      // ② 续温模型：recap -> summary -> current
+      final recapProv =
+          settings.recapModelProvider ??
+          settings.summaryModelProvider ??
+          assistant?.chatModelProvider ??
+          settings.currentModelProvider;
+      final recapId =
+          settings.recapModelId ??
+          settings.summaryModelId ??
+          assistant?.chatModelId ??
+          settings.currentModelId;
+
+      final budget = assistant?.thinkingBudget ?? settings.thinkingBudget;
+
+      final newRecap = await OurHomeMemoryService().digestOverflow(
+        messages: messages.sublist(range.start, range.end),
+        soul: settings.daddyProfile,
+        token: token,
+        previousRecap: convo.ourHomeRecap ?? '',
+        digestModel: (provider: distillProv, id: distillId),
+        recapModel: (provider: recapProv, id: recapId),
+        settings: settings,
+        thinkingBudget: budget,
+      );
+
+      // 推进高水位线（即使本次蒸馏/续温内部失败，也按已处理区间前移，避免反复重试同一块）
+      await _chatService.updateConversationOurHome(
+        convo.id,
+        recap: newRecap,
+        digestedCount: range.end,
+      );
+      if (currentConversation?.id == convo.id) {
+        _chatController.updateCurrentConversation(
+          _chatService.getConversation(convo.id),
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      FlutterLogger.log('[ourhome] digest failed: $e', tag: 'HomeViewModel');
     }
   }
 
