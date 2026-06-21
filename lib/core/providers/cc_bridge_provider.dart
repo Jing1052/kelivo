@@ -243,6 +243,15 @@ class CcBridgeProvider extends ChangeNotifier {
     }
   }
 
+  /// Fetch a turn's thinking at most once (for eager load when a bubble becomes
+  /// visible). Cheap to call repeatedly; de-duped via [_thinkingRequested].
+  final Set<String> _thinkingRequested = <String>{};
+  Future<void> ensureThinking(String turnId) async {
+    if (turnId.isEmpty || _thinkingRequested.contains(turnId)) return;
+    _thinkingRequested.add(turnId);
+    await loadThinking(turnId);
+  }
+
   /// Fetch thinking-card records for a turn (lazy, on expand).
   Future<void> loadThinking(String turnId) async {
     final c = _client;

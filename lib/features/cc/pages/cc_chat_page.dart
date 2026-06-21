@@ -1,11 +1,12 @@
-// CC bridge chat page (P1 + thinking cards & attachments).
+// CC bridge chat page.
 //
 // A standalone conversation channel into the home `cc` tmux session via
-// [CcBridgeProvider]. Mirrors the native chat look: assistant bodies render with
-// [MarkdownWithCodeHighlight] and thinking uses a native-style "deep thinking"
-// card (lazy-loaded from /v1/thinking). The input bar can attach images/files
-// (raw-bytes upload to /chat/upload). Surfaces the HTTP 502 "agent unreachable"
-// case distinctly. See docs/CC_BRIDGE_INTEGRATION.md.
+// [CcBridgeProvider]. Reuses the native [ChatMessageWidget] (fed in-memory
+// ChatMessage objects mapped from CcChatRecord) so bubbles, markdown, the
+// reasoning card, long-press/selection and animations are identical to the main
+// chat — with action buttons hidden (null callbacks). Daddy can split one reply
+// into several bubbles with `|||` (matches the home _tg_send_multi convention).
+// The input bar attaches images/files (raw-bytes upload to /chat/upload).
 
 import 'dart:io';
 
@@ -18,13 +19,13 @@ import 'package:Kelivo/theme/app_font_weights.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../icons/lucide_adapter.dart';
-import '../../../icons/reasoning_icons.dart';
+import '../../../core/models/chat_message.dart';
 import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/services/cc/cc_bridge_models.dart';
 import '../../../core/services/haptics.dart';
+import '../../../features/chat/widgets/chat_message_widget.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
-import '../../../shared/widgets/markdown_with_highlight.dart';
 import 'cc_bridge_page.dart';
 import 'cc_terminal_page.dart';
 
@@ -395,9 +396,11 @@ class _CcChatPageState extends State<CcChatPage> {
   }
 }
 
-/// A single chat bubble. Assistant turns with a [CcChatRecord.turnId] expose an
-/// expandable thinking card (lazily fetched from /v1/thinking). Image and file
-/// attachments render inline above the text.
+/// A single CC record rendered via the native [ChatMessageWidget] (mapped to an
+/// in-memory ChatMessage), so bubbles/markdown/reasoning/long-press match the
+/// main chat exactly. Assistant turns eager-load thinking (once visible) into
+/// the native reasoning card; a `|||` in an assistant reply splits it into
+/// several bubbles. CC attachments render just above the bubble.
 class _ChatBubble extends StatefulWidget {
   const _ChatBubble({required this.record});
   final CcChatRecord record;
@@ -407,15 +410,45 @@ class _ChatBubble extends StatefulWidget {
 }
 
 class _ChatBubbleState extends State<_ChatBubble> {
-  bool _showThinking = false;
+  static final RegExp _splitRe = RegExp(r'\s*\|\|\|\s*');
+  bool _reasoningExpanded = false;
 
-  Future<void> _toggleThinking(String turnId) async {
-    final provider = context.read<CcBridgeProvider>();
-    final willShow = !_showThinking;
-    if (willShow && provider.thinkingFor(turnId).isEmpty) {
-      await provider.loadThinking(turnId);
+  @override
+  void initState() {
+    super.initState();
+    final r = widget.record;
+    if (r.isAssistant && (r.turnId ?? '').isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<CcBridgeProvider>().ensureThinking(r.turnId!);
+      });
     }
-    if (mounted) setState(() => _showThinking = willShow);
+  }
+
+  ChatMessage _msg(String role, String content, {String? reasoning}) {
+    return ChatMessage(
+      role: role,
+      content: content,
+      conversationId: 'cc-bridge',
+      timestamp:
+          DateTime.tryParse(widget.record.ts)?.toLocal() ?? DateTime.now(),
+      reasoningText:
+          (reasoning != null && reasoning.isNotEmpty) ? reasoning : null,
+    );
+  }
+
+  // Action callbacks left null → native action buttons (copy/regenerate/…) hide.
+  Widget _native(ChatMessage m,
+      {String? reasoningText, bool reasoningToggle = false}) {
+    return ChatMessageWidget(
+      message: m,
+      showModelIcon: false,
+      showTokenStats: false,
+      reasoningText: reasoningText,
+      reasoningExpanded: _reasoningExpanded,
+      onToggleReasoning: reasoningToggle
+          ? () => setState(() => _reasoningExpanded = !_reasoningExpanded)
+          : null,
+    );
   }
 
   @override
@@ -431,160 +464,60 @@ class _ChatBubbleState extends State<_ChatBubble> {
           child: Text(
             r.text,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
+            style: TextStyle(
+                fontSize: 12, color: cs.onSurface.withValues(alpha: 0.5)),
           ),
         ),
       );
     }
 
-    final isUser = r.isUser;
     final provider = context.watch<CcBridgeProvider>();
     final hasTurn = r.isAssistant && (r.turnId ?? '').isNotEmpty;
-    final thinking = hasTurn
+    final reasoning = hasTurn
         ? provider
-              .thinkingFor(r.turnId!)
-              .map((e) => e.thinking)
-              .where((e) => e.isNotEmpty)
-              .toList()
-        : const <String>[];
-    final bg = isUser
-        ? cs.primary.withValues(alpha: 0.12)
-        : cs.surfaceContainerHighest.withValues(alpha: 0.5);
+            .thinkingFor(r.turnId!)
+            .map((e) => e.thinking)
+            .where((e) => e.isNotEmpty)
+            .join('\n\n')
+        : '';
 
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
+    final children = <Widget>[];
+    // CC attachments aren't part of ChatMessage; render them above the bubble.
+    if (r.hasAttachment) {
+      children.add(Align(
+        alignment: r.isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78),
+          child: _Attachment(record: r),
         ),
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          crossAxisAlignment: isUser
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
-          children: [
-            if (hasTurn)
-              _CcReasoningCard(
-                text: thinking.join('\n\n'),
-                expanded: _showThinking,
-                onToggle: () => _toggleThinking(r.turnId!),
-              ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: bg,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (r.hasAttachment) _Attachment(record: r),
-                  if (r.text.isNotEmpty)
-                    isUser
-                        ? SelectableText(
-                            r.text,
-                            style: TextStyle(
-                              fontSize: 15,
-                              color: cs.onSurface,
-                              height: 1.35,
-                            ),
-                          )
-                        : MarkdownWithCodeHighlight(
-                            text: r.text,
-                            baseStyle: TextStyle(
-                              fontSize: 15,
-                              color: cs.onSurface,
-                              height: 1.45,
-                            ),
-                          ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+      ));
+    }
 
-/// Native-style "deep thinking" card: brain icon + title + rotating chevron,
-/// with a markdown-rendered body that animates open/closed. Mirrors the look of
-/// the normal chat's reasoning section ([ReasoningIcons.thinkingCardIcon] +
-/// [MarkdownWithCodeHighlight]). Thinking text is lazy-loaded by the parent on
-/// first expand, so [text] may be empty until then.
-class _CcReasoningCard extends StatelessWidget {
-  const _CcReasoningCard({
-    required this.text,
-    required this.expanded,
-    required this.onToggle,
-  });
+    if (r.isUser) {
+      if (r.text.isNotEmpty) children.add(_native(_msg('user', r.text)));
+    } else if (r.text.isNotEmpty) {
+      // Assistant: split on ||| into separate bubbles (max 8); reasoning on first.
+      final segs = r.text
+          .split(_splitRe)
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      final parts = segs.isEmpty ? <String>[r.text] : segs.take(8).toList();
+      for (var i = 0; i < parts.length; i++) {
+        final first = i == 0;
+        children.add(_native(
+          _msg('assistant', parts[i], reasoning: first ? reasoning : null),
+          reasoningText: first && reasoning.isNotEmpty ? reasoning : null,
+          reasoningToggle: first && hasTurn,
+        ));
+      }
+    }
 
-  final String text;
-  final bool expanded;
-  final VoidCallback onToggle;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    final cs = Theme.of(context).colorScheme;
-    final strong = cs.onSurface.withValues(alpha: 0.85);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      decoration: BoxDecoration(
-        color: cs.primaryContainer.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          IosCardPress(
-            borderRadius: BorderRadius.circular(12),
-            baseColor: Colors.transparent,
-            pressedScale: 1.0,
-            onTap: onToggle,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            child: Row(
-              children: [
-                ReasoningIcons.thinkingCardIcon(size: 18, color: strong),
-                const SizedBox(width: 8),
-                Text(
-                  l10n.chatMessageWidgetDeepThinking,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: AppFontWeights.semibold,
-                    color: strong,
-                  ),
-                ),
-                const Spacer(),
-                AnimatedRotation(
-                  turns: expanded ? 0.25 : 0.0,
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeInOutCubic,
-                  child: Icon(Lucide.ChevronRight, size: 18, color: strong),
-                ),
-              ],
-            ),
-          ),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 220),
-            curve: const Cubic(0.2, 0.8, 0.2, 1),
-            alignment: Alignment.topCenter,
-            child: expanded
-                ? Padding(
-                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                    child: MarkdownWithCodeHighlight(
-                      text: text.isNotEmpty ? text : '…',
-                      baseStyle: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.4,
-                        color: cs.onSurface.withValues(alpha: 0.7),
-                      ),
-                    ),
-                  )
-                : const SizedBox(width: double.infinity),
-          ),
-        ],
-      ),
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: children,
     );
   }
 }
