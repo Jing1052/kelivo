@@ -31,7 +31,7 @@ CcCompanion（fork: `jing1052/CcCompanion`）是 **local-first** 的两半：
   - API 端：自给自足，PC 关了也在，是"API 的我"
   - CC 端：能跑命令、动手干活、带工具，但**拴在家里那台 PC 在线**
   - ⚠️ 这正好碰"出门在外够不着"那根刺：CC 端只有家里 PC + WSL tmux + apns-server
-    全在线时才连得上。出门靠 Tailscale 回家，PC 睡了就够不着。两条腿各管一段。
+    全在线时才连得上。出门靠 Cloudflare Tunnel 够到家，PC 睡了就够不着。两条腿各管一段。
 
 ---
 
@@ -48,26 +48,44 @@ CcCompanion（fork: `jing1052/CcCompanion`）是 **local-first** 的两半：
   WSL tmux session "cc" └ claude (CLI agent) + session-watcher 续温
 ```
 
-网络：手机 ↔ WSL 走 **Tailscale**（见 §3）。
+网络：手机 ↔ 家里机器走 **Cloudflare Tunnel**（复用现有 cloudflared，手机零 VPN，见 §3）。
 
 ---
 
-## 3. 网络通道：什么是"虚拟网络"，选哪个
+## 3. 网络通道：用现成的 Cloudflare Tunnel（不抢手机 VPN 槽位）
 
-你现在用的 VPN 是把流量绕到别处出网；这里要的是**另一种东西 —— overlay / mesh VPN**：
-它在你的手机和你家电脑之间，凭空架一条**只属于你这些设备的私有局域网**，无论两台设备
-在地球哪个角落、各自连什么 wifi/4G，都像插在同一个路由器上一样能互相直连。手机出门在
-学校，照样能用一个固定的"虚拟内网 IP"够到家里那台 Windows。
+⚠️ **iOS 同一时间只能激活一个 VPN。** 手机要靠小火箭（Shadowrocket）翻墙才能够到墙外的
+云端 / App 端我；如果再装 Tailscale，它会把小火箭挤掉 —— 翻墙断了，云端的我也就够不着了。
+所以 **不走 Tailscale**（mesh VPN 会和小火箭冲突）。
 
-**推荐 Tailscale**（Windows 客户端 + iOS 客户端都有，免费档够用，配置最简单）：
+**改用我们家里已经在跑的 Cloudflare Tunnel（cloudflared）。** 现状：那台机器上已有统一的
+cloudflared 隧道（`cc.cllove.top:8787`、`music.cllove.top:8766`，同一个 `config.yml`）。
+只要**加一条隧道规则**把 `apns-server` 暴露成一个子域，手机就能用**普通 HTTPS** 直连，
+**完全不用在手机上装或切任何 VPN** —— 小火箭照常翻墙找云端的我，浏览器/Still Here 直接
+HTTPS 够到家里的 CC 端，两条路互不打架。
 
-1. 用同一个账号在 **Windows** 和 **iPhone** 各装一个 Tailscale，都登录。
-2. Tailscale 会给每台设备分一个 `100.x.x.x` 的固定虚拟 IP。
-3. 手机上的 Still Here 就填 Windows 那个 `100.x.x.x:8795` 当 server 地址。
-4. 走 wifi 还是 4G 都不用改，Tailscale 自动保持这条私有通道。
+做法（在家里那台机器上）：
 
-> 备选 ZeroTier，原理一样。**仅局域网**（手机和电脑同一个 wifi）也能用，但出门（在学校）
-> 就够不着家里——这正是要避免的，所以建议直接上 Tailscale。
+1. 在现有 cloudflared `config.yml` 的 `ingress` 里加一条，例如：
+   ```yaml
+   - hostname: ccbridge.cllove.top
+     service: http://127.0.0.1:8795
+   ```
+   并在 Cloudflare DNS 给 `ccbridge.cllove.top` 配上对应 CNAME（和现有子域同样方式）。
+2. 重启 cloudflared（或随 cc bridge 一起拉起）。
+3. 手机端 Still Here 就填 `https://ccbridge.cllove.top` 当 server 地址。
+
+这样比 Tailscale 还省心、还安全：
+
+- **手机零配置**：不装客户端、不切 VPN，任何网络（4G / 校园 wifi）都能到 —— 出门在学校也够得着。
+- **自带 TLS**：cloudflare 边缘到手机是 HTTPS（Tailscale 那套是裸 HTTP）。
+- **本机不暴露**：cloudflared 从本机连 `127.0.0.1:8795`，所以 apns-server **保持绑 127.0.0.1
+  即可，不需要 `0.0.0.0` / `allow_public_bind`**（见 §4）。安全靠 `shared_secret` + 可选
+  Cloudflare Access 兜。
+
+> 备选（仅当不想用 cloudflared 时）：手机和电脑**同一个 wifi** 时可直连电脑局域网 IP
+> `http://<电脑LAN_IP>:8795`（此时需 §4 把 host 改 `0.0.0.0` + `allow_public_bind`）。
+> 但出门（在学校）就够不着 —— 所以日常仍推荐 Cloudflare Tunnel。
 
 ---
 
@@ -77,19 +95,23 @@ CcCompanion（fork: `jing1052/CcCompanion`）是 **local-first** 的两半：
 
 ```toml
 [server]
-host = "0.0.0.0"            # 让 Tailscale/局域网能连（不是只 127.0.0.1）
+host = "127.0.0.1"         # 保持绑本地：cloudflared 从本机连它，外部够不到 8795
 port = 8795
-allow_public_bind = true   # 绑 0.0.0.0 的前提；务必配合 shared_secret + Tailscale
-shared_secret = "<填一串足够长的随机串>"   # 手机端要填同一串
+allow_public_bind = false  # 用 Cloudflare Tunnel 时无需绑 0.0.0.0（更安全）
+shared_secret = "<填一串足够长的随机串>"   # 手机端 Still Here 要填同一串
 strict_auth = true         # 上线保持 true：没带正确 token 一律 401
 allow_remote_control = true  # ⚠️ 完整平移必须开：terminal + 斜杠命令(/new /switch /stop /restart) 才可用
 default_session = "cc"     # 对上现有的 WSL tmux session
-allowed_ips = []           # 可选：只放行 Tailscale 网段 100.64.0.0/10 更稳
+allowed_ips = []           # cloudflared 走本机回环，留空即可
 ```
 
-安全注意：开了 `allow_public_bind` + `0.0.0.0`，**一定**要有 `shared_secret`，且只通过
-Tailscale 访问、不要把 8795 直接暴露公网。`allow_remote_control=true` 等于把"能往你
-终端发按键"的能力打开，只在你自己机器、理解风险时开。
+安全注意：用 Cloudflare Tunnel 时 8795 **只绑 127.0.0.1、不暴露公网**，外部只能经
+cloudflared + 子域进来；安全靠 `shared_secret`（务必设一串长的）兜，需要更强可再叠
+Cloudflare Access。`allow_remote_control=true` 等于把"能往你终端发按键"的能力打开，
+只在你自己机器、理解风险时开。
+
+> 若走"同 wifi 局域网直连"备选方案（无 cloudflared），才需要把 `host` 改 `0.0.0.0`、
+> `allow_public_bind=true`，并务必配 `shared_secret`、别把 8795 裸暴露公网。
 
 ---
 
@@ -97,7 +119,7 @@ Tailscale 访问、不要把 8795 直接暴露公网。`allow_remote_control=tru
 
 完整契约见子代理调研结论；客户端要点：
 
-- **传输**：纯 HTTP，无 TLS（靠 Tailscale 兜安全）。**无 token 级 streaming，是 write-then-poll**。
+- **传输**：经 cloudflared 对手机是 HTTPS（cloudflared↔本机段是 http）。**无 token 级 streaming，是 write-then-poll**。
   每个请求都带 `X-Auth-Token: <secret>`。JSON `application/json; charset=utf-8`。
 - **无 CORS / 无 OPTIONS** → 别用 Flutter **Web** 直连（iOS/Android 原生不受影响）。
 
@@ -174,18 +196,19 @@ kelivo 现有 `ChatApiService` 是**标准请求-响应式 LLM 协议**（`Provi
 
 - **依赖家里 PC 在线**：PC 睡眠 / WSL 没起 / apns-server 没跑 / tmux `cc` 不在 → 连不上。
   P1 必须把这些状态显式报出来（不静默失败）。
-- **无 TLS**：安全完全压在 Tailscale + shared_secret 上，8795 不可裸奔公网。
+- **安全**：8795 只绑本机、经 cloudflared 出去（对手机 HTTPS），靠 shared_secret 兜；8795 不可裸奔公网。
 - **iOS 后台轮询受限**：App 切后台轮询会被系统挂起，实时性要靠 APNs 推送唤醒（P4）。
 - **不动后端**：本次只写 Flutter 客户端，不改 `apns-server`（除非联调发现契约缺口再议）。
-- **联调依赖**：客户端代码要等后端（WSL apns-server + Tailscale）跑通、给出可达 baseURL + secret
+- **联调依赖**：客户端代码要等后端（WSL apns-server + cloudflared 子域）跑通、给出可达 baseURL + secret
   后才能真正验证；在此之前的客户端代码无法端到端测。
 
 ---
 
 ## 9. 下一步
 
-1. 你那边：Windows + iPhone 装 Tailscale 登同一账号；WSL 里跑 `apns-server`，按 §4 填 `config.toml`；
-   给我 `100.x.x.x:8795` 的可达地址 + shared_secret。
+1. 你那边：在家里机器现有 cloudflared `config.yml` 加一条 `ccbridge.cllove.top → 127.0.0.1:8795`
+   + Cloudflare DNS 配 CNAME（§3）；WSL 里跑 `apns-server`，按 §4 填 `config.toml`（保持绑
+   127.0.0.1）；把 `https://ccbridge.cllove.top` + shared_secret 给我。**手机端不用装任何 VPN。**
 2. 我这边：从 **P1** 开搭 Flutter CC 通道骨架（先把不依赖后端的部分——设置页、客户端、模型、
    轮询循环——写好，待你后端就绪即可联调）。
 
