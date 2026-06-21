@@ -2093,5 +2093,36 @@
         "type": "int"
       }
     }
-  }
+  },
+  "ccBridgePageTitle": "CC 端",
+  "ccBridgeEnableLabel": "启用 CC 端",
+  "ccBridgeEnableDescription": "连接家里机器上运行的 CC 端",
+  "ccBridgeEndpointsLabel": "服务器地址",
+  "ccBridgeEndpointsHint": "每行一个地址，如 https://ccbridge.example.com",
+  "ccBridgeSecretLabel": "共享密钥",
+  "ccBridgeSecretHint": "每次请求携带的 X-Auth-Token",
+  "ccBridgeSessionLabel": "tmux 会话",
+  "ccBridgePollIntervalLabel": "轮询间隔（毫秒）",
+  "ccBridgePollIntervalHint": "1000–30000",
+  "ccBridgeRemoteControlLabel": "启用终端与斜杠命令",
+  "ccBridgeRemoteControlDescription": "需服务器开启 allow_remote_control",
+  "ccBridgeSaveButton": "保存",
+  "ccBridgeSavedToast": "已保存",
+  "ccBridgeReconnectButton": "重新连接",
+  "ccBridgeOpenChatButton": "进入对话",
+  "ccBridgeStatusOnline": "在线",
+  "ccBridgeStatusConnecting": "连接中…",
+  "ccBridgeStatusOffline": "离线",
+  "ccBridgeStatusUnauthorized": "鉴权失败",
+  "ccBridgeStatusIdle": "未连接",
+  "ccBridgeChatTitle": "CC 端",
+  "ccBridgeChatInputHint": "给 CC 端发消息…",
+  "ccBridgeAgentUnreachableToast": "已保存，但 CC 端暂时无法送达",
+  "ccBridgeEmptyHint": "还没有消息",
+  "ccBridgeTypingStatus": "正在输入…",
+  "ccBridgeOnlineStatus": "在线",
+  "ccBridgeSleepingStatus": "休眠中",
+  "ccBridgeNotConfiguredTitle": "尚未配置 CC 端",
+  "ccBridgeNotConfiguredHint": "填写服务器地址和共享密钥，连接家里的 CC 端。",
+  "ccBridgeOpenSettingsButton": "前往设置"
 }

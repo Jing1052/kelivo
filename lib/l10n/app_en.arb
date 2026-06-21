@@ -2523,5 +2523,36 @@
         "type": "int"
       }
     }
-  }
+  },
+  "ccBridgePageTitle": "CC bridge",
+  "ccBridgeEnableLabel": "Enable CC bridge",
+  "ccBridgeEnableDescription": "Connect to the CC agent running on your home machine",
+  "ccBridgeEndpointsLabel": "Server addresses",
+  "ccBridgeEndpointsHint": "One URL per line, e.g. https://ccbridge.example.com",
+  "ccBridgeSecretLabel": "Shared secret",
+  "ccBridgeSecretHint": "X-Auth-Token sent on every request",
+  "ccBridgeSessionLabel": "tmux session",
+  "ccBridgePollIntervalLabel": "Poll interval (ms)",
+  "ccBridgePollIntervalHint": "1000–30000",
+  "ccBridgeRemoteControlLabel": "Enable terminal & slash commands",
+  "ccBridgeRemoteControlDescription": "Requires allow_remote_control on the server",
+  "ccBridgeSaveButton": "Save",
+  "ccBridgeSavedToast": "Saved",
+  "ccBridgeReconnectButton": "Reconnect",
+  "ccBridgeOpenChatButton": "Open conversation",
+  "ccBridgeStatusOnline": "Online",
+  "ccBridgeStatusConnecting": "Connecting…",
+  "ccBridgeStatusOffline": "Offline",
+  "ccBridgeStatusUnauthorized": "Auth failed",
+  "ccBridgeStatusIdle": "Not connected",
+  "ccBridgeChatTitle": "CC agent",
+  "ccBridgeChatInputHint": "Message the CC agent…",
+  "ccBridgeAgentUnreachableToast": "Stored, but the agent is unreachable",
+  "ccBridgeEmptyHint": "No messages yet",
+  "ccBridgeTypingStatus": "typing…",
+  "ccBridgeOnlineStatus": "online",
+  "ccBridgeSleepingStatus": "sleeping",
+  "ccBridgeNotConfiguredTitle": "CC bridge not set up",
+  "ccBridgeNotConfiguredHint": "Add the server address and shared secret to connect to your home CC agent.",
+  "ccBridgeOpenSettingsButton": "Open settings"
 }

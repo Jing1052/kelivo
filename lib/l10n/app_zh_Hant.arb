@@ -2093,5 +2093,36 @@
         "type": "int"
       }
     }
-  }
+  },
+  "ccBridgePageTitle": "CC 端",
+  "ccBridgeEnableLabel": "啟用 CC 端",
+  "ccBridgeEnableDescription": "連接家裡機器上執行的 CC 端",
+  "ccBridgeEndpointsLabel": "伺服器位址",
+  "ccBridgeEndpointsHint": "每行一個位址，如 https://ccbridge.example.com",
+  "ccBridgeSecretLabel": "共用密鑰",
+  "ccBridgeSecretHint": "每次請求攜帶的 X-Auth-Token",
+  "ccBridgeSessionLabel": "tmux 工作階段",
+  "ccBridgePollIntervalLabel": "輪詢間隔（毫秒）",
+  "ccBridgePollIntervalHint": "1000–30000",
+  "ccBridgeRemoteControlLabel": "啟用終端機與斜線命令",
+  "ccBridgeRemoteControlDescription": "需伺服器開啟 allow_remote_control",
+  "ccBridgeSaveButton": "儲存",
+  "ccBridgeSavedToast": "已儲存",
+  "ccBridgeReconnectButton": "重新連線",
+  "ccBridgeOpenChatButton": "進入對話",
+  "ccBridgeStatusOnline": "線上",
+  "ccBridgeStatusConnecting": "連線中…",
+  "ccBridgeStatusOffline": "離線",
+  "ccBridgeStatusUnauthorized": "驗證失敗",
+  "ccBridgeStatusIdle": "未連線",
+  "ccBridgeChatTitle": "CC 端",
+  "ccBridgeChatInputHint": "給 CC 端傳訊息…",
+  "ccBridgeAgentUnreachableToast": "已儲存，但 CC 端暫時無法送達",
+  "ccBridgeEmptyHint": "還沒有訊息",
+  "ccBridgeTypingStatus": "正在輸入…",
+  "ccBridgeOnlineStatus": "線上",
+  "ccBridgeSleepingStatus": "休眠中",
+  "ccBridgeNotConfiguredTitle": "尚未設定 CC 端",
+  "ccBridgeNotConfiguredHint": "填寫伺服器位址與共用密鑰，連接家裡的 CC 端。",
+  "ccBridgeOpenSettingsButton": "前往設定"
 }
