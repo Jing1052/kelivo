@@ -172,6 +172,52 @@ class CcBridgeClient {
     return CcSendResult(ok: m['ok'] == true, record: rec);
   }
 
+  /// `POST /chat/upload?filename=&role=&text=` — raw bytes body (NOT multipart),
+  /// metadata via query. ≤50MB. Like [send], HTTP 502 maps to `agentUnreachable`
+  /// (stored to history but tmux injection failed) rather than thrown.
+  Future<CcSendResult> upload(
+    List<int> bytes, {
+    required String filename,
+    String role = 'user',
+    String? text,
+    Duration? timeout,
+  }) async {
+    final resp = await _http
+        .post(
+          _uri('/chat/upload', {
+            'filename': filename,
+            'role': role,
+            if (text != null && text.isNotEmpty) 'text': text,
+          }),
+          headers: {
+            ..._authHeaders,
+            'Content-Type': 'application/octet-stream',
+          },
+          body: bytes,
+        )
+        .timeout(timeout ?? const Duration(seconds: 60));
+
+    if (resp.statusCode == 502) {
+      final m = _decodeJson(resp);
+      final rec = m['record'] is Map
+          ? CcChatRecord.fromJson(Map<String, dynamic>.from(m['record']))
+          : null;
+      return CcSendResult(
+        ok: false,
+        agentUnreachable: true,
+        record: rec,
+        error: m['error']?.toString(),
+      );
+    }
+    if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
+
+    final m = _decodeJson(resp);
+    final rec = m['record'] is Map
+        ? CcChatRecord.fromJson(Map<String, dynamic>.from(m['record']))
+        : null;
+    return CcSendResult(ok: m['ok'] == true, record: rec);
+  }
+
   /// `GET /chat/poll?since=&etag=&limit=` — incremental fetch.
   Future<CcPollResult> poll({
     String? since,

@@ -2573,5 +2573,11 @@
   "ccBridgeChainCompact": "Compact",
   "ccBridgeChainSwitchTitle": "Switch session",
   "ccBridgeChainNoSessions": "No sessions",
-  "ccBridgeChainActiveLabel": "active"
+  "ccBridgeChainActiveLabel": "active",
+  "ccBridgeAttachLabel": "Attach",
+  "ccBridgeAttachPhoto": "Photo",
+  "ccBridgeAttachCamera": "Camera",
+  "ccBridgeAttachFile": "File",
+  "ccBridgeUploadDone": "Sent",
+  "ccBridgeUploadFailed": "Upload failed"
 }

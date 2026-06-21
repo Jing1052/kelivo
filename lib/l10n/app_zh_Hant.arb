@@ -2143,5 +2143,11 @@
   "ccBridgeChainCompact": "壓縮",
   "ccBridgeChainSwitchTitle": "切換工作階段",
   "ccBridgeChainNoSessions": "沒有工作階段",
-  "ccBridgeChainActiveLabel": "目前"
+  "ccBridgeChainActiveLabel": "目前",
+  "ccBridgeAttachLabel": "新增附件",
+  "ccBridgeAttachPhoto": "相簿",
+  "ccBridgeAttachCamera": "拍照",
+  "ccBridgeAttachFile": "檔案",
+  "ccBridgeUploadDone": "已傳送",
+  "ccBridgeUploadFailed": "上傳失敗"
 }

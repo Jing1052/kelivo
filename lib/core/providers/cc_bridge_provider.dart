@@ -217,6 +217,32 @@ class CcBridgeProvider extends ChangeNotifier {
     }
   }
 
+  /// Upload an image/file as a user message (raw bytes → /chat/upload). Returns
+  /// the result so the UI can surface the 502 "agent unreachable" case.
+  Future<CcSendResult?> uploadFile(
+    List<int> bytes, {
+    required String filename,
+    String? text,
+  }) async {
+    final c = _client;
+    if (c == null || bytes.isEmpty) return null;
+    try {
+      final res = await c.upload(bytes, filename: filename, text: text);
+      if (res.record != null) {
+        _mergeRecords(<CcChatRecord>[res.record!]);
+        if (res.record!.ts.isNotEmpty) _cursor = res.record!.ts;
+      }
+      _lastError = res.agentUnreachable ? 'agent_unreachable' : null;
+      notifyListeners();
+      unawaited(_pollOnce());
+      return res;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
   /// Fetch thinking-card records for a turn (lazy, on expand).
   Future<void> loadThinking(String turnId) async {
     final c = _client;

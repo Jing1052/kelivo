@@ -2143,5 +2143,11 @@
   "ccBridgeChainCompact": "压缩",
   "ccBridgeChainSwitchTitle": "切换会话",
   "ccBridgeChainNoSessions": "没有会话",
-  "ccBridgeChainActiveLabel": "当前"
+  "ccBridgeChainActiveLabel": "当前",
+  "ccBridgeAttachLabel": "添加附件",
+  "ccBridgeAttachPhoto": "相册",
+  "ccBridgeAttachCamera": "拍照",
+  "ccBridgeAttachFile": "文件",
+  "ccBridgeUploadDone": "已发送",
+  "ccBridgeUploadFailed": "上传失败"
 }

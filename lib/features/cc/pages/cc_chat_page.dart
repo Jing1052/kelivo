@@ -1,24 +1,30 @@
 // CC bridge chat page (P1 + thinking cards & attachments).
 //
 // A standalone conversation channel into the home `cc` tmux session via
-// [CcBridgeProvider]. Renders the merged record list as bubbles, an input bar
-// (write-then-poll send), a live presence header, and surfaces the HTTP 502
-// "agent unreachable" case distinctly. Assistant turns expose an expandable
-// thinking card (lazy-loaded from /v1/thinking); image/file attachments render
-// inline. Terminal mirror / slash commands are later phases (see
-// docs/CC_BRIDGE_INTEGRATION.md §7).
+// [CcBridgeProvider]. Mirrors the native chat look: assistant bodies render with
+// [MarkdownWithCodeHighlight] and thinking uses a native-style "deep thinking"
+// card (lazy-loaded from /v1/thinking). The input bar can attach images/files
+// (raw-bytes upload to /chat/upload). Surfaces the HTTP 502 "agent unreachable"
+// case distinctly. See docs/CC_BRIDGE_INTEGRATION.md.
+
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'package:Kelivo/theme/app_font_weights.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../icons/lucide_adapter.dart';
+import '../../../icons/reasoning_icons.dart';
 import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/services/cc/cc_bridge_models.dart';
+import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
+import '../../../shared/widgets/markdown_with_highlight.dart';
 import 'cc_bridge_page.dart';
 import 'cc_terminal_page.dart';
 
@@ -33,6 +39,7 @@ class _CcChatPageState extends State<CcChatPage> {
   final TextEditingController _inputCtl = TextEditingController();
   final ScrollController _scrollCtl = ScrollController();
   int _lastCount = 0;
+  bool _uploading = false;
 
   @override
   void dispose() {
@@ -59,6 +66,97 @@ class _CcChatPageState extends State<CcChatPage> {
         SnackBar(content: Text(l10n.ccBridgeAgentUnreachableToast)),
       );
     }
+  }
+
+  Future<void> _showAttachSheet() async {
+    Haptics.light();
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _AttachOption(
+              icon: Lucide.Image,
+              label: l10n.ccBridgeAttachPhoto,
+              onTap: () => Navigator.of(ctx).pop('photo'),
+            ),
+            _AttachOption(
+              icon: Lucide.Camera,
+              label: l10n.ccBridgeAttachCamera,
+              onTap: () => Navigator.of(ctx).pop('camera'),
+            ),
+            _AttachOption(
+              icon: Lucide.FileText,
+              label: l10n.ccBridgeAttachFile,
+              onTap: () => Navigator.of(ctx).pop('file'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    switch (choice) {
+      case 'photo':
+        await _pickImage(ImageSource.gallery);
+        break;
+      case 'camera':
+        await _pickImage(ImageSource.camera);
+        break;
+      case 'file':
+        await _pickFile();
+        break;
+    }
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    final x = await ImagePicker().pickImage(source: source, imageQuality: 90);
+    if (x == null) return;
+    await _upload(await x.readAsBytes(), x.name);
+  }
+
+  Future<void> _pickFile() async {
+    final res = await FilePicker.platform.pickFiles(withData: false);
+    final path = res?.files.single.path;
+    if (path == null) return;
+    await _upload(await File(path).readAsBytes(), res!.files.single.name);
+  }
+
+  Future<void> _upload(List<int> bytes, String filename) async {
+    final l10n = AppLocalizations.of(context)!;
+    final provider = context.read<CcBridgeProvider>();
+    // Carry any typed text along as the attachment caption.
+    final caption = _inputCtl.text.trim();
+    setState(() => _uploading = true);
+    CcSendResult? res;
+    try {
+      res = await provider.uploadFile(
+        bytes,
+        filename: filename,
+        text: caption.isEmpty ? null : caption,
+      );
+      if (caption.isNotEmpty) _inputCtl.clear();
+    } catch (_) {
+      res = null;
+    }
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    final ok = res != null && (res.ok || res.agentUnreachable);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          res != null && res.agentUnreachable
+              ? l10n.ccBridgeAgentUnreachableToast
+              : (ok ? l10n.ccBridgeUploadDone : l10n.ccBridgeUploadFailed),
+        ),
+      ),
+    );
   }
 
   @override
@@ -236,6 +334,17 @@ class _CcChatPageState extends State<CcChatPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            Tooltip(
+              message: l10n.ccBridgeAttachLabel,
+              child: IosIconButton(
+                icon: Lucide.Plus,
+                color: cs.onSurface.withValues(alpha: 0.75),
+                size: 22,
+                minSize: 42,
+                onTap: _uploading ? null : _showAttachSheet,
+              ),
+            ),
+            const SizedBox(width: 4),
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -264,11 +373,20 @@ class _CcChatPageState extends State<CcChatPage> {
             ),
             const SizedBox(width: 8),
             IosCardPress(
-              onTap: () => _send(),
+              onTap: _uploading ? () {} : () => _send(),
               borderRadius: BorderRadius.circular(22),
               baseColor: cs.primary,
               padding: const EdgeInsets.all(10),
-              child: Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
+              child: _uploading
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: cs.onPrimary,
+                      ),
+                    )
+                  : Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
             ),
           ],
         ),
@@ -346,12 +464,11 @@ class _ChatBubbleState extends State<_ChatBubble> {
               : CrossAxisAlignment.start,
           children: [
             if (hasTurn)
-              _ThinkingToggle(
+              _CcReasoningCard(
+                text: thinking.join('\n\n'),
                 expanded: _showThinking,
-                onTap: () => _toggleThinking(r.turnId!),
+                onToggle: () => _toggleThinking(r.turnId!),
               ),
-            if (hasTurn && _showThinking && thinking.isNotEmpty)
-              _ThinkingCard(text: thinking.join('\n\n')),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
@@ -363,14 +480,23 @@ class _ChatBubbleState extends State<_ChatBubble> {
                 children: [
                   if (r.hasAttachment) _Attachment(record: r),
                   if (r.text.isNotEmpty)
-                    SelectableText(
-                      r.text,
-                      style: TextStyle(
-                        fontSize: 15,
-                        color: cs.onSurface,
-                        height: 1.35,
-                      ),
-                    ),
+                    isUser
+                        ? SelectableText(
+                            r.text,
+                            style: TextStyle(
+                              fontSize: 15,
+                              color: cs.onSurface,
+                              height: 1.35,
+                            ),
+                          )
+                        : MarkdownWithCodeHighlight(
+                            text: r.text,
+                            baseStyle: TextStyle(
+                              fontSize: 15,
+                              color: cs.onSurface,
+                              height: 1.45,
+                            ),
+                          ),
                 ],
               ),
             ),
@@ -381,68 +507,120 @@ class _ChatBubbleState extends State<_ChatBubble> {
   }
 }
 
-class _ThinkingToggle extends StatelessWidget {
-  const _ThinkingToggle({required this.expanded, required this.onTap});
+/// Native-style "deep thinking" card: brain icon + title + rotating chevron,
+/// with a markdown-rendered body that animates open/closed. Mirrors the look of
+/// the normal chat's reasoning section ([ReasoningIcons.thinkingCardIcon] +
+/// [MarkdownWithCodeHighlight]). Thinking text is lazy-loaded by the parent on
+/// first expand, so [text] may be empty until then.
+class _CcReasoningCard extends StatelessWidget {
+  const _CcReasoningCard({
+    required this.text,
+    required this.expanded,
+    required this.onToggle,
+  });
+
+  final String text;
   final bool expanded;
-  final VoidCallback onTap;
+  final VoidCallback onToggle;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4, left: 2),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              expanded ? Lucide.ChevronDown : Lucide.ChevronRight,
-              size: 14,
-              color: cs.onSurface.withValues(alpha: 0.5),
+    final strong = cs.onSurface.withValues(alpha: 0.85);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: cs.primaryContainer.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IosCardPress(
+            borderRadius: BorderRadius.circular(12),
+            baseColor: Colors.transparent,
+            pressedScale: 1.0,
+            onTap: onToggle,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                ReasoningIcons.thinkingCardIcon(size: 18, color: strong),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.chatMessageWidgetDeepThinking,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: AppFontWeights.semibold,
+                    color: strong,
+                  ),
+                ),
+                const Spacer(),
+                AnimatedRotation(
+                  turns: expanded ? 0.25 : 0.0,
+                  duration: const Duration(milliseconds: 220),
+                  curve: Curves.easeInOutCubic,
+                  child: Icon(Lucide.ChevronRight, size: 18, color: strong),
+                ),
+              ],
             ),
-            const SizedBox(width: 2),
-            Icon(Lucide.Brain, size: 13, color: cs.onSurface.withValues(alpha: 0.5)),
-            const SizedBox(width: 4),
-            Text(
-              expanded ? l10n.ccBridgeHideThinking : l10n.ccBridgeShowThinking,
-              style: TextStyle(
-                fontSize: 12,
-                color: cs.onSurface.withValues(alpha: 0.5),
-              ),
-            ),
-          ],
-        ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: const Cubic(0.2, 0.8, 0.2, 1),
+            alignment: Alignment.topCenter,
+            child: expanded
+                ? Padding(
+                    padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+                    child: MarkdownWithCodeHighlight(
+                      text: text.isNotEmpty ? text : '…',
+                      baseStyle: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.4,
+                        color: cs.onSurface.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ThinkingCard extends StatelessWidget {
-  const _ThinkingCard({required this.text});
-  final String text;
+/// One row in the attachment bottom sheet (photo / camera / file).
+class _AttachOption extends StatelessWidget {
+  const _AttachOption({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.25)),
-      ),
-      child: SelectableText(
-        text,
-        style: TextStyle(
-          fontSize: 13,
-          height: 1.4,
-          fontStyle: FontStyle.italic,
-          color: cs.onSurface.withValues(alpha: 0.7),
-        ),
+    return IosCardPress(
+      borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: cs.onSurface),
+          const SizedBox(width: 16),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 15.5,
+              fontWeight: AppFontWeights.medium,
+              color: cs.onSurface,
+            ),
+          ),
+        ],
       ),
     );
   }
