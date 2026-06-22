@@ -229,14 +229,13 @@ class _DashboardState extends State<_Dashboard> {
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+        // spaceEvenly spreads the leftover height into small, equal gaps between
+        // every block — gently loose, no big empty void in the middle.
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [SizedBox(height: 26), _PairHeader()],
-            ),
+            const _PairHeader(),
             // Clock + weather (left) beside a 2×2 grid of room tiles (right).
             // Both halves are kept SQUARE (height == half the row width) so the
             // tiles and the big card read as cubes, not tall rectangles.
@@ -256,17 +255,9 @@ class _DashboardState extends State<_Dashboard> {
                 );
               },
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _DaysCard(dayNum: dayNum, next: next, zh: zh),
-                const SizedBox(height: 10),
-                _MusicCard(zh: zh),
-                const SizedBox(height: 10),
-                _daddyBar(),
-              ],
-            ),
+            _DaysCard(dayNum: dayNum, next: next, zh: zh),
+            _MusicCard(zh: zh),
+            _daddyBar(),
           ],
         ),
       ),
