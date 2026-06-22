@@ -296,7 +296,10 @@ class MyApp extends StatelessWidget {
               });
 
               final useDyn = isAndroid && settings.useDynamicColor;
-              final palette = ThemePalettes.byId(settings.themePaletteId);
+              final palette = ThemePalettes.resolve(
+                settings.themePaletteId,
+                customSeed: settings.customPaletteSeed,
+              );
 
               final light = buildLightThemeForScheme(
                 palette.light,

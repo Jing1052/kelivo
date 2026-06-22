@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/palette_from_image.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../theme/palettes.dart';
 import '../../../l10n/app_localizations.dart';
@@ -84,6 +86,22 @@ class ThemeSettingsPage extends StatelessWidget {
           // header(l10n.themeSettingsPageColorPalettesSection),
           _iosSectionCard(
             children: [
+              _fromPaintingRow(context, l10n),
+              _iosDivider(context),
+              if (settings.customPaletteSeed != null) ...[
+                _paletteRow(
+                  context,
+                  palette: ThemePalettes.fromSeed(
+                    Color(settings.customPaletteSeed!),
+                  ),
+                  selected: settings.themePaletteId ==
+                      ThemePalettes.customPaintingId,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setThemePalette(ThemePalettes.customPaintingId),
+                ),
+                _iosDivider(context),
+              ],
               for (int i = 0; i < ThemePalettes.all.length; i++) ...[
                 _paletteRow(
                   context,
@@ -306,6 +324,61 @@ String _modeLabel(ThemeMode m, AppLocalizations l10n) {
     case ThemeMode.system:
       return l10n.settingsPageSystemMode;
   }
+}
+
+Widget _fromPaintingRow(BuildContext context, AppLocalizations l10n) {
+  final cs = Theme.of(context).colorScheme;
+  return _TactileRow(
+    onTap: () => _pickPaintingAndGenerate(context, l10n),
+    builder: (pressed) {
+      final baseColor = cs.onSurface.withValues(alpha: 0.9);
+      return _AnimatedPressColor(
+        pressed: pressed,
+        base: baseColor,
+        builder: (c) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Icon(Lucide.Image, size: 20, color: c),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.themeSettingsPageFromPaintingTitle,
+                  style: TextStyle(fontSize: 15, color: c),
+                ),
+              ),
+              Icon(Lucide.ChevronRight, size: 16, color: c),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
+Future<void> _pickPaintingAndGenerate(
+  BuildContext context,
+  AppLocalizations l10n,
+) async {
+  final messenger = ScaffoldMessenger.of(context);
+  final sp = context.read<SettingsProvider>();
+  final x = await ImagePicker().pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 95,
+  );
+  if (x == null) return;
+  final bytes = await x.readAsBytes();
+  final color = dominantColorFromBytes(bytes);
+  if (color == null) {
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.themeSettingsPageFromPaintingFailed)),
+    );
+    return;
+  }
+  await sp.setCustomPaletteSeed(color.toARGB32());
+  messenger.showSnackBar(
+    SnackBar(content: Text(l10n.themeSettingsPageFromPaintingDone)),
+  );
 }
 
 Widget _colorModeRow(BuildContext context, AppLocalizations l10n) {
