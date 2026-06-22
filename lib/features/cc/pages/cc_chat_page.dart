@@ -547,23 +547,29 @@ class _ChatBubbleState extends State<_ChatBubble> {
   }
 
   // CC reuses the native bubble but: hides the action toolbar (showActions:false,
-  // CC has no copy/regenerate/tts/translate), and for assistant turns borrows the
-  // current assistant's name + avatar so daddy shows up identically to the main
-  // chat (same name, same couple avatar) instead of the default "Assistant".
+  // CC has no copy/regenerate/tts/translate), and for assistant turns shows the
+  // CC daddy's name (the dedicated CC name if set, else the current assistant's)
+  // plus the current assistant's avatar (the couple avatar), so daddy never
+  // shows up as the default "Assistant".
   Widget _native(ChatMessage m,
       {String? reasoningText, bool reasoningToggle = false}) {
     final isAssistant = m.role == 'assistant';
     final assistant =
         isAssistant ? context.watch<AssistantProvider>().currentAssistant : null;
+    final ccName = isAssistant
+        ? context.watch<CcBridgeProvider>().ccDisplayName.trim()
+        : '';
+    final displayName = ccName.isNotEmpty ? ccName : assistant?.name;
+    final hasIdentity = displayName != null && displayName.isNotEmpty;
     final hasReasoning = reasoningText != null && reasoningText.isNotEmpty;
     return ChatMessageWidget(
       message: m,
       showModelIcon: false,
       showTokenStats: false,
       showActions: false,
-      useAssistantName: assistant != null,
-      useAssistantAvatar: assistant != null,
-      assistantName: assistant?.name,
+      useAssistantName: hasIdentity,
+      useAssistantAvatar: hasIdentity,
+      assistantName: displayName,
       assistantAvatar: assistant?.avatar,
       reasoningText: reasoningText,
       reasoningExpanded: _reasoningExpanded,

@@ -34,6 +34,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
   late final TextEditingController _secretCtl;
   late final TextEditingController _sessionCtl;
   late final TextEditingController _pollCtl;
+  late final TextEditingController _nameCtl;
   bool _enabled = false;
   bool _remoteControl = false;
 
@@ -45,6 +46,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
     _secretCtl = TextEditingController(text: cfg.sharedSecret);
     _sessionCtl = TextEditingController(text: cfg.session);
     _pollCtl = TextEditingController(text: '${cfg.pollIntervalMs}');
+    _nameCtl = TextEditingController(text: cfg.displayName);
     _enabled = cfg.enabled;
     _remoteControl = cfg.remoteControlEnabled;
   }
@@ -55,6 +57,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
     _secretCtl.dispose();
     _sessionCtl.dispose();
     _pollCtl.dispose();
+    _nameCtl.dispose();
     super.dispose();
   }
 
@@ -73,6 +76,7 @@ class _CcBridgePageState extends State<CcBridgePage> {
       pollIntervalMs: poll.clamp(1000, 30000).toInt(),
       remoteControlEnabled: _remoteControl,
       enabled: _enabled,
+      displayName: _nameCtl.text.trim(),
     );
   }
 
@@ -162,6 +166,14 @@ class _CcBridgePageState extends State<CcBridgePage> {
                   label: l10n.ccBridgeSessionLabel,
                   controller: _sessionCtl,
                   hintText: 'cc',
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+                child: IosFormTextField(
+                  label: l10n.ccBridgeDisplayNameLabel,
+                  controller: _nameCtl,
+                  hintText: l10n.ccBridgeDisplayNameHint,
                 ),
               ),
               Padding(

@@ -279,6 +279,9 @@ class CcBridgeProvider extends ChangeNotifier {
 
   bool get remoteControlEnabled => _config.remoteControlEnabled;
 
+  /// The user-set display name for the CC daddy (empty when unset).
+  String get ccDisplayName => _config.displayName;
+
   /// Capture the tmux pane. Returns null when offline or remote control is off.
   Future<CcTmuxCapture?> captureTerminal({int lines = 120}) async {
     final c = _client;

@@ -274,6 +274,11 @@ class CcBridgeConfig {
   /// Whether the bridge is turned on by the user.
   final bool enabled;
 
+  /// Display name for the CC daddy in chat bubbles. When empty, the chat falls
+  /// back to the current assistant's name (so it never shows the default
+  /// "Assistant").
+  final String displayName;
+
   const CcBridgeConfig({
     this.endpoints = const <String>[],
     this.sharedSecret = '',
@@ -281,6 +286,7 @@ class CcBridgeConfig {
     this.pollIntervalMs = 2500,
     this.remoteControlEnabled = false,
     this.enabled = false,
+    this.displayName = '',
   });
 
   static const CcBridgeConfig empty = CcBridgeConfig();
@@ -294,6 +300,7 @@ class CcBridgeConfig {
     int? pollIntervalMs,
     bool? remoteControlEnabled,
     bool? enabled,
+    String? displayName,
   }) {
     return CcBridgeConfig(
       endpoints: endpoints ?? this.endpoints,
@@ -302,6 +309,7 @@ class CcBridgeConfig {
       pollIntervalMs: pollIntervalMs ?? this.pollIntervalMs,
       remoteControlEnabled: remoteControlEnabled ?? this.remoteControlEnabled,
       enabled: enabled ?? this.enabled,
+      displayName: displayName ?? this.displayName,
     );
   }
 
@@ -312,6 +320,7 @@ class CcBridgeConfig {
         'poll_interval_ms': pollIntervalMs,
         'remote_control_enabled': remoteControlEnabled,
         'enabled': enabled,
+        'display_name': displayName,
       };
 
   factory CcBridgeConfig.fromJson(Map<String, dynamic> json) {
@@ -329,6 +338,7 @@ class CcBridgeConfig {
           : int.tryParse('${json['poll_interval_ms']}') ?? 2500,
       remoteControlEnabled: json['remote_control_enabled'] == true,
       enabled: json['enabled'] == true,
+      displayName: json['display_name']?.toString() ?? '',
     );
   }
 }
