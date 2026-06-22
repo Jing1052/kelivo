@@ -106,6 +106,7 @@ class SettingsProvider extends ChangeNotifier {
   static const String _compressPromptKey = 'compress_prompt_v1';
   static const String _themePaletteKey = 'theme_palette_v1';
   static const String _customPaletteSeedKey = 'custom_palette_seed_v1';
+  static const String _ourhomeTokenKey = 'ourhome_gateway_token_v1';
   static const String _useDynamicColorKey = 'use_dynamic_color_v1';
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
@@ -374,6 +375,21 @@ class SettingsProvider extends ChangeNotifier {
   // Seed color (ARGB int) for the painting-generated palette; null when unset.
   int? _customPaletteSeed;
   int? get customPaletteSeed => _customPaletteSeed;
+
+  // Bound 老家 gateway token (OMBRE_GATEWAY_TOKEN). Persisted so home features
+  // survive even if the daddy assistant's [[ourhome:<token>]] marker is lost.
+  String _ourhomeToken = '';
+  String get ourhomeToken => _ourhomeToken;
+  // Cache silently (no notifyListeners) — called from OurHomeGateway.fromContext
+  // during build, so it must not trigger a rebuild.
+  void cacheOurhomeToken(String token) {
+    final t = token.trim();
+    if (t.isEmpty || t == _ourhomeToken) return;
+    _ourhomeToken = t;
+    SharedPreferences.getInstance().then((p) {
+      p.setString(_ourhomeTokenKey, t);
+    });
+  }
   bool _useDynamicColor = true; // when supported on Android
   bool get useDynamicColor => _useDynamicColor;
   bool _dynamicColorSupported = false; // runtime capability, not persisted
@@ -698,6 +714,7 @@ class SettingsProvider extends ChangeNotifier {
     _themePaletteId =
         prefs.getString(_themePaletteKey) ?? 'macaron'; // 我们的家·马卡龙默认
     _customPaletteSeed = prefs.getInt(_customPaletteSeedKey);
+    _ourhomeToken = prefs.getString(_ourhomeTokenKey) ?? '';
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;

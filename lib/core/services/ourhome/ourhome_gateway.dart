@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 
 import '../../providers/assistant_provider.dart';
+import '../../providers/settings_provider.dart';
 import 'ourhome_cache.dart';
 
 /// A letter Llaude left for Cing (server channel "letter").
@@ -552,12 +553,22 @@ class OurHomeGateway {
   static final RegExp _markerRe = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
 
   static OurHomeGateway? fromContext(BuildContext context) {
+    final settings = context.read<SettingsProvider>();
     final assistants = context.read<AssistantProvider>().assistants;
     for (final a in assistants) {
       final token = _markerRe.firstMatch(a.systemPrompt)?.group(1)?.trim();
       if (token != null && token.isNotEmpty) {
+        // Persist the live token so home features survive even if the daddy
+        // assistant marker is ever lost again.
+        settings.cacheOurhomeToken(token);
         return OurHomeGateway(base: defaultBase, token: token);
       }
+    }
+    // Fallback: a previously-bound token (entered via daddy rebuild) keeps the
+    // gateway alive when no assistant carries the marker.
+    final stored = settings.ourhomeToken;
+    if (stored.isNotEmpty) {
+      return OurHomeGateway(base: defaultBase, token: stored);
     }
     return null;
   }
