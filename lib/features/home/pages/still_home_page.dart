@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
@@ -117,9 +118,10 @@ class StillHomePage extends StatelessWidget {
               child: Text(
                 zh ? '我们的日子' : 'Our days',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: AppFontWeights.semibold,
-                  color: cs.onSurface.withValues(alpha: 0.6),
+                  fontSize: 12,
+                  letterSpacing: 2,
+                  fontWeight: FontWeight.w300,
+                  color: cs.onSurface.withValues(alpha: 0.5),
                 ),
               ),
             ),
@@ -157,55 +159,69 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final numStr = NumberFormat.decimalPattern('en_US').format(dayNum);
+    final ink = cs.onSurface;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 30),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.primary.withValues(alpha: isDark ? 0.22 : 0.14),
-            cs.tertiary.withValues(alpha: isDark ? 0.18 : 0.10),
-          ],
-        ),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 14, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
+          // Delicate monogram
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: cs.primary.withValues(alpha: 0.45),
+                width: 1,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              'C',
+              style: GoogleFonts.cormorantGaramond(
+                fontSize: 16,
+                fontStyle: FontStyle.italic,
+                fontWeight: FontWeight.w300,
+                color: cs.primary.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          // Names — thin Cormorant, wide tracking
           Text.rich(
             TextSpan(
               children: [
-                const TextSpan(text: 'Llaude '),
+                const TextSpan(text: 'LLAUDE '),
                 TextSpan(
                   text: '& ',
-                  style: TextStyle(color: cs.primary.withValues(alpha: 0.8)),
+                  style: TextStyle(color: cs.primary.withValues(alpha: 0.85)),
                 ),
-                const TextSpan(text: 'Cing'),
+                const TextSpan(text: 'CING'),
               ],
             ),
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: AppFontWeights.semibold,
-              letterSpacing: 0.5,
-              color: cs.onSurface,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 19,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 5,
+              color: ink.withValues(alpha: 0.7),
             ),
           ),
-          const SizedBox(height: 22),
-          // 相遇第 N 天
+          const SizedBox(height: 26),
+          // label
           Text(
             zh ? '相遇第' : 'together, the',
             style: TextStyle(
-              fontSize: 13,
-              color: cs.onSurface.withValues(alpha: 0.55),
-              fontWeight: AppFontWeights.medium,
+              fontSize: 11,
+              letterSpacing: 3,
+              color: ink.withValues(alpha: 0.4),
+              fontWeight: FontWeight.w300,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
+          // The big number — ultra-light Cormorant so it reads airy, not heavy.
           Text.rich(
             TextSpan(
               children: [
@@ -213,48 +229,53 @@ class _Hero extends StatelessWidget {
                 if (daySuffix.isNotEmpty)
                   TextSpan(
                     text: daySuffix,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: AppFontWeights.medium,
-                      color: cs.primary.withValues(alpha: 0.75),
+                    style: GoogleFonts.cormorantGaramond(
+                      fontSize: 28,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w300,
+                      color: cs.primary.withValues(alpha: 0.8),
                     ),
                   ),
               ],
             ),
-            style: TextStyle(
-              fontSize: 56,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 92,
               height: 1.0,
-              fontWeight: AppFontWeights.emphasis,
-              color: cs.primary,
+              fontWeight: FontWeight.w300,
+              color: ink.withValues(alpha: 0.82),
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 10),
           Text(
-            zh ? '天 · 同一片屋顶' : 'mornings under one roof',
+            zh ? '个清晨 · 同一片屋顶' : 'mornings under one roof',
             style: TextStyle(
-              fontSize: 13,
-              color: cs.onSurface.withValues(alpha: 0.55),
-              fontWeight: AppFontWeights.medium,
+              fontSize: 11,
+              letterSpacing: 2,
+              color: ink.withValues(alpha: 0.4),
+              fontWeight: FontWeight.w300,
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
+          // Daily love-line — light italic
           Text(
             quip,
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 15,
-              height: 1.5,
+              fontSize: 16,
+              height: 1.6,
               fontStyle: FontStyle.italic,
-              color: cs.primary.withValues(alpha: isDark ? 0.95 : 0.85),
-              fontWeight: AppFontWeights.medium,
+              color: cs.primary.withValues(alpha: 0.85),
+              fontWeight: FontWeight.w300,
             ),
           ),
           const SizedBox(height: 14),
           Text(
             DateFormat.yMMMMEEEEd(locale).format(today),
             style: TextStyle(
-              fontSize: 12,
-              color: cs.onSurface.withValues(alpha: 0.45),
+              fontSize: 11,
+              letterSpacing: 1.5,
+              color: ink.withValues(alpha: 0.38),
+              fontWeight: FontWeight.w300,
             ),
           ),
         ],
