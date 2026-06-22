@@ -138,7 +138,13 @@ class _IosIconButtonState extends State<IosIconButton> {
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
               color: bgTarget,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(
+                context
+                    .select<SettingsProvider, AppButtonShape>(
+                      (s) => s.appButtonShape,
+                    )
+                    .iconRadius,
+              ),
             ),
             child: Padding(padding: widget.padding, child: child),
           ),

@@ -210,6 +210,38 @@ class _AppearanceQuickSheet extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // 按钮形状
+            _sectionLabel(
+              context,
+              l10n.displaySettingsPageButtonShapeTitle,
+            ),
+            _SegmentedRow(
+              options: [
+                _SegOption(
+                  label: l10n.displaySettingsPageButtonShapeRounded,
+                  selected: settings.appButtonShape == AppButtonShape.rounded,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setAppButtonShape(AppButtonShape.rounded),
+                ),
+                _SegOption(
+                  label: l10n.displaySettingsPageButtonShapePill,
+                  selected: settings.appButtonShape == AppButtonShape.pill,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setAppButtonShape(AppButtonShape.pill),
+                ),
+                _SegOption(
+                  label: l10n.displaySettingsPageButtonShapeSquare,
+                  selected: settings.appButtonShape == AppButtonShape.square,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setAppButtonShape(AppButtonShape.square),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
 
             // 更多外观设置
