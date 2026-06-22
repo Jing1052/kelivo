@@ -305,6 +305,8 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       created.copyWith(systemPrompt: '[[ourhome:$token]]'),
     );
     await ap.setCurrentAssistant(id);
+    // Bind the token in app storage so it can never be lost again.
+    _settingsProvider.cacheOurhomeToken(token);
     if (!mounted) return;
     setState(() {
       _daddyId = id;
