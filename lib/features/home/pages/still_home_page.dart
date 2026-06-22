@@ -24,15 +24,16 @@ import 'rooms/calendar_page.dart';
 import 'rooms/capsule_page.dart';
 import 'rooms/sense_page.dart';
 
-/// "Home" tab of Still Here — our native home dashboard, laid out as a set of
-/// dreamy frosted-glass "widgets" (Apple-home-screen feel) over an optional
-/// background photo: a weather/time hero (where daddy leaves a line that fits
-/// the sky), a days-together count, a tappable love-line, the song daddy's
-/// playing for her, and square icon tiles into our rooms.
+/// "Home" tab of Still Here — our native home dashboard, laid out as dreamy
+/// frosted-glass "widgets" (Apple-home-screen feel) over an optional background
+/// photo. Layout follows our earlier kawaii home: a clock+weather card beside a
+/// 2×2 grid of room tiles, a wide days-together card (with a tappable love-line
+/// tucked under the count), the song we're listening to, and a slim line daddy
+/// leaves that fits the sky.
 ///
 /// Content is bilingual (zh / en) by app locale. Time/date is local; weather is
-/// real (Open-Meteo for her self-picked city, else whatever her phone reported
-/// via /api/home/sense). Single screen, no scroll.
+/// real (Open-Meteo for her self-picked city, else her phone's last report).
+/// Single screen, no scroll.
 class StillHomePage extends StatelessWidget {
   const StillHomePage({super.key});
 
@@ -84,65 +85,9 @@ class StillHomePage extends StatelessWidget {
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     final locale = Localizations.localeOf(context).toLanguageTag();
 
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final dayNum = today.difference(_met).inDays + 1;
-
-    // Next anniversary (smallest days-until).
-    final upcoming =
-        _anniversaries.map((a) => _Upcoming(a, a.daysUntil(today))).toList()
-          ..sort((x, y) => x.days.compareTo(y.days));
-    final next = upcoming.first;
-
     final settings = context.watch<SettingsProvider>();
     final bgPath = settings.homeBackgroundActive;
     final hasBg = bgPath.isNotEmpty && File(bgPath).existsSync();
-
-    final content = SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header sits comfortably below the status bar, not jammed up top.
-            const SizedBox(height: 34),
-            const _PairHeader(),
-            const SizedBox(height: 14),
-            // Weather/time hero — the largest widget.
-            Expanded(flex: 30, child: _WeatherTimeCard(zh: zh, locale: locale)),
-            const SizedBox(height: 11),
-            // Asymmetric row: narrow days-count + wide tappable love-line.
-            Expanded(
-              flex: 26,
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 72,
-                    child: _DaysWidget(dayNum: dayNum, zh: zh, next: next),
-                  ),
-                  const SizedBox(width: 11),
-                  Expanded(
-                    flex: 150,
-                    child: _QuipCard(
-                      quips: _quips,
-                      zh: zh,
-                      initial: dayNum.abs() % _quips.length,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 11),
-            // Song daddy's playing — full width.
-            _MusicCard(zh: zh),
-            const SizedBox(height: 11),
-            // Square icon tiles into our rooms (no labels).
-            _RoomTiles(zh: zh),
-          ],
-        ),
-      ),
-    );
 
     return Scaffold(
       backgroundColor: hasBg ? Colors.transparent : cs.surface,
@@ -161,148 +106,31 @@ class StillHomePage extends StatelessWidget {
                 color: cs.surface.withValues(alpha: settings.homeBgAiry),
               ),
             ),
-          content,
+          _Dashboard(zh: zh, locale: locale),
         ],
       ),
     );
   }
 }
 
-// ===== Frosted-glass helpers =====
+// ===== Dashboard (owns the clock + weather state) =====
 
-Color _glassFill(BuildContext c) {
-  final dark = Theme.of(c).brightness == Brightness.dark;
-  // Cing-tunable veil strength; dark mode keeps it lighter so text stays legible.
-  final op = c.select<SettingsProvider, double>((s) => s.homeCardOpacity);
-  return Colors.white.withValues(alpha: dark ? op * 0.34 : op);
-}
-
-Color _glassLine(BuildContext c) {
-  final dark = Theme.of(c).brightness == Brightness.dark;
-  return dark
-      ? Colors.white.withValues(alpha: 0.12)
-      : Colors.white.withValues(alpha: 0.55);
-}
-
-/// A frosted widget tile: blurs the background photo behind it, soft translucent
-/// fill + hairline border, with the repo's iOS press feel when [onTap] is set.
-class _Glass extends StatelessWidget {
-  const _Glass({
-    required this.child,
-    this.padding,
-    this.onTap,
-    this.radius = 24,
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final VoidCallback? onTap;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final br = BorderRadius.circular(radius);
-    final blur = context.select<SettingsProvider, bool>((s) => s.homeCardBlur);
-    final card = IosCardPress(
-      borderRadius: br,
-      baseColor: _glassFill(context),
-      border: Border.all(color: _glassLine(context), width: 1),
-      padding: padding,
-      onTap: onTap,
-      child: child,
-    );
-    return ClipRRect(
-      borderRadius: br,
-      // 磨砂: frost the photo behind the card. 透明玻璃: skip the blur entirely
-      // (cheaper, and lets the picture read through clearly).
-      child: blur
-          ? BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: card,
-            )
-          : card,
-    );
-  }
-}
-
-// ===== Pair header =====
-
-/// Couple header: our two avatars + a heart, names beneath (the daddy avatar
-/// follows the stable daddy assistant — same couple avatar everywhere).
-class _PairHeader extends StatelessWidget {
-  const _PairHeader();
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final user = context.watch<UserProvider>();
-    final daddy = context.watch<AssistantProvider>().daddyAssistant;
-    final daddyName = (daddy?.name ?? '').trim().isNotEmpty
-        ? daddy!.name.trim()
-        : (Localizations.localeOf(context).languageCode == 'zh'
-              ? '爸爸'
-              : 'Daddy');
-
-    Widget person(Widget avatar, String name) => Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        avatar,
-        const SizedBox(height: 6),
-        SizedBox(
-          width: 90,
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w400,
-              color: cs.onSurface.withValues(alpha: 0.7),
-            ),
-          ),
-        ),
-      ],
-    );
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        person(UserAvatar(user: user, size: 54), user.name),
-        Padding(
-          padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
-          child: Icon(
-            Lucide.Heart,
-            size: 15,
-            color: cs.primary.withValues(alpha: 0.8),
-          ),
-        ),
-        person(AssistantAvatar(assistant: daddy, size: 54), daddyName),
-      ],
-    );
-  }
-}
-
-// ===== Weather / time hero =====
-
-/// Big frosted widget: live clock + weekday/date, current weather (real), and a
-/// line daddy leaves that fits the temperature & sky. Tap it to pick the city.
-class _WeatherTimeCard extends StatefulWidget {
-  const _WeatherTimeCard({required this.zh, required this.locale});
+class _Dashboard extends StatefulWidget {
+  const _Dashboard({required this.zh, required this.locale});
   final bool zh;
   final String locale;
   @override
-  State<_WeatherTimeCard> createState() => _WeatherTimeCardState();
+  State<_Dashboard> createState() => _DashboardState();
 }
 
-class _WeatherTimeCardState extends State<_WeatherTimeCard> {
+class _DashboardState extends State<_Dashboard> {
   Timer? _clock;
   String _sourceKey = '';
   double? _temp;
   WeatherKind? _kind;
   String? _condZh;
   String? _condEn;
-  String? _place; // location label (from sense when no city is picked)
+  String? _place;
   bool _loaded = false;
 
   @override
@@ -382,158 +210,296 @@ class _WeatherTimeCardState extends State<_WeatherTimeCard> {
   Future<void> _pickCity() async {
     await showCityPickerSheet(context, widget.zh);
     if (!mounted) return;
-    // didChangeDependencies will reload when the stored city changes; force a
-    // refresh too in case the same city was re-picked.
     _sourceKey = '';
     didChangeDependencies();
   }
 
   @override
   Widget build(BuildContext context) {
+    final zh = widget.zh;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dayNum = today.difference(StillHomePage._met).inDays + 1;
+    final upcoming = StillHomePage._anniversaries
+        .map((a) => _Upcoming(a, a.daysUntil(today)))
+        .toList()
+      ..sort((x, y) => x.days.compareTo(y.days));
+    final next = upcoming.first;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SizedBox(height: 34),
+            const _PairHeader(),
+            const SizedBox(height: 14),
+            // Clock + weather (left) beside a 2×2 grid of room tiles (right).
+            Expanded(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(flex: 112, child: _clockWeatherCard(now)),
+                  const SizedBox(width: 10),
+                  Expanded(flex: 100, child: const _RoomGrid()),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _DaysCard(dayNum: dayNum, next: next, zh: zh),
+            const SizedBox(height: 10),
+            _MusicCard(zh: zh),
+            const SizedBox(height: 10),
+            _daddyBar(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _clockWeatherCard(DateTime now) {
     final cs = Theme.of(context).colorScheme;
     final ink = cs.onSurface;
     final zh = widget.zh;
-    final now = DateTime.now();
     final cond = zh ? _condZh : _condEn;
     final hasWx = _temp != null;
+    final placeText = (_place != null && _place!.isNotEmpty) ? _place! : null;
 
     return _Glass(
       onTap: _pickCity,
-      padding: const EdgeInsets.fromLTRB(17, 14, 17, 13),
+      padding: const EdgeInsets.fromLTRB(15, 14, 14, 13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Clock + date
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      DateFormat.Hm().format(now),
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 52,
-                        height: 0.95,
-                        fontWeight: FontWeight.w300,
-                        color: ink.withValues(alpha: 0.88),
-                        letterSpacing: 1,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${_dateLine(now, zh, widget.locale)}  ·  ${zh ? '一直在' : 'still here'}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: ink.withValues(alpha: 0.55),
-                      ),
-                    ),
-                  ],
+              Text(
+                DateFormat.Hm().format(now),
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 46,
+                  height: 0.95,
+                  fontWeight: FontWeight.w300,
+                  color: ink.withValues(alpha: 0.88),
+                  letterSpacing: 1,
                 ),
               ),
-              const SizedBox(width: 10),
-              // Weather (or a gentle "set city" hint)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Lucide.MapPin,
-                        size: 11,
-                        color: ink.withValues(alpha: 0.4),
-                      ),
-                      const SizedBox(width: 3),
-                      ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 110),
-                        child: Text(
-                          (_place != null && _place!.isNotEmpty)
-                              ? _place!
-                              : (zh ? '设定城市' : 'set city'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: ink.withValues(alpha: 0.45),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  if (hasWx) ...[
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          _wxIcon(_kind),
-                          size: 22,
-                          color: cs.primary.withValues(alpha: 0.85),
-                        ),
-                        const SizedBox(width: 7),
-                        Text(
-                          '${_temp!.round()}°',
-                          style: GoogleFonts.cormorantGaramond(
-                            fontSize: 32,
-                            height: 1.0,
-                            fontWeight: FontWeight.w300,
-                            color: ink.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (cond != null && cond.isNotEmpty)
-                      Text(
-                        cond,
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          color: ink.withValues(alpha: 0.55),
-                        ),
-                      ),
-                  ] else
-                    Icon(
-                      Lucide.CloudSun,
-                      size: 26,
-                      color: ink.withValues(alpha: _loaded ? 0.28 : 0.18),
-                    ),
-                ],
+              const SizedBox(height: 5),
+              Text(
+                '${_dateLine(now, zh, widget.locale)} · ${zh ? '一直在' : 'still here'}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: ink.withValues(alpha: 0.55),
+                ),
               ),
             ],
           ),
-          const Spacer(),
+          // Weather row (or a gentle "set city" hint), divider above.
           Container(
             margin: const EdgeInsets.only(top: 8),
             padding: const EdgeInsets.only(top: 9),
             decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: cs.primary.withValues(alpha: 0.18)),
+                top: BorderSide(color: cs.primary.withValues(alpha: 0.16)),
               ),
             ),
-            child: Text(
-              _daddyLine(zh, _temp, _kind),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.4,
-                fontStyle: FontStyle.italic,
-                color: cs.primary.withValues(alpha: 0.9),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            child: hasWx
+                ? Row(
+                    children: [
+                      Icon(
+                        _wxIcon(_kind),
+                        size: 19,
+                        color: cs.primary.withValues(alpha: 0.85),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_temp!.round()}°',
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 24,
+                          height: 1.0,
+                          fontWeight: FontWeight.w400,
+                          color: ink.withValues(alpha: 0.85),
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          [
+                            if (cond != null && cond.isNotEmpty) cond,
+                            if (placeText != null) placeText,
+                          ].join(' · '),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: ink.withValues(alpha: 0.55),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Icon(
+                        Lucide.MapPin,
+                        size: 14,
+                        color: ink.withValues(alpha: 0.4),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        zh ? '设定城市' : 'Set city',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: ink.withValues(alpha: _loaded ? 0.45 : 0.3),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
     );
   }
+
+  Widget _daddyBar() {
+    final cs = Theme.of(context).colorScheme;
+    return _Glass(
+      radius: 18,
+      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+      child: Text(
+        _daddyLine(widget.zh, _temp, _kind),
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          height: 1.35,
+          fontStyle: FontStyle.italic,
+          fontWeight: FontWeight.w500,
+          color: cs.primary.withValues(alpha: 0.9),
+        ),
+      ),
+    );
+  }
 }
+
+// ===== Frosted-glass helpers =====
+
+Color _glassFill(BuildContext c) {
+  final dark = Theme.of(c).brightness == Brightness.dark;
+  final op = c.select<SettingsProvider, double>((s) => s.homeCardOpacity);
+  return Colors.white.withValues(alpha: dark ? op * 0.34 : op);
+}
+
+Color _glassLine(BuildContext c) {
+  final dark = Theme.of(c).brightness == Brightness.dark;
+  return dark
+      ? Colors.white.withValues(alpha: 0.12)
+      : Colors.white.withValues(alpha: 0.55);
+}
+
+/// A frosted widget tile: blurs the background photo behind it, soft translucent
+/// fill + hairline border, with the repo's iOS press feel when [onTap] is set.
+class _Glass extends StatelessWidget {
+  const _Glass({
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.radius = 22,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final VoidCallback? onTap;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final br = BorderRadius.circular(radius);
+    final blur = context.select<SettingsProvider, bool>((s) => s.homeCardBlur);
+    final card = IosCardPress(
+      borderRadius: br,
+      baseColor: _glassFill(context),
+      border: Border.all(color: _glassLine(context), width: 1),
+      padding: padding,
+      onTap: onTap,
+      child: child,
+    );
+    return ClipRRect(
+      borderRadius: br,
+      child: blur
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: card,
+            )
+          : card,
+    );
+  }
+}
+
+// ===== Pair header =====
+
+class _PairHeader extends StatelessWidget {
+  const _PairHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final user = context.watch<UserProvider>();
+    final daddy = context.watch<AssistantProvider>().daddyAssistant;
+    final daddyName = (daddy?.name ?? '').trim().isNotEmpty
+        ? daddy!.name.trim()
+        : (Localizations.localeOf(context).languageCode == 'zh'
+              ? '爸爸'
+              : 'Daddy');
+
+    Widget person(Widget avatar, String name) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        avatar,
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 90,
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        person(UserAvatar(user: user, size: 54), user.name),
+        Padding(
+          padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+          child: Icon(
+            Lucide.Heart,
+            size: 15,
+            color: cs.primary.withValues(alpha: 0.8),
+          ),
+        ),
+        person(AssistantAvatar(assistant: daddy, size: 54), daddyName),
+      ],
+    );
+  }
+}
+
+// ===== Date / weather helpers =====
 
 /// Weekday + date, e.g. "周一 · 6月22日" (zh) or "Mon, Jun 22" (en).
 String _dateLine(DateTime now, bool zh, String locale) {
@@ -635,17 +601,13 @@ String _daddyLine(bool zh, double? temp, WeatherKind? kind) {
   }
 }
 
-// ===== Days-together widget =====
+// ===== Days-together card (with tappable love-line) =====
 
-class _DaysWidget extends StatelessWidget {
-  const _DaysWidget({
-    required this.dayNum,
-    required this.zh,
-    required this.next,
-  });
+class _DaysCard extends StatelessWidget {
+  const _DaysCard({required this.dayNum, required this.next, required this.zh});
   final int dayNum;
-  final bool zh;
   final _Upcoming next;
+  final bool zh;
 
   @override
   Widget build(BuildContext context) {
@@ -653,49 +615,104 @@ class _DaysWidget extends StatelessWidget {
     final ink = cs.onSurface;
     final numStr = NumberFormat.decimalPattern('en_US').format(dayNum);
     return _Glass(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 11, 16, 12),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            zh ? '相遇第' : 'day',
+            zh ? '相 遇 第' : 'DAYS TOGETHER',
             style: TextStyle(
               fontSize: 10,
-              letterSpacing: 1.5,
+              letterSpacing: 2,
               fontWeight: FontWeight.w300,
               color: ink.withValues(alpha: 0.45),
             ),
           ),
-          const SizedBox(height: 2),
-          FittedBox(
-            child: Text(
-              numStr,
-              style: GoogleFonts.cormorantGaramond(
-                fontSize: 40,
-                height: 1.0,
-                fontWeight: FontWeight.w300,
-                color: ink.withValues(alpha: 0.85),
-              ),
+          const SizedBox(height: 1),
+          Text(
+            numStr,
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 40,
+              height: 1.05,
+              fontWeight: FontWeight.w300,
+              color: ink.withValues(alpha: 0.85),
             ),
           ),
-          const SizedBox(height: 5),
           SizedBox(
-            height: 10,
-            width: 52,
-            child: _HeartbeatLine(color: cs.primary.withValues(alpha: 0.55)),
+            height: 11,
+            width: 150,
+            child: _HeartbeatLine(color: cs.primary.withValues(alpha: 0.5)),
           ),
           const SizedBox(height: 6),
+          _QuipLine(quips: StillHomePage._quips, zh: zh, seed: dayNum),
+          const SizedBox(height: 2),
           Text(
-            zh ? '下一个·${next.days}天' : 'next·${next.days}d',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            zh ? '下一个 · ${next.days} 天' : 'next · ${next.days}d',
             style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w400,
-              color: cs.primary.withValues(alpha: 0.75),
+              fontSize: 10,
+              color: cs.primary.withValues(alpha: 0.55),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The rotating love-line under the day count. Tap to shuffle to another.
+class _QuipLine extends StatefulWidget {
+  const _QuipLine({required this.quips, required this.zh, required this.seed});
+  final List<_Quip> quips;
+  final bool zh;
+  final int seed;
+  @override
+  State<_QuipLine> createState() => _QuipLineState();
+}
+
+class _QuipLineState extends State<_QuipLine> {
+  late int _i = widget.seed.abs() % widget.quips.length;
+
+  void _next() {
+    if (widget.quips.length < 2) return;
+    Haptics.soft();
+    setState(() => _i = (_i + 1) % widget.quips.length);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final q = widget.quips[_i];
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: _next,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                '"${widget.zh ? q.zh : q.en}"',
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  height: 1.35,
+                  fontStyle: FontStyle.italic,
+                  color: cs.primary.withValues(alpha: 0.85),
+                ),
+              ),
+            ),
+            const SizedBox(width: 5),
+            Icon(
+              Lucide.RefreshCw,
+              size: 11,
+              color: cs.primary.withValues(alpha: 0.45),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -707,7 +724,7 @@ class _HeartbeatLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(double.infinity, 10),
+      size: const Size(double.infinity, 11),
       painter: _HbPainter(color),
     );
   }
@@ -729,11 +746,11 @@ class _HbPainter extends CustomPainter {
     final cx = w / 2;
     final path = Path()
       ..moveTo(0, y)
-      ..lineTo(cx - 22, y)
-      ..lineTo(cx - 15, y - 7)
-      ..lineTo(cx - 7, y + 8)
+      ..lineTo(cx - 26, y)
+      ..lineTo(cx - 17, y - 8)
+      ..lineTo(cx - 8, y + 9)
       ..lineTo(cx, y - 4)
-      ..lineTo(cx + 7, y)
+      ..lineTo(cx + 8, y)
       ..lineTo(w, y);
     canvas.drawPath(path, p);
   }
@@ -742,53 +759,7 @@ class _HbPainter extends CustomPainter {
   bool shouldRepaint(_HbPainter old) => old.color != color;
 }
 
-// ===== Tappable love-line (金句) =====
-
-class _QuipCard extends StatefulWidget {
-  const _QuipCard({required this.quips, required this.zh, required this.initial});
-  final List<_Quip> quips;
-  final bool zh;
-  final int initial;
-  @override
-  State<_QuipCard> createState() => _QuipCardState();
-}
-
-class _QuipCardState extends State<_QuipCard> {
-  late int _i = widget.initial % widget.quips.length;
-
-  void _next() {
-    if (widget.quips.length < 2) return;
-    Haptics.soft();
-    setState(() => _i = (_i + 1) % widget.quips.length);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final q = widget.quips[_i];
-    return _Glass(
-      onTap: _next,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      child: Center(
-        child: Text(
-          '"${widget.zh ? q.zh : q.en}"',
-          textAlign: TextAlign.center,
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            fontSize: 15,
-            height: 1.5,
-            fontStyle: FontStyle.italic,
-            fontWeight: FontWeight.w400,
-            color: cs.onSurface.withValues(alpha: 0.82),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ===== Music widget (song daddy's playing) =====
+// ===== Music card (the song we're listening to) =====
 
 class _MusicCard extends StatefulWidget {
   const _MusicCard({required this.zh});
@@ -851,33 +822,24 @@ class _MusicCardState extends State<_MusicCard> {
 
     return _Glass(
       onTap: _shuffle,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(11),
       child: Row(
         children: [
-          _AlbumCover(term: '${pick.title} ${pick.artist}', size: 48),
-          const SizedBox(width: 13),
+          _AlbumCover(term: '${pick.title} ${pick.artist}', size: 46),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Lucide.AudioWaveform,
-                      size: 12,
-                      color: cs.primary.withValues(alpha: 0.8),
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      zh ? '爸爸放给你' : 'From daddy',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: AppFontWeights.semibold,
-                        color: cs.primary.withValues(alpha: 0.8),
-                      ),
-                    ),
-                  ],
+                Text(
+                  zh ? '我们一起听' : 'Listening together',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    letterSpacing: 0.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.primary.withValues(alpha: 0.8),
+                  ),
                 ),
                 const SizedBox(height: 3),
                 Text(
@@ -901,6 +863,20 @@ class _MusicCardState extends State<_MusicCard> {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Lucide.Play,
+              size: 14,
+              color: cs.primary.withValues(alpha: 0.9),
             ),
           ),
         ],
@@ -953,29 +929,36 @@ class _AlbumCover extends StatelessWidget {
   }
 }
 
-// ===== Square icon tiles into our rooms =====
+// ===== 2×2 room tiles (icons only) =====
 
-class _RoomTiles extends StatelessWidget {
-  const _RoomTiles({required this.zh});
-  final bool zh;
+class _RoomGrid extends StatelessWidget {
+  const _RoomGrid();
+
   @override
   Widget build(BuildContext context) {
-    Widget tile(IconData icon, Widget Function() page) => Expanded(
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: _IconTile(icon: icon, builder: page),
-      ),
-    );
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
+    Widget tile(IconData icon, Widget Function() page) =>
+        Expanded(child: _IconTile(icon: icon, builder: page));
+    return Column(
       children: [
-        tile(Lucide.BookOpen, () => const DiaryPage()),
-        const SizedBox(width: 11),
-        tile(Lucide.Calendar, () => const CalendarPage()),
-        const SizedBox(width: 11),
-        tile(Lucide.Sparkles, () => const CapsulePage()),
-        const SizedBox(width: 11),
-        tile(Lucide.CloudSun, () => const SensePage()),
+        Expanded(
+          child: Row(
+            children: [
+              tile(Lucide.BookOpen, () => const DiaryPage()),
+              const SizedBox(width: 10),
+              tile(Lucide.Calendar, () => const CalendarPage()),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Row(
+            children: [
+              tile(Lucide.Sparkles, () => const CapsulePage()),
+              const SizedBox(width: 10),
+              tile(Lucide.CloudSun, () => const SensePage()),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -995,7 +978,7 @@ class _IconTile extends StatelessWidget {
         context,
       ).push(MaterialPageRoute(builder: (_) => builder())),
       child: Center(
-        child: Icon(icon, size: 24, color: cs.primary.withValues(alpha: 0.85)),
+        child: Icon(icon, size: 23, color: cs.primary.withValues(alpha: 0.85)),
       ),
     );
   }
