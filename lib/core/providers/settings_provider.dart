@@ -111,6 +111,9 @@ class SettingsProvider extends ChangeNotifier {
   static const String _homeBackgroundsKey = 'home_backgrounds_v1';
   static const String _homeBackgroundActiveKey = 'home_background_active_v1';
   static const String _homeBgAiryKey = 'home_bg_airy_v1';
+  static const String _homeWeatherCityKey = 'home_weather_city_v1';
+  static const String _homeWeatherLatKey = 'home_weather_lat_v1';
+  static const String _homeWeatherLonKey = 'home_weather_lon_v1';
   static const String _useDynamicColorKey = 'use_dynamic_color_v1';
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
@@ -457,6 +460,42 @@ class SettingsProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_homeBgAiryKey, v);
   }
+
+  // ----- Home weather city (self-picked; drives the home weather widget) -----
+  // Empty name + NaN coords means "not set" → the widget falls back to whatever
+  // Cing's phone last reported via /api/home/sense, or stays blank.
+  String _homeWeatherCity = '';
+  String get homeWeatherCity => _homeWeatherCity;
+  double _homeWeatherLat = double.nan;
+  double get homeWeatherLat => _homeWeatherLat;
+  double _homeWeatherLon = double.nan;
+  double get homeWeatherLon => _homeWeatherLon;
+  bool get hasHomeWeatherCity =>
+      _homeWeatherCity.isNotEmpty &&
+      !_homeWeatherLat.isNaN &&
+      !_homeWeatherLon.isNaN;
+
+  Future<void> setHomeWeatherCity(String name, double lat, double lon) async {
+    _homeWeatherCity = name;
+    _homeWeatherLat = lat;
+    _homeWeatherLon = lon;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_homeWeatherCityKey, name);
+    await prefs.setDouble(_homeWeatherLatKey, lat);
+    await prefs.setDouble(_homeWeatherLonKey, lon);
+  }
+
+  Future<void> clearHomeWeatherCity() async {
+    _homeWeatherCity = '';
+    _homeWeatherLat = double.nan;
+    _homeWeatherLon = double.nan;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_homeWeatherCityKey);
+    await prefs.remove(_homeWeatherLatKey);
+    await prefs.remove(_homeWeatherLonKey);
+  }
   bool _useDynamicColor = true; // when supported on Android
   bool get useDynamicColor => _useDynamicColor;
   bool _dynamicColorSupported = false; // runtime capability, not persisted
@@ -786,6 +825,9 @@ class SettingsProvider extends ChangeNotifier {
         prefs.getStringList(_homeBackgroundsKey) ?? const <String>[];
     _homeBackgroundActive = prefs.getString(_homeBackgroundActiveKey) ?? '';
     _homeBgAiry = (prefs.getDouble(_homeBgAiryKey) ?? 0.35).clamp(0.0, 1.0);
+    _homeWeatherCity = prefs.getString(_homeWeatherCityKey) ?? '';
+    _homeWeatherLat = prefs.getDouble(_homeWeatherLatKey) ?? double.nan;
+    _homeWeatherLon = prefs.getDouble(_homeWeatherLonKey) ?? double.nan;
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;
