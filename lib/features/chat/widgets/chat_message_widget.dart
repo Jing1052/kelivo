@@ -1812,7 +1812,10 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
   }) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    BorderRadius radius = BorderRadius.circular(16);
+    // Bubble corner radius follows the user's chosen bubble shape (design §H).
+    BorderRadius radius = BorderRadius.circular(
+      context.watch<SettingsProvider>().chatBubbleShape.bubbleRadius,
+    );
     return _buildSharedChatSurface(
       context,
       borderRadius: radius,

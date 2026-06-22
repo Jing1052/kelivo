@@ -252,6 +252,23 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
               _iosDivider(context),
               _iosNavRow(
                 context,
+                icon: Lucide.Shapes,
+                label: l10n.displaySettingsPageChatBubbleShapeTitle,
+                detailBuilder: (ctx) {
+                  final sp = ctx.watch<SettingsProvider>();
+                  return Text(
+                    _bubbleShapeLabel(l10n, sp.chatBubbleShape),
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  );
+                },
+                onTap: () => _showChatBubbleShapeSheet(context),
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
                 icon: Lucide.Type,
                 label: l10n.displaySettingsPageAppFontTitle,
                 detailBuilder: (ctx) {
@@ -541,6 +558,68 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
         await sp.setChatMessageBackgroundStyle(
           ChatMessageBackgroundStyle.defaultStyle,
         );
+    }
+  }
+
+  String _bubbleShapeLabel(AppLocalizations l10n, ChatBubbleShape s) {
+    switch (s) {
+      case ChatBubbleShape.round:
+        return l10n.displaySettingsPageChatBubbleShapeRound;
+      case ChatBubbleShape.sharp:
+        return l10n.displaySettingsPageChatBubbleShapeSharp;
+      case ChatBubbleShape.standard:
+        return l10n.displaySettingsPageChatBubbleShapeStandard;
+    }
+  }
+
+  Future<void> _showChatBubbleShapeSheet(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _sheetOption(
+                ctx,
+                label: l10n.displaySettingsPageChatBubbleShapeRound,
+                onTap: () => Navigator.of(ctx).pop('round'),
+              ),
+              _sheetDividerNoIcon(ctx),
+              _sheetOption(
+                ctx,
+                label: l10n.displaySettingsPageChatBubbleShapeStandard,
+                onTap: () => Navigator.of(ctx).pop('standard'),
+              ),
+              _sheetDividerNoIcon(ctx),
+              _sheetOption(
+                ctx,
+                label: l10n.displaySettingsPageChatBubbleShapeSharp,
+                onTap: () => Navigator.of(ctx).pop('sharp'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (choice == null || !context.mounted) return;
+    final sp = context.read<SettingsProvider>();
+    switch (choice) {
+      case 'round':
+        await sp.setChatBubbleShape(ChatBubbleShape.round);
+        break;
+      case 'sharp':
+        await sp.setChatBubbleShape(ChatBubbleShape.sharp);
+        break;
+      default:
+        await sp.setChatBubbleShape(ChatBubbleShape.standard);
     }
   }
 

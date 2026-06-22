@@ -212,6 +212,8 @@ class SettingsProvider extends ChangeNotifier {
       'display_use_pure_background_v1';
   static const String _displayChatMessageBackgroundStyleKey =
       'display_chat_message_background_style_v1';
+  static const String _displayChatBubbleShapeKey =
+      'display_chat_bubble_shape_v1';
   static const String _mobileAssistantEditTabOrderKey =
       'mobile_assistant_edit_tab_order_v1';
   static const String _mobileAssistantEditTabHiddenKey =
@@ -1157,6 +1159,17 @@ class SettingsProvider extends ChangeNotifier {
         break;
       default:
         _chatMessageBackgroundStyle = ChatMessageBackgroundStyle.defaultStyle;
+    }
+    // Chat bubble shape (round | standard | sharp)
+    switch (prefs.getString(_displayChatBubbleShapeKey) ?? 'standard') {
+      case 'round':
+        _chatBubbleShape = ChatBubbleShape.round;
+        break;
+      case 'sharp':
+        _chatBubbleShape = ChatBubbleShape.sharp;
+        break;
+      default:
+        _chatBubbleShape = ChatBubbleShape.standard;
     }
     _mobileAssistantEditTabOrder = List.unmodifiable(
       prefs.getStringList(_mobileAssistantEditTabOrderKey) ?? const <String>[],
@@ -2422,6 +2435,21 @@ class SettingsProvider extends ChangeNotifier {
       ChatMessageBackgroundStyle.defaultStyle => 'default',
     };
     await prefs.setString(_displayChatMessageBackgroundStyleKey, v);
+  }
+
+  ChatBubbleShape _chatBubbleShape = ChatBubbleShape.standard;
+  ChatBubbleShape get chatBubbleShape => _chatBubbleShape;
+  Future<void> setChatBubbleShape(ChatBubbleShape shape) async {
+    if (_chatBubbleShape == shape) return;
+    _chatBubbleShape = shape;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    final v = switch (shape) {
+      ChatBubbleShape.round => 'round',
+      ChatBubbleShape.sharp => 'sharp',
+      ChatBubbleShape.standard => 'standard',
+    };
+    await prefs.setString(_displayChatBubbleShapeKey, v);
   }
 
   List<String> _mobileAssistantEditTabOrder = const <String>[];
@@ -4711,6 +4739,23 @@ enum ProviderKind { openai, google, claude }
 
 // Background rendering mode for chat message bubbles
 enum ChatMessageBackgroundStyle { defaultStyle, frosted, solid }
+
+// Corner-radius scale for chat bubbles (design §H). standard = current look.
+// round = blunter (22), sharp = crisp (8).
+enum ChatBubbleShape { round, standard, sharp }
+
+extension ChatBubbleShapeRadius on ChatBubbleShape {
+  double get bubbleRadius {
+    switch (this) {
+      case ChatBubbleShape.round:
+        return 22;
+      case ChatBubbleShape.sharp:
+        return 8;
+      case ChatBubbleShape.standard:
+        return 16;
+    }
+  }
+}
 
 enum AndroidBackgroundChatMode { off, on, onNotify }
 
