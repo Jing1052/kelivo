@@ -178,6 +178,38 @@ class _AppearanceQuickSheet extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // 气泡形状
+            _sectionLabel(
+              context,
+              l10n.displaySettingsPageChatBubbleShapeTitle,
+            ),
+            _SegmentedRow(
+              options: [
+                _SegOption(
+                  label: l10n.displaySettingsPageChatBubbleShapeRound,
+                  selected: settings.chatBubbleShape == ChatBubbleShape.round,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setChatBubbleShape(ChatBubbleShape.round),
+                ),
+                _SegOption(
+                  label: l10n.displaySettingsPageChatBubbleShapeStandard,
+                  selected: settings.chatBubbleShape == ChatBubbleShape.standard,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setChatBubbleShape(ChatBubbleShape.standard),
+                ),
+                _SegOption(
+                  label: l10n.displaySettingsPageChatBubbleShapeSharp,
+                  selected: settings.chatBubbleShape == ChatBubbleShape.sharp,
+                  onTap: () => context
+                      .read<SettingsProvider>()
+                      .setChatBubbleShape(ChatBubbleShape.sharp),
+                ),
+              ],
+            ),
             const SizedBox(height: 8),
 
             // 更多外观设置
