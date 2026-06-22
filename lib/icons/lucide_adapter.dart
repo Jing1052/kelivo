@@ -203,6 +203,7 @@ class Lucide {
   static const IconData CloudSnow = lucide.LucideIcons.cloudSnow;
   static const IconData CloudFog = lucide.LucideIcons.cloudFog;
   static const IconData CloudLightning = lucide.LucideIcons.cloudLightning;
+  static const IconData Play = lucide.LucideIcons.play;
   static const IconData Gamepad2 = lucide.LucideIcons.gamepad2;
   static const IconData Tv = lucide.LucideIcons.tv;
   static const IconData Send = lucide.LucideIcons.send;
