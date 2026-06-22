@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -340,6 +340,115 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     );
   }
 
+  Future<void> _pickDaddyChatBg() async {
+    final f = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 92,
+    );
+    if (f == null) return;
+    await _assistantProvider.updateAssistant(
+      _daddy().copyWith(background: f.path),
+    );
+  }
+
+  // 爸爸聊天页背景：自己一张 or 留空跟随主页背景；airy = 聊天遮罩强度。
+  List<Widget> _chatBgSection(BuildContext context, AppLocalizations l10n) {
+    final cs = Theme.of(context).colorScheme;
+    context.watch<AssistantProvider>();
+    final bg = _daddy().background;
+    final hasOwn = bg != null && bg.trim().isNotEmpty;
+    final mask = context.watch<SettingsProvider>().chatBackgroundMaskStrength;
+    return [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: hasOwn
+                  ? Image.file(
+                      File(bg),
+                      width: 48,
+                      height: 48,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _bgPlaceholder(cs),
+                    )
+                  : _bgPlaceholder(cs),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                hasOwn
+                    ? l10n.daddySettingsChatBgCustom
+                    : l10n.daddySettingsChatBgFollow,
+                style: TextStyle(fontSize: 14, color: cs.onSurface),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+        child: Row(
+          children: [
+            IosTileButton(
+              label: l10n.daddySettingsChatBgPick,
+              icon: Lucide.Image,
+              onTap: _pickDaddyChatBg,
+            ),
+            if (hasOwn) ...[
+              const SizedBox(width: 10),
+              IosTileButton(
+                label: l10n.daddySettingsChatBgFollow,
+                icon: Lucide.X,
+                onTap: () => _assistantProvider.updateAssistant(
+                  _daddy().copyWith(clearBackground: true),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      _caption(context, l10n.daddySettingsChatBgDesc),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(12, 2, 12, 12),
+        child: Row(
+          children: [
+            Text(
+              l10n.daddySettingsChatBgAiry,
+              style: TextStyle(fontSize: 14, color: cs.onSurface),
+            ),
+            Expanded(
+              child: SfSlider(
+                value: mask.clamp(0.0, 1.0),
+                min: 0.0,
+                max: 1.0,
+                onChanged: (v) => context
+                    .read<SettingsProvider>()
+                    .setChatBackgroundMaskStrength((v as double)),
+              ),
+            ),
+            Text(
+              '${(mask * 100).round()}%',
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Widget _bgPlaceholder(ColorScheme cs) => Container(
+        width: 48,
+        height: 48,
+        color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+        child: Icon(Lucide.Image, size: 20,
+            color: cs.onSurface.withValues(alpha: 0.6)),
+      );
+
   void _persist() {
     final id = _daddyId;
     if (id != null) {
@@ -443,6 +552,11 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             // 基础：头像 / 名字 / 温度 / 流式输出（直接改这个爸爸助手）
             _sectionTitle(context, l10n.daddySettingsBasicSectionTitle),
             _iosSectionCard(children: _basicSection(context, l10n)),
+            const SizedBox(height: 12),
+
+            // 聊天背景（爸爸聊天页单独背景；留空=跟随主页背景）
+            _sectionTitle(context, l10n.daddySettingsChatBgTitle),
+            _iosSectionCard(children: _chatBgSection(context, l10n)),
             const SizedBox(height: 12),
 
             // 魂
