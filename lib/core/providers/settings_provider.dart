@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import '../services/search/search_service.dart';
 import '../../theme/palettes.dart';
 import '../services/tts/network_tts.dart';
@@ -107,6 +108,9 @@ class SettingsProvider extends ChangeNotifier {
   static const String _themePaletteKey = 'theme_palette_v1';
   static const String _customPaletteSeedKey = 'custom_palette_seed_v1';
   static const String _ourhomeTokenKey = 'ourhome_gateway_token_v1';
+  static const String _homeBackgroundsKey = 'home_backgrounds_v1';
+  static const String _homeBackgroundActiveKey = 'home_background_active_v1';
+  static const String _homeBgAiryKey = 'home_bg_airy_v1';
   static const String _useDynamicColorKey = 'use_dynamic_color_v1';
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
@@ -389,6 +393,69 @@ class SettingsProvider extends ChangeNotifier {
     SharedPreferences.getInstance().then((p) {
       p.setString(_ourhomeTokenKey, t);
     });
+  }
+
+  // ----- Home background images (uploaded, kept as switchable options) -----
+  List<String> _homeBackgrounds = const <String>[];
+  List<String> get homeBackgrounds => _homeBackgrounds;
+  String _homeBackgroundActive = '';
+  String get homeBackgroundActive => _homeBackgroundActive;
+  // "airy" wash over the background (0 = vivid photo, higher = pale/dreamy).
+  double _homeBgAiry = 0.35;
+  double get homeBgAiry => _homeBgAiry;
+
+  /// Copy picked image bytes into app storage and make it the active home
+  /// background. Returns the stored path, or null on failure.
+  Future<String?> addHomeBackground(List<int> bytes, String filename) async {
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final bgDir = Directory(p.join(dir.path, 'home_bg'));
+      if (!await bgDir.exists()) await bgDir.create(recursive: true);
+      var ext = '.jpg';
+      final dot = filename.lastIndexOf('.');
+      if (dot >= 0 && dot < filename.length - 1) ext = filename.substring(dot);
+      final dest = p.join(bgDir.path, '${const Uuid().v4()}$ext');
+      await File(dest).writeAsBytes(bytes);
+      _homeBackgrounds = <String>[..._homeBackgrounds, dest];
+      _homeBackgroundActive = dest;
+      notifyListeners();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_homeBackgroundsKey, _homeBackgrounds);
+      await prefs.setString(_homeBackgroundActiveKey, dest);
+      return dest;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setActiveHomeBackground(String path) async {
+    if (_homeBackgroundActive == path) return;
+    _homeBackgroundActive = path;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_homeBackgroundActiveKey, path);
+  }
+
+  Future<void> removeHomeBackground(String path) async {
+    _homeBackgrounds =
+        _homeBackgrounds.where((e) => e != path).toList(growable: false);
+    if (_homeBackgroundActive == path) _homeBackgroundActive = '';
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_homeBackgroundsKey, _homeBackgrounds);
+    await prefs.setString(_homeBackgroundActiveKey, _homeBackgroundActive);
+    try {
+      File(path).deleteSync();
+    } catch (_) {}
+  }
+
+  Future<void> setHomeBgAiry(double value) async {
+    final v = value.clamp(0.0, 1.0);
+    if (_homeBgAiry == v) return;
+    _homeBgAiry = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_homeBgAiryKey, v);
   }
   bool _useDynamicColor = true; // when supported on Android
   bool get useDynamicColor => _useDynamicColor;
@@ -715,6 +782,10 @@ class SettingsProvider extends ChangeNotifier {
         prefs.getString(_themePaletteKey) ?? 'macaron'; // 我们的家·马卡龙默认
     _customPaletteSeed = prefs.getInt(_customPaletteSeedKey);
     _ourhomeToken = prefs.getString(_ourhomeTokenKey) ?? '';
+    _homeBackgrounds =
+        prefs.getStringList(_homeBackgroundsKey) ?? const <String>[];
+    _homeBackgroundActive = prefs.getString(_homeBackgroundActiveKey) ?? '';
+    _homeBgAiry = (prefs.getDouble(_homeBgAiryKey) ?? 0.35).clamp(0.0, 1.0);
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;

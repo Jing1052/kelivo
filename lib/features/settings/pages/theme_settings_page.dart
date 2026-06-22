@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoSlider;
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/providers/settings_provider.dart';
@@ -8,6 +11,7 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../theme/palettes.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/ios_switch.dart';
+import '../../../shared/widgets/ios_tactile.dart';
 import '../../../core/services/haptics.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
 
@@ -115,6 +119,8 @@ class ThemeSettingsPage extends StatelessWidget {
               ],
             ],
           ),
+          const SizedBox(height: 12),
+          const _HomeBgSection(),
         ],
       ),
     );
@@ -572,4 +578,221 @@ Widget _paletteRow(
       );
     },
   );
+}
+
+Future<void> _pickHomeBackground(BuildContext context) async {
+  final sp = context.read<SettingsProvider>();
+  final messenger = ScaffoldMessenger.of(context);
+  final l10n = AppLocalizations.of(context)!;
+  final x = await ImagePicker().pickImage(
+    source: ImageSource.gallery,
+    imageQuality: 92,
+  );
+  if (x == null) return;
+  final path = await sp.addHomeBackground(await x.readAsBytes(), x.name);
+  if (path == null) {
+    messenger.showSnackBar(
+      SnackBar(content: Text(l10n.themeSettingsPageHomeBackgroundFailed)),
+    );
+  }
+}
+
+/// "主页背景" — uploaded images kept as switchable options + an airy wash.
+class _HomeBgSection extends StatelessWidget {
+  const _HomeBgSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final settings = context.watch<SettingsProvider>();
+    final active = settings.homeBackgroundActive;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 18, 12, 6),
+          child: Text(
+            l10n.themeSettingsPageHomeBackgroundSection,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: AppFontWeights.semibold,
+              color: cs.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+        _iosSectionCard(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+              child: SizedBox(
+                height: 64,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    _bgNoneTile(context, selected: active.isEmpty),
+                    for (final path in settings.homeBackgrounds)
+                      _bgThumb(context, path: path, selected: active == path),
+                    _bgAddTile(context),
+                  ],
+                ),
+              ),
+            ),
+            _iosDivider(context),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Text(
+                    l10n.themeSettingsPageHomeBackgroundAiry,
+                    style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CupertinoSlider(
+                      value: settings.homeBgAiry,
+                      activeColor: cs.primary,
+                      onChanged: (v) =>
+                          context.read<SettingsProvider>().setHomeBgAiry(v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${(settings.homeBgAiry * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _bgNoneTile(BuildContext context, {required bool selected}) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () =>
+            context.read<SettingsProvider>().setActiveHomeBackground(''),
+        child: Container(
+          width: 64,
+          height: 64,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected
+                  ? cs.primary
+                  : cs.outlineVariant.withValues(alpha: 0.4),
+              width: selected ? 2 : 1,
+            ),
+          ),
+          child: Text(
+            l10n.themeSettingsPageHomeBackgroundNone,
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _bgThumb(BuildContext context,
+      {required String path, required bool selected}) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: SizedBox(
+        width: 64,
+        height: 64,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IosCardPress(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => context
+                  .read<SettingsProvider>()
+                  .setActiveHomeBackground(path),
+              child: Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: selected
+                        ? cs.primary
+                        : cs.outlineVariant.withValues(alpha: 0.4),
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: Image.file(
+                  File(path),
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Icon(
+                    Lucide.ImageOff,
+                    size: 18,
+                    color: cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              right: -6,
+              top: -6,
+              child: GestureDetector(
+                onTap: () =>
+                    context.read<SettingsProvider>().removeHomeBackground(path),
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: cs.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                  child: Icon(Lucide.X,
+                      size: 13, color: cs.onSurface.withValues(alpha: 0.8)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _bgAddTile(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return IosCardPress(
+      borderRadius: BorderRadius.circular(12),
+      onTap: () => _pickHomeBackground(context),
+      child: Container(
+        width: 64,
+        height: 64,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
+        ),
+        child: Icon(Lucide.Plus,
+            size: 22, color: cs.onSurface.withValues(alpha: 0.7)),
+      ),
+    );
+  }
 }

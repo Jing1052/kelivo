@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,7 @@ import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/user_profile_editor.dart';
 import '../widgets/assistant_avatar.dart';
@@ -106,9 +108,11 @@ class StillHomePage extends StatelessWidget {
           ..sort((x, y) => x.days.compareTo(y.days));
 
     final next = upcoming.first;
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
+    final settings = context.watch<SettingsProvider>();
+    final bgPath = settings.homeBackgroundActive;
+    final hasBg = bgPath.isNotEmpty && File(bgPath).existsSync();
+
+    final content = SafeArea(
         // Single screen, no scroll: the clock+tiles row is Expanded so it
         // absorbs all vertical slack and the page always fills exactly one
         // screen without overflowing.
@@ -143,6 +147,28 @@ class StillHomePage extends StatelessWidget {
             ],
           ),
         ),
+      );
+
+    return Scaffold(
+      backgroundColor: hasBg ? Colors.transparent : cs.surface,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasBg)
+            Image.file(
+              File(bgPath),
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+            ),
+          // "airy" wash: a soft surface-tinted veil so cards stay readable.
+          if (hasBg)
+            IgnorePointer(
+              child: ColoredBox(
+                color: cs.surface.withValues(alpha: settings.homeBgAiry),
+              ),
+            ),
+          content,
+        ],
       ),
     );
   }
