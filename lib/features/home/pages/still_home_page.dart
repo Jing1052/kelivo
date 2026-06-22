@@ -375,21 +375,57 @@ class _DashboardState extends State<_Dashboard> {
 
   Widget _daddyBar() {
     final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
     return _Glass(
-      radius: 18,
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
-      child: Text(
-        _daddyLine(widget.zh, _temp, _kind),
-        textAlign: TextAlign.center,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          height: 1.35,
-          fontStyle: FontStyle.italic,
-          fontWeight: FontWeight.w500,
-          color: cs.primary.withValues(alpha: 0.9),
-        ),
+      radius: 20,
+      padding: const EdgeInsets.fromLTRB(15, 13, 16, 13),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.13),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Lucide.Heart,
+              size: 15,
+              color: cs.primary.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(width: 11),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  zh ? '爸比说' : 'Daddy says',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    letterSpacing: 0.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.primary.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  _daddyLine(zh, _temp, _kind),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.4,
+                    fontStyle: FontStyle.italic,
+                    color: cs.onSurface.withValues(alpha: 0.72),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
