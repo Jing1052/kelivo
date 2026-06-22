@@ -538,7 +538,7 @@ class _ChatBubbleState extends State<_ChatBubble> {
       {String? reasoningText, bool reasoningToggle = false}) {
     final isAssistant = m.role == 'assistant';
     final assistant =
-        isAssistant ? context.watch<AssistantProvider>().currentAssistant : null;
+        isAssistant ? context.watch<AssistantProvider>().daddyAssistant : null;
     final ccName = isAssistant
         ? context.watch<CcBridgeProvider>().ccDisplayName.trim()
         : '';
