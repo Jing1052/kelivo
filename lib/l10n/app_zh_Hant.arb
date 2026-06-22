@@ -282,6 +282,8 @@
   "displaySettingsPageButtonShapeRounded": "圓角",
   "displaySettingsPageButtonShapePill": "膠囊",
   "displaySettingsPageButtonShapeSquare": "直角",
+  "displaySettingsPageChatBubbleOpacityTitle": "氣泡透明度",
+  "displaySettingsPageBackgroundDimTitle": "背景調暗",
   "displaySettingsPageChatBubbleShapeTitle": "氣泡形狀",
   "displaySettingsPageChatBubbleShapeRound": "圓鈍",
   "displaySettingsPageChatBubbleShapeStandard": "標準",

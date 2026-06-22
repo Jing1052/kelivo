@@ -2982,7 +2982,10 @@ Widget _buildSharedChatSurface(
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
   final isDark = theme.brightness == Brightness.dark;
-  final style = context.watch<SettingsProvider>().chatMessageBackgroundStyle;
+  final settings = context.watch<SettingsProvider>();
+  final style = settings.chatMessageBackgroundStyle;
+  // User-tunable bubble transparency (1.0 = current look).
+  final op = settings.chatBubbleOpacity.clamp(0.0, 1.0);
   final paddedChild = Padding(padding: padding, child: child);
 
   switch (style) {
@@ -2994,8 +2997,8 @@ Widget _buildSharedChatSurface(
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF1C1C1E).withValues(alpha: 0.66)
-                  : Colors.white.withValues(alpha: 0.66),
+                  ? const Color(0xFF1C1C1E).withValues(alpha: 0.66 * op)
+                  : Colors.white.withValues(alpha: 0.66 * op),
               borderRadius: borderRadius,
               border: Border.all(
                 color: cs.outlineVariant.withValues(alpha: 0.14),
@@ -3009,7 +3012,8 @@ Widget _buildSharedChatSurface(
     case ChatMessageBackgroundStyle.solid:
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+          color: (isDark ? const Color(0xFF1C1C1E) : Colors.white)
+              .withValues(alpha: op),
           borderRadius: borderRadius,
           border: Border.all(
             color: cs.outlineVariant.withValues(alpha: 0.16),
@@ -3027,7 +3031,7 @@ Widget _buildSharedChatSurface(
       }
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: defaultColor,
+          color: defaultColor.withValues(alpha: defaultColor.a * op),
           borderRadius: borderRadius,
         ),
         child: paddedChild,
