@@ -677,6 +677,10 @@ class ChatMessageWidget extends StatefulWidget {
   final String? assistantAvatar; // path/url/emoji; null => use initial
   final bool showUserAvatar;
   final bool showTokenStats;
+  // When false, suppress the per-message action toolbar (copy/regenerate/tts/
+  // translate/more) for both roles. Used by lightweight channels (e.g. CC) that
+  // don't support those operations.
+  final bool showActions;
   final VoidCallback? onRegenerate;
   final VoidCallback? onResend;
   final VoidCallback? onCopy;
@@ -728,6 +732,7 @@ class ChatMessageWidget extends StatefulWidget {
     this.assistantAvatar,
     this.showUserAvatar = true,
     this.showTokenStats = true,
+    this.showActions = true,
     this.onRegenerate,
     this.onResend,
     this.onCopy,
@@ -1391,7 +1396,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
               ),
             ),
           ),
-          if (showUserActions || showVersionSwitcher) ...[
+          if (widget.showActions && (showUserActions || showVersionSwitcher)) ...[
             SizedBox(height: showUserActions ? 8 : 6),
             Align(
               alignment: Alignment.centerRight,
@@ -2454,7 +2459,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             ),
           ],
           // Action buttons (hidden while generating)
-          AnimatedSwitcher(
+          if (widget.showActions)
+            AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
