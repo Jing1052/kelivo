@@ -605,6 +605,7 @@ class _HomeBgSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
     final settings = context.watch<SettingsProvider>();
     final active = settings.homeBackgroundActive;
 
@@ -660,6 +661,72 @@ class _HomeBgSection extends StatelessWidget {
                   const SizedBox(width: 8),
                   Text(
                     '${(settings.homeBgAiry * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _iosDivider(context),
+            // 主页卡片质感: 磨砂(blur) ↔ 透明玻璃
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          zh ? '卡片磨砂质感' : 'Frosted cards',
+                          style: TextStyle(fontSize: 14, color: cs.onSurface),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          zh ? '关闭则为透明玻璃' : 'Off = clear glass',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IosSwitch(
+                    value: settings.homeCardBlur,
+                    onChanged: (v) =>
+                        context.read<SettingsProvider>().setHomeCardBlur(v),
+                  ),
+                ],
+              ),
+            ),
+            _iosDivider(context),
+            // 主页卡片透明度
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: Row(
+                children: [
+                  Text(
+                    zh ? '卡片透明度' : 'Card opacity',
+                    style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CupertinoSlider(
+                      value: settings.homeCardOpacity,
+                      min: 0.10,
+                      max: 0.85,
+                      activeColor: cs.primary,
+                      onChanged: (v) => context
+                          .read<SettingsProvider>()
+                          .setHomeCardOpacity(v),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${(settings.homeCardOpacity * 100).round()}%',
                     style: TextStyle(
                       fontSize: 12,
                       color: cs.onSurface.withValues(alpha: 0.6),
