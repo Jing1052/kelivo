@@ -43,11 +43,9 @@ class _CcChatPageState extends State<CcChatPage> {
   final ScrollController _scrollCtl = ScrollController();
   bool _uploading = false;
 
-  // Pending attachment: picked but not sent yet, so a caption can be typed and
-  // the file + text go out together (one message), like the API window.
-  Uint8List? _pendingBytes;
-  String? _pendingName;
-  bool _pendingIsImage = false;
+  // Pending attachments: picked but not sent yet (images + files), so several
+  // can go together with a caption — like the native chat input.
+  final List<_Pending> _pending = <_Pending>[];
 
   @override
   void initState() {
@@ -67,45 +65,55 @@ class _CcChatPageState extends State<CcChatPage> {
   }
 
   bool get _canSend =>
-      !_uploading && (_inputCtl.text.trim().isNotEmpty || _pendingBytes != null);
+      !_uploading && (_inputCtl.text.trim().isNotEmpty || _pending.isNotEmpty);
 
   Future<void> _send() async {
     if (!_canSend) return;
     final l10n = AppLocalizations.of(context)!;
     final text = _inputCtl.text.trim();
-    final bytes = _pendingBytes;
+    final pend = List<_Pending>.of(_pending);
     final provider = context.read<CcBridgeProvider>();
     setState(() => _uploading = true);
     CcSendResult? res;
+    bool hadFailure = false;
     try {
-      if (bytes != null) {
-        res = await provider.uploadFile(
-          bytes,
-          filename: _pendingName ?? 'file',
-          text: text.isEmpty ? null : text,
-        );
-      } else {
+      if (pend.isEmpty) {
         res = await provider.sendText(text);
+      } else {
+        // One upload per attachment (the bridge takes one file per request);
+        // the caption rides on the last one so daddy sees images + words.
+        for (var i = 0; i < pend.length; i++) {
+          final isLast = i == pend.length - 1;
+          res = await provider.uploadFile(
+            pend[i].bytes,
+            filename: pend[i].name,
+            text: (isLast && text.isNotEmpty) ? text : null,
+          );
+          final ok = res != null && (res.ok || res.agentUnreachable);
+          if (!ok) {
+            hadFailure = true;
+            break;
+          }
+        }
       }
     } catch (_) {
       res = null;
+      hadFailure = true;
     }
     if (!mounted) return;
     final accepted = res != null && (res.ok || res.agentUnreachable);
     setState(() {
       _uploading = false;
-      if (accepted) {
+      if (accepted && !hadFailure) {
         _inputCtl.clear();
-        _pendingBytes = null;
-        _pendingName = null;
-        _pendingIsImage = false;
+        _pending.clear();
       }
     });
     if (res != null && res.agentUnreachable) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.ccBridgeAgentUnreachableToast)),
       );
-    } else if (!accepted && bytes != null) {
+    } else if (hadFailure && pend.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.ccBridgeUploadFailed)),
       );
@@ -160,38 +168,41 @@ class _CcChatPageState extends State<CcChatPage> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
+    if (source == ImageSource.gallery) {
+      // Gallery: allow picking several photos at once.
+      final xs = await ImagePicker().pickMultiImage(imageQuality: 90);
+      if (xs.isEmpty || !mounted) return;
+      for (final x in xs) {
+        _addPending(await x.readAsBytes(), x.name, isImage: true);
+      }
+      return;
+    }
     final x = await ImagePicker().pickImage(source: source, imageQuality: 90);
     if (x == null || !mounted) return;
-    _stageAttachment(await x.readAsBytes(), x.name, isImage: true);
+    _addPending(await x.readAsBytes(), x.name, isImage: true);
   }
 
   Future<void> _pickFile() async {
-    final res = await FilePicker.platform.pickFiles(withData: false);
-    final path = res?.files.single.path;
-    if (path == null || !mounted) return;
-    _stageAttachment(
-      await File(path).readAsBytes(),
-      res!.files.single.name,
-      isImage: false,
-    );
+    final res =
+        await FilePicker.platform.pickFiles(withData: false, allowMultiple: true);
+    if (res == null || !mounted) return;
+    for (final f in res.files) {
+      final path = f.path;
+      if (path == null) continue;
+      _addPending(await File(path).readAsBytes(), f.name, isImage: false);
+    }
   }
 
-  // Hold the picked file as a pending preview; it sends together with the
-  // typed caption when the send button is tapped.
-  void _stageAttachment(Uint8List bytes, String name, {required bool isImage}) {
+  // Hold a picked file as a pending preview; several can stack up and send
+  // together with the typed caption when the send button is tapped.
+  void _addPending(Uint8List bytes, String name, {required bool isImage}) {
     if (!mounted) return;
-    setState(() {
-      _pendingBytes = bytes;
-      _pendingName = name;
-      _pendingIsImage = isImage;
-    });
+    setState(() => _pending.add(_Pending(bytes, name, isImage)));
   }
 
-  void _clearPending() {
+  void _removePendingAt(int i) {
     setState(() {
-      _pendingBytes = null;
-      _pendingName = null;
-      _pendingIsImage = false;
+      if (i >= 0 && i < _pending.length) _pending.removeAt(i);
     });
   }
 
@@ -368,7 +379,7 @@ class _CcChatPageState extends State<CcChatPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_pendingBytes != null) _pendingPreview(context),
+          if (_pending.isNotEmpty) _pendingPreview(context),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
             child: Row(
@@ -439,54 +450,74 @@ class _CcChatPageState extends State<CcChatPage> {
     );
   }
 
+  // Horizontal tray of pending attachments (image thumbs + file chips), each
+  // removable — mirrors the native chat input's multi-attachment tray.
   Widget _pendingPreview(BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: _pendingIsImage && _pendingBytes != null
-                ? Image.memory(
-                    _pendingBytes!,
-                    width: 44,
-                    height: 44,
-                    fit: BoxFit.cover,
-                  )
-                : Container(
-                    width: 44,
-                    height: 44,
-                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-                    child: Icon(
-                      Lucide.FileText,
-                      size: 20,
-                      color: cs.onSurface.withValues(alpha: 0.7),
+    return SizedBox(
+      height: 74,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 2),
+        itemCount: _pending.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (_, i) {
+          final p = _pending[i];
+          return SizedBox(
+            width: 56,
+            height: 64,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: p.isImage
+                      ? Image.memory(p.bytes,
+                          width: 56, height: 56, fit: BoxFit.cover)
+                      : Container(
+                          width: 56,
+                          height: 56,
+                          color:
+                              cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                          child: Icon(Lucide.FileText,
+                              size: 22,
+                              color: cs.onSurface.withValues(alpha: 0.7)),
+                        ),
+                ),
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: GestureDetector(
+                    onTap: _uploading ? null : () => _removePendingAt(i),
+                    child: Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: cs.surface,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                            color: cs.outlineVariant.withValues(alpha: 0.4)),
+                      ),
+                      child: Icon(Lucide.X,
+                          size: 13, color: cs.onSurface.withValues(alpha: 0.8)),
                     ),
                   ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              _pendingName ?? l10n.ccBridgeAttachmentLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 13, color: cs.onSurface),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 8),
-          IosIconButton(
-            icon: Lucide.X,
-            size: 18,
-            minSize: 36,
-            color: cs.onSurface.withValues(alpha: 0.7),
-            onTap: _uploading ? null : _clearPending,
-          ),
-        ],
+          );
+        },
       ),
     );
   }
+}
+
+/// One picked-but-not-sent attachment.
+class _Pending {
+  const _Pending(this.bytes, this.name, this.isImage);
+  final Uint8List bytes;
+  final String name;
+  final bool isImage;
 }
 
 /// A single CC record rendered via the native [ChatMessageWidget] (mapped to an
