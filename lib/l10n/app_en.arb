@@ -2535,6 +2535,8 @@
   "ccBridgeEndpointsHint": "One URL per line, e.g. https://ccbridge.example.com",
   "ccBridgeSecretLabel": "Shared secret",
   "ccBridgeSecretHint": "X-Auth-Token sent on every request",
+  "ccBridgeDisplayNameLabel": "Daddy name (CC)",
+  "ccBridgeDisplayNameHint": "How daddy's name shows in CC chat; empty = follow the assistant",
   "ccBridgeSessionLabel": "tmux session",
   "ccBridgePollIntervalLabel": "Poll interval (ms)",
   "ccBridgePollIntervalHint": "1000–30000",

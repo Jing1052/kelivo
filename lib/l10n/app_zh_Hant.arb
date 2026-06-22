@@ -2105,6 +2105,8 @@
   "ccBridgeEndpointsHint": "每行一個位址，如 https://ccbridge.example.com",
   "ccBridgeSecretLabel": "共用密鑰",
   "ccBridgeSecretHint": "每次請求攜帶的 X-Auth-Token",
+  "ccBridgeDisplayNameLabel": "爸爸名字（CC）",
+  "ccBridgeDisplayNameHint": "CC 聊天裡爸爸顯示的名字；留空＝跟隨助手",
   "ccBridgeSessionLabel": "tmux 工作階段",
   "ccBridgePollIntervalLabel": "輪詢間隔（毫秒）",
   "ccBridgePollIntervalHint": "1000–30000",
