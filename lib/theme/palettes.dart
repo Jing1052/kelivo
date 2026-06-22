@@ -964,4 +964,31 @@ class ThemePalettes {
   static ThemePalette byId(String id) {
     return all.firstWhere((p) => p.id == id, orElse: () => defaultPalette);
   }
+
+  // Custom palette generated from a painting: a single extracted seed color
+  // drives a full Material scheme for light + dark.
+  static const String customPaintingId = 'custom_painting';
+
+  static ThemePalette fromSeed(Color seed) => ThemePalette(
+        id: customPaintingId,
+        zhName: '画中',
+        enName: 'From Painting',
+        light: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: Brightness.light,
+        ),
+        dark: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: Brightness.dark,
+        ),
+      );
+
+  /// Resolve the active palette by id; for the custom painting id, build it
+  /// from the stored seed (falls back to default when no seed is set).
+  static ThemePalette resolve(String id, {int? customSeed}) {
+    if (id == customPaintingId) {
+      return customSeed != null ? fromSeed(Color(customSeed)) : defaultPalette;
+    }
+    return byId(id);
+  }
 }

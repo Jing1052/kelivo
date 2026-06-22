@@ -10,6 +10,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import '../services/search/search_service.dart';
+import '../../theme/palettes.dart';
 import '../services/tts/network_tts.dart';
 import '../services/tts/tts_text_selection.dart';
 import '../services/network/request_logger.dart';
@@ -104,6 +105,7 @@ class SettingsProvider extends ChangeNotifier {
   static const String _compressModelKey = 'compress_model_v1';
   static const String _compressPromptKey = 'compress_prompt_v1';
   static const String _themePaletteKey = 'theme_palette_v1';
+  static const String _customPaletteSeedKey = 'custom_palette_seed_v1';
   static const String _useDynamicColorKey = 'use_dynamic_color_v1';
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
@@ -366,6 +368,9 @@ class SettingsProvider extends ChangeNotifier {
   // Theme palette & dynamic color
   String _themePaletteId = 'macaron'; // 我们的家·马卡龙默认
   String get themePaletteId => _themePaletteId;
+  // Seed color (ARGB int) for the painting-generated palette; null when unset.
+  int? _customPaletteSeed;
+  int? get customPaletteSeed => _customPaletteSeed;
   bool _useDynamicColor = true; // when supported on Android
   bool get useDynamicColor => _useDynamicColor;
   bool _dynamicColorSupported = false; // runtime capability, not persisted
@@ -689,6 +694,7 @@ class SettingsProvider extends ChangeNotifier {
     }
     _themePaletteId =
         prefs.getString(_themePaletteKey) ?? 'macaron'; // 我们的家·马卡龙默认
+    _customPaletteSeed = prefs.getInt(_customPaletteSeedKey);
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;
@@ -2411,6 +2417,16 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_themePaletteKey, id);
+  }
+
+  /// Store a painting-extracted seed color and switch to the custom palette.
+  Future<void> setCustomPaletteSeed(int colorValue) async {
+    _customPaletteSeed = colorValue;
+    _themePaletteId = ThemePalettes.customPaintingId;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_customPaletteSeedKey, colorValue);
+    await prefs.setString(_themePaletteKey, _themePaletteId);
   }
 
   Future<void> setUseDynamicColor(bool v) async {
