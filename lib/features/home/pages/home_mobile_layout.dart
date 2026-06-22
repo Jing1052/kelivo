@@ -364,12 +364,17 @@ class MobileBackgroundLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final bg = context.watch<AssistantProvider>().currentAssistant?.background;
-    final maskStrength = context
-        .watch<SettingsProvider>()
-        .chatBackgroundMaskStrength;
+    final settings = context.watch<SettingsProvider>();
+    final ownBg =
+        context.watch<AssistantProvider>().currentAssistant?.background;
+    final maskStrength = settings.chatBackgroundMaskStrength;
 
-    if (bg == null || bg.trim().isEmpty) return const SizedBox.shrink();
+    // Per-daddy chat background wins; otherwise fall back to the global home
+    // background so the chat shares the home's look (home + chat scope).
+    final hasOwn = ownBg != null && ownBg.trim().isNotEmpty;
+    final globalBg = settings.homeBackgroundActive;
+    final bg = hasOwn ? ownBg : (globalBg.isNotEmpty ? globalBg : null);
+    if (bg == null) return const SizedBox.shrink();
 
     ImageProvider provider;
     if (bg.startsWith('http')) {
@@ -401,20 +406,25 @@ class MobileBackgroundLayer extends StatelessWidget {
           Positioned.fill(
             child: IgnorePointer(
               child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      cs.surface.withValues(
-                        alpha: (0.20 * maskStrength).clamp(0.0, 1.0),
+                decoration: hasOwn
+                    ? BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            cs.surface.withValues(
+                              alpha: (0.20 * maskStrength).clamp(0.0, 1.0),
+                            ),
+                            cs.surface.withValues(
+                              alpha: (0.50 * maskStrength).clamp(0.0, 1.0),
+                            ),
+                          ],
+                        ),
+                      )
+                    // global home bg → same flat "airy" wash as the home page
+                    : BoxDecoration(
+                        color: cs.surface.withValues(alpha: settings.homeBgAiry),
                       ),
-                      cs.surface.withValues(
-                        alpha: (0.50 * maskStrength).clamp(0.0, 1.0),
-                      ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ),
