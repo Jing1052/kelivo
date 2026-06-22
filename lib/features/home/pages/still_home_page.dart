@@ -104,8 +104,8 @@ class StillHomePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Header sits a touch lower than the status bar, not jammed up top.
-            const SizedBox(height: 18),
+            // Header sits comfortably below the status bar, not jammed up top.
+            const SizedBox(height: 34),
             const _PairHeader(),
             const SizedBox(height: 14),
             // Weather/time hero — the largest widget.
@@ -172,9 +172,9 @@ class StillHomePage extends StatelessWidget {
 
 Color _glassFill(BuildContext c) {
   final dark = Theme.of(c).brightness == Brightness.dark;
-  return dark
-      ? Colors.white.withValues(alpha: 0.10)
-      : Colors.white.withValues(alpha: 0.46);
+  // Cing-tunable veil strength; dark mode keeps it lighter so text stays legible.
+  final op = c.select<SettingsProvider, double>((s) => s.homeCardOpacity);
+  return Colors.white.withValues(alpha: dark ? op * 0.34 : op);
 }
 
 Color _glassLine(BuildContext c) {
@@ -202,19 +202,25 @@ class _Glass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final br = BorderRadius.circular(radius);
+    final blur = context.select<SettingsProvider, bool>((s) => s.homeCardBlur);
+    final card = IosCardPress(
+      borderRadius: br,
+      baseColor: _glassFill(context),
+      border: Border.all(color: _glassLine(context), width: 1),
+      padding: padding,
+      onTap: onTap,
+      child: child,
+    );
     return ClipRRect(
       borderRadius: br,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: IosCardPress(
-          borderRadius: br,
-          baseColor: _glassFill(context),
-          border: Border.all(color: _glassLine(context), width: 1),
-          padding: padding,
-          onTap: onTap,
-          child: child,
-        ),
-      ),
+      // 磨砂: frost the photo behind the card. 透明玻璃: skip the blur entirely
+      // (cheaper, and lets the picture read through clearly).
+      child: blur
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: card,
+            )
+          : card,
     );
   }
 }

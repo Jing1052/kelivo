@@ -114,6 +114,8 @@ class SettingsProvider extends ChangeNotifier {
   static const String _homeWeatherCityKey = 'home_weather_city_v1';
   static const String _homeWeatherLatKey = 'home_weather_lat_v1';
   static const String _homeWeatherLonKey = 'home_weather_lon_v1';
+  static const String _homeCardBlurKey = 'home_card_blur_v1';
+  static const String _homeCardOpacityKey = 'home_card_opacity_v1';
   static const String _useDynamicColorKey = 'use_dynamic_color_v1';
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
@@ -486,6 +488,30 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setDouble(_homeWeatherLonKey, lon);
   }
 
+  // ----- Home widget-card look: frosted (blur) vs clear glass + fill opacity -----
+  bool _homeCardBlur = true; // true = 磨砂(blur), false = 透明玻璃
+  bool get homeCardBlur => _homeCardBlur;
+  // Fill opacity of the frosted/glass cards (white veil strength), 0.10..0.85.
+  double _homeCardOpacity = 0.46;
+  double get homeCardOpacity => _homeCardOpacity;
+
+  Future<void> setHomeCardBlur(bool v) async {
+    if (_homeCardBlur == v) return;
+    _homeCardBlur = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_homeCardBlurKey, v);
+  }
+
+  Future<void> setHomeCardOpacity(double value) async {
+    final v = value.clamp(0.10, 0.85);
+    if (_homeCardOpacity == v) return;
+    _homeCardOpacity = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_homeCardOpacityKey, v);
+  }
+
   Future<void> clearHomeWeatherCity() async {
     _homeWeatherCity = '';
     _homeWeatherLat = double.nan;
@@ -828,6 +854,9 @@ class SettingsProvider extends ChangeNotifier {
     _homeWeatherCity = prefs.getString(_homeWeatherCityKey) ?? '';
     _homeWeatherLat = prefs.getDouble(_homeWeatherLatKey) ?? double.nan;
     _homeWeatherLon = prefs.getDouble(_homeWeatherLonKey) ?? double.nan;
+    _homeCardBlur = prefs.getBool(_homeCardBlurKey) ?? true;
+    _homeCardOpacity =
+        (prefs.getDouble(_homeCardOpacityKey) ?? 0.46).clamp(0.10, 0.85);
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;
