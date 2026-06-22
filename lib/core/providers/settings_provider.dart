@@ -214,6 +214,7 @@ class SettingsProvider extends ChangeNotifier {
       'display_chat_message_background_style_v1';
   static const String _displayChatBubbleShapeKey =
       'display_chat_bubble_shape_v1';
+  static const String _displayButtonShapeKey = 'display_button_shape_v1';
   static const String _mobileAssistantEditTabOrderKey =
       'mobile_assistant_edit_tab_order_v1';
   static const String _mobileAssistantEditTabHiddenKey =
@@ -1170,6 +1171,17 @@ class SettingsProvider extends ChangeNotifier {
         break;
       default:
         _chatBubbleShape = ChatBubbleShape.standard;
+    }
+    // Button shape (rounded | pill | square)
+    switch (prefs.getString(_displayButtonShapeKey) ?? 'rounded') {
+      case 'pill':
+        _appButtonShape = AppButtonShape.pill;
+        break;
+      case 'square':
+        _appButtonShape = AppButtonShape.square;
+        break;
+      default:
+        _appButtonShape = AppButtonShape.rounded;
     }
     _mobileAssistantEditTabOrder = List.unmodifiable(
       prefs.getStringList(_mobileAssistantEditTabOrderKey) ?? const <String>[],
@@ -2450,6 +2462,21 @@ class SettingsProvider extends ChangeNotifier {
       ChatBubbleShape.standard => 'standard',
     };
     await prefs.setString(_displayChatBubbleShapeKey, v);
+  }
+
+  AppButtonShape _appButtonShape = AppButtonShape.rounded;
+  AppButtonShape get appButtonShape => _appButtonShape;
+  Future<void> setAppButtonShape(AppButtonShape shape) async {
+    if (_appButtonShape == shape) return;
+    _appButtonShape = shape;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    final v = switch (shape) {
+      AppButtonShape.pill => 'pill',
+      AppButtonShape.square => 'square',
+      AppButtonShape.rounded => 'rounded',
+    };
+    await prefs.setString(_displayButtonShapeKey, v);
   }
 
   List<String> _mobileAssistantEditTabOrder = const <String>[];
@@ -4753,6 +4780,36 @@ extension ChatBubbleShapeRadius on ChatBubbleShape {
         return 8;
       case ChatBubbleShape.standard:
         return 16;
+    }
+  }
+}
+
+// Corner shape for the shared iOS button primitives (design §1082).
+// rounded = current look (default). pill = fully round. square = crisp.
+enum AppButtonShape { rounded, pill, square }
+
+extension AppButtonShapeRadius on AppButtonShape {
+  // Filled tile/button radius (IosTileButton). rounded keeps the current 12.
+  double get tileRadius {
+    switch (this) {
+      case AppButtonShape.pill:
+        return 999;
+      case AppButtonShape.square:
+        return 6;
+      case AppButtonShape.rounded:
+        return 12;
+    }
+  }
+
+  // Icon-button press-highlight radius (IosIconButton). rounded keeps 8.
+  double get iconRadius {
+    switch (this) {
+      case AppButtonShape.pill:
+        return 999;
+      case AppButtonShape.square:
+        return 4;
+      case AppButtonShape.rounded:
+        return 8;
     }
   }
 }

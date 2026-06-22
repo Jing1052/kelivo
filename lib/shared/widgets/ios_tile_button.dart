@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../core/providers/settings_provider.dart';
 import '../../core/services/haptics.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
 
@@ -86,7 +88,13 @@ class _IosTileButtonState extends State<IosTileButton> {
           padding: widget.padding,
           decoration: BoxDecoration(
             color: _pressed && widget.enabled ? pressedBg : baseBg,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(
+              context
+                  .select<SettingsProvider, AppButtonShape>(
+                    (s) => s.appButtonShape,
+                  )
+                  .tileRadius,
+            ),
             border: Border.all(
               color: widget.enabled
                   ? effectiveBorder
