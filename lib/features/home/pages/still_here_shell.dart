@@ -20,9 +20,9 @@ import 'still_rooms_page.dart';
 /// to be rebuilt natively in later stages. Tabs are kept alive via IndexedStack
 /// so switching never tears down chat state.
 class StillHereShell extends StatefulWidget {
-  const StillHereShell({super.key, this.initialIndex = 2});
+  const StillHereShell({super.key, this.initialIndex = 0});
 
-  /// Default landing tab is Chat (index 2) so the app opens straight into talk.
+  /// Default landing tab is Home (index 0) so the app opens on our home page.
   final int initialIndex;
 
   @override
