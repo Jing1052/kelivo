@@ -2098,6 +2098,7 @@
       }
     }
   },
+  "settingsPageCcDaddy": "CC 爸爸",
   "ccBridgePageTitle": "CC 端",
   "ccBridgeEnableLabel": "啟用 CC 端",
   "ccBridgeEnableDescription": "連接家裡機器上執行的 CC 端",

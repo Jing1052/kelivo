@@ -41,7 +41,6 @@ class CcChatPage extends StatefulWidget {
 class _CcChatPageState extends State<CcChatPage> {
   final TextEditingController _inputCtl = TextEditingController();
   final ScrollController _scrollCtl = ScrollController();
-  int _lastCount = 0;
   bool _uploading = false;
 
   // Pending attachment: picked but not sent yet, so a caption can be typed and
@@ -65,22 +64,6 @@ class _CcChatPageState extends State<CcChatPage> {
     _inputCtl.dispose();
     _scrollCtl.dispose();
     super.dispose();
-  }
-
-  void _scrollToBottom() {
-    if (!_scrollCtl.hasClients) return;
-    _scrollCtl.jumpTo(_scrollCtl.position.maxScrollExtent);
-  }
-
-  // Pin to the newest message: jump now, then once more after async content
-  // (network images / lazily-loaded reasoning cards) has expanded the height.
-  void _pinBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollToBottom();
-      Future.delayed(const Duration(milliseconds: 300), () {
-        if (mounted) _scrollToBottom();
-      });
-    });
   }
 
   bool get _canSend =>
@@ -217,13 +200,6 @@ class _CcChatPageState extends State<CcChatPage> {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final provider = context.watch<CcBridgeProvider>();
-
-    // Pin to the newest message on open and whenever new records arrive.
-    final count = provider.records.length;
-    if (count != _lastCount) {
-      _lastCount = count;
-      _pinBottom();
-    }
 
     return Scaffold(
       appBar: AppBar(
@@ -365,11 +341,18 @@ class _CcChatPageState extends State<CcChatPage> {
                     ),
                   ),
                 )
+              // reverse:true keeps the list anchored at the newest message:
+              // it opens pinned to the bottom and stays there when the keyboard
+              // pushes the viewport up — matching the native chat feel.
               : ListView.builder(
                   controller: _scrollCtl,
+                  reverse: true,
                   padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
                   itemCount: records.length,
-                  itemBuilder: (_, i) => _ChatBubble(record: records[i]),
+                  itemBuilder: (_, i) {
+                    final r = records[records.length - 1 - i];
+                    return _ChatBubble(key: ValueKey(r.ts), record: r);
+                  },
                 ),
         ),
         _inputBar(context, provider),
@@ -512,7 +495,7 @@ class _CcChatPageState extends State<CcChatPage> {
 /// the native reasoning card; a `|||` in an assistant reply splits it into
 /// several bubbles. CC attachments render just above the bubble.
 class _ChatBubble extends StatefulWidget {
-  const _ChatBubble({required this.record});
+  const _ChatBubble({super.key, required this.record});
   final CcChatRecord record;
 
   @override

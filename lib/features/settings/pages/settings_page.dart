@@ -24,6 +24,8 @@ import '../../stats/pages/stats_page.dart';
 import '../../../core/services/storage/storage_usage_service.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/providers/user_provider.dart';
+import '../../../core/providers/assistant_provider.dart';
+import '../../home/widgets/assistant_avatar.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/user_profile_editor.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
@@ -131,12 +133,31 @@ class SettingsPage extends StatelessWidget {
               _iosNavRow(
                 context,
                 icon: Lucide.Heart,
+                leading: AssistantAvatar(
+                  assistant: context.watch<AssistantProvider>().currentAssistant,
+                  size: 26,
+                ),
                 label: l10n.daddySettingsPageTitle,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const DaddySettingsPage(),
                     ),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Cable,
+                leading: AssistantAvatar(
+                  assistant: context.watch<AssistantProvider>().currentAssistant,
+                  size: 26,
+                ),
+                label: l10n.settingsPageCcDaddy,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CcBridgePage()),
                   );
                 },
               ),
@@ -243,17 +264,6 @@ class SettingsPage extends StatelessWidget {
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const NetworkProxyPage()),
-                  );
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Cable,
-                label: l10n.ccBridgePageTitle,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CcBridgePage()),
                   );
                 },
               ),
@@ -565,6 +575,7 @@ Widget _iosNavRow(
   VoidCallback? onTap,
   String? detailText,
   Widget Function(BuildContext ctx)? detailBuilder,
+  Widget? leading,
 }) {
   final cs = Theme.of(context).colorScheme;
   final interactive = onTap != null;
@@ -582,7 +593,12 @@ Widget _iosNavRow(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
             child: Row(
               children: [
-                SizedBox(width: 36, child: Icon(icon, size: 20, color: c)),
+                SizedBox(
+                  width: 36,
+                  child: leading != null
+                      ? Center(child: leading)
+                      : Icon(icon, size: 20, color: c),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
