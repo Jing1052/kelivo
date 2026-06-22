@@ -2528,6 +2528,7 @@
       }
     }
   },
+  "settingsPageCcDaddy": "Daddy (CC)",
   "ccBridgePageTitle": "CC bridge",
   "ccBridgeEnableLabel": "Enable CC bridge",
   "ccBridgeEnableDescription": "Connect to the CC agent running on your home machine",

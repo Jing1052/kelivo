@@ -8,6 +8,7 @@ import '../../../theme/app_font_weights.dart';
 import '../../../core/models/conversation.dart';
 import '../../../core/models/assistant.dart';
 import '../../../core/providers/assistant_provider.dart';
+import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
@@ -424,6 +425,13 @@ class _CcEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final assistant = context.watch<AssistantProvider>().currentAssistant;
+    final ccName = context.watch<CcBridgeProvider>().ccDisplayName.trim();
+    final title = ccName.isNotEmpty
+        ? ccName
+        : ((assistant?.name ?? '').trim().isNotEmpty
+            ? assistant!.name.trim()
+            : l10n.ccBridgeChatTitle);
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: IosCardPress(
@@ -432,25 +440,34 @@ class _CcEntryTile extends StatelessWidget {
         onTap: onTap,
         child: Row(
           children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.14),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Lucide.Terminal, size: 20, color: cs.primary),
-            ),
+            // Same couple/daddy avatar as the API chat entries, so CC is unified.
+            AssistantAvatar(assistant: assistant, size: 38),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                l10n.ccBridgeChatTitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w500,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.ccBridgeChatTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(width: 10),
