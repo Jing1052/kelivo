@@ -286,6 +286,40 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
               _iosDivider(context),
               _iosNavRow(
                 context,
+                icon: Lucide.Eye,
+                label: l10n.displaySettingsPageChatBubbleOpacityTitle,
+                detailBuilder: (ctx) {
+                  final sp = ctx.watch<SettingsProvider>();
+                  return Text(
+                    '${(sp.chatBubbleOpacity * 100).round()}%',
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  );
+                },
+                onTap: () => _showBubbleOpacitySheet(context),
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Moon,
+                label: l10n.displaySettingsPageBackgroundDimTitle,
+                detailBuilder: (ctx) {
+                  final sp = ctx.watch<SettingsProvider>();
+                  return Text(
+                    '${(sp.backgroundDim * 100).round()}%',
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  );
+                },
+                onTap: () => _showBackgroundDimSheet(context),
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
                 icon: Lucide.Type,
                 label: l10n.displaySettingsPageAppFontTitle,
                 detailBuilder: (ctx) {
@@ -700,6 +734,150 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
       default:
         await sp.setAppButtonShape(AppButtonShape.rounded);
     }
+  }
+
+  Widget _percentSlider(
+    BuildContext context, {
+    required double value,
+    double minPercent = 0,
+    required ValueChanged<double> onChanged,
+  }) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        Text(
+          '${minPercent.round()}%',
+          style:
+              TextStyle(color: cs.onSurface.withValues(alpha: 0.7), fontSize: 12),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: SfSliderTheme(
+            data: SfSliderThemeData(
+              activeTrackHeight: 8,
+              inactiveTrackHeight: 8,
+              overlayRadius: 14,
+              activeTrackColor: cs.primary,
+              inactiveTrackColor:
+                  cs.onSurface.withValues(alpha: isDark ? 0.25 : 0.20),
+              tooltipBackgroundColor: cs.primary,
+              tooltipTextStyle: TextStyle(
+                color: cs.onPrimary,
+                fontWeight: AppFontWeights.semibold,
+              ),
+            ),
+            child: SfSlider(
+              value: (value * 100).clamp(minPercent, 100).roundToDouble(),
+              min: minPercent,
+              max: 100.0001,
+              stepSize: 5.0,
+              showTicks: true,
+              showLabels: true,
+              interval: 25,
+              minorTicksPerInterval: 1,
+              enableTooltip: true,
+              tooltipShape: const SfPaddleTooltipShape(),
+              labelFormatterCallback: (v, t) => '${(v as double).round()}%',
+              thumbIcon: Container(
+                width: 20,
+                height: 20,
+                decoration: BoxDecoration(
+                  color: cs.primary,
+                  shape: BoxShape.circle,
+                  boxShadow: isDark
+                      ? []
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                ),
+              ),
+              onChanged: (v) =>
+                  onChanged(((v as double) / 100.0).clamp(0.0, 1.0)),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          '${(value * 100).round()}%',
+          style: TextStyle(color: cs.onSurface, fontSize: 12),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showPercentSheet(
+    BuildContext context, {
+    required String title,
+    required double Function(SettingsProvider) read,
+    required Future<void> Function(SettingsProvider, double) write,
+    double minPercent = 0,
+  }) async {
+    final cs = Theme.of(context).colorScheme;
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+          child: Builder(
+            builder: (c) {
+              final sp = c.watch<SettingsProvider>();
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Theme.of(c).colorScheme.onSurface,
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _percentSlider(
+                    c,
+                    value: read(sp),
+                    minPercent: minPercent,
+                    onChanged: (f) => write(c.read<SettingsProvider>(), f),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showBubbleOpacitySheet(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return _showPercentSheet(
+      context,
+      title: l10n.displaySettingsPageChatBubbleOpacityTitle,
+      minPercent: 30,
+      read: (sp) => sp.chatBubbleOpacity,
+      write: (sp, f) => sp.setChatBubbleOpacity(f),
+    );
+  }
+
+  Future<void> _showBackgroundDimSheet(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return _showPercentSheet(
+      context,
+      title: l10n.displaySettingsPageBackgroundDimTitle,
+      minPercent: 0,
+      read: (sp) => sp.backgroundDim,
+      write: (sp, f) => sp.setBackgroundDim(f),
+    );
   }
 
   Future<void> _showAndroidBackgroundChatSheet(BuildContext context) async {

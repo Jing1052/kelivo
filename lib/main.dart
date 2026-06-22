@@ -450,9 +450,27 @@ class MyApp extends StatelessWidget {
                   }
 
                   // Enforce app font as a default across the tree for Texts without explicit family
-                  final appWithOverlays = AppOverlays(
+                  Widget appWithOverlays = AppOverlays(
                     child: child ?? const SizedBox.shrink(),
                   );
+                  // Optional global dim to take the glare off bright backgrounds.
+                  final dim = settings.backgroundDim;
+                  if (dim > 0) {
+                    appWithOverlays = Stack(
+                      children: [
+                        appWithOverlays,
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: ColoredBox(
+                              color: Colors.black.withValues(
+                                alpha: (dim * 0.5).clamp(0.0, 0.5),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
                   return AnnotatedRegion<SystemUiOverlayStyle>(
                     value: overlay,
                     child: effectiveAppFont == null

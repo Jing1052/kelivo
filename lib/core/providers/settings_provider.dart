@@ -217,6 +217,9 @@ class SettingsProvider extends ChangeNotifier {
   static const String _displayChatBubbleShapeKey =
       'display_chat_bubble_shape_v1';
   static const String _displayButtonShapeKey = 'display_button_shape_v1';
+  static const String _displayChatBubbleOpacityKey =
+      'display_chat_bubble_opacity_v1';
+  static const String _displayBackgroundDimKey = 'display_background_dim_v1';
   static const String _mobileAssistantEditTabOrderKey =
       'mobile_assistant_edit_tab_order_v1';
   static const String _mobileAssistantEditTabHiddenKey =
@@ -1189,6 +1192,10 @@ class SettingsProvider extends ChangeNotifier {
       default:
         _appButtonShape = AppButtonShape.rounded;
     }
+    _chatBubbleOpacity =
+        (prefs.getDouble(_displayChatBubbleOpacityKey) ?? 1.0).clamp(0.3, 1.0);
+    _backgroundDim =
+        (prefs.getDouble(_displayBackgroundDimKey) ?? 0.0).clamp(0.0, 1.0);
     _mobileAssistantEditTabOrder = List.unmodifiable(
       prefs.getStringList(_mobileAssistantEditTabOrderKey) ?? const <String>[],
     );
@@ -2493,6 +2500,32 @@ class SettingsProvider extends ChangeNotifier {
       AppButtonShape.rounded => 'rounded',
     };
     await prefs.setString(_displayButtonShapeKey, v);
+  }
+
+  // Chat bubble background opacity multiplier (0.3..1.0, default 1.0 = current).
+  double _chatBubbleOpacity = 1.0;
+  double get chatBubbleOpacity => _chatBubbleOpacity;
+  Future<void> setChatBubbleOpacity(double value) async {
+    final v = value.clamp(0.3, 1.0);
+    if (_chatBubbleOpacity == v) return;
+    _chatBubbleOpacity = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_displayChatBubbleOpacityKey, v);
+  }
+
+  // Global background dim strength (0.0..1.0, default 0). Painted as a neutral
+  // scrim over the whole app to take the glare off bright backgrounds; the
+  // actual overlay alpha is this × 0.5 so even max stays usable.
+  double _backgroundDim = 0.0;
+  double get backgroundDim => _backgroundDim;
+  Future<void> setBackgroundDim(double value) async {
+    final v = value.clamp(0.0, 1.0);
+    if (_backgroundDim == v) return;
+    _backgroundDim = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_displayBackgroundDimKey, v);
   }
 
   List<String> _mobileAssistantEditTabOrder = const <String>[];
