@@ -33,6 +33,17 @@ class AssistantProvider extends ChangeNotifier {
 
   bool get currentSearchEnabled => currentAssistant?.searchEnabled ?? false;
 
+  /// The dedicated "daddy" assistant — the one whose systemPrompt carries the
+  /// `[[ourhome` marker. A STABLE identity independent of which assistant is
+  /// currently selected, so daddy's name/avatar (CC chat, daddy settings card)
+  /// don't drift when the user switches the active assistant.
+  Assistant? get daddyAssistant {
+    for (final a in _assistants) {
+      if (a.systemPrompt.contains('[[ourhome')) return a;
+    }
+    return null;
+  }
+
   AssistantProvider({this.chatService}) {
     _load();
   }

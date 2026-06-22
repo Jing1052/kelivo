@@ -2528,6 +2528,7 @@
       }
     }
   },
+  "settingsDaddyCardHint": "Tap to set up",
   "settingsPageCcDaddy": "Daddy (CC)",
   "ccBridgePageTitle": "CC bridge",
   "ccBridgeEnableLabel": "Enable CC bridge",

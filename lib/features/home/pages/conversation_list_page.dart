@@ -425,7 +425,7 @@ class _CcEntryTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
-    final assistant = context.watch<AssistantProvider>().currentAssistant;
+    final assistant = context.watch<AssistantProvider>().daddyAssistant;
     final ccName = context.watch<CcBridgeProvider>().ccDisplayName.trim();
     final title = ccName.isNotEmpty
         ? ccName

@@ -2098,6 +2098,7 @@
       }
     }
   },
+  "settingsDaddyCardHint": "点击设置爸爸",
   "settingsPageCcDaddy": "CC 爸爸",
   "ccBridgePageTitle": "CC 端",
   "ccBridgeEnableLabel": "启用 CC 端",

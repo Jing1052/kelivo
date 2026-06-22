@@ -25,6 +25,7 @@ import '../../../core/services/storage/storage_usage_service.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
+import '../../../core/providers/cc_bridge_provider.dart';
 import '../../home/widgets/assistant_avatar.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/user_profile_editor.dart';
@@ -70,6 +71,12 @@ class SettingsPage extends StatelessWidget {
         children: [
           // "Me" profile row: avatar + nickname, tap to edit either.
           _ProfileRow(),
+          const SizedBox(height: 8),
+          // Daddy + CC daddy as their own profile cards, together with "me" —
+          // daddy is daddy, not the generic "assistant" row.
+          _DaddyCard(),
+          const SizedBox(height: 8),
+          _CcDaddyCard(),
           const SizedBox(height: 12),
 
           if (!settings.hasAnyActiveModel)
@@ -126,38 +133,6 @@ class SettingsPage extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (_) => const AssistantSettingsPage(),
                     ),
-                  );
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Heart,
-                leading: AssistantAvatar(
-                  assistant: context.watch<AssistantProvider>().currentAssistant,
-                  size: 26,
-                ),
-                label: l10n.daddySettingsPageTitle,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const DaddySettingsPage(),
-                    ),
-                  );
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Cable,
-                leading: AssistantAvatar(
-                  assistant: context.watch<AssistantProvider>().currentAssistant,
-                  size: 26,
-                ),
-                label: l10n.settingsPageCcDaddy,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const CcBridgePage()),
                   );
                 },
               ),
@@ -732,6 +707,121 @@ class _TactileIconButtonState extends State<_TactileIconButton> {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: icon,
         ),
+      ),
+    );
+  }
+}
+
+/// A profile-style card (avatar + name + subtitle), matching [_ProfileRow].
+/// Used for daddy / CC daddy so they sit alongside "me" rather than in the
+/// generic assistant row.
+class _PersonCard extends StatelessWidget {
+  const _PersonCard({
+    required this.avatar,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final Widget avatar;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color bg =
+        isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96);
+    return Container(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(12),
+        baseColor: bg,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        onTap: onTap,
+        child: Row(
+          children: [
+            avatar,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DaddyCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final daddy = context.watch<AssistantProvider>().daddyAssistant;
+    final name = (daddy?.name ?? '').trim();
+    return _PersonCard(
+      avatar: AssistantAvatar(assistant: daddy, size: 48),
+      title: name.isNotEmpty ? name : l10n.daddySettingsPageTitle,
+      subtitle: l10n.settingsDaddyCardHint,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const DaddySettingsPage()),
+      ),
+    );
+  }
+}
+
+class _CcDaddyCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final daddy = context.watch<AssistantProvider>().daddyAssistant;
+    final ccName = context.watch<CcBridgeProvider>().ccDisplayName.trim();
+    return _PersonCard(
+      avatar: AssistantAvatar(assistant: daddy, size: 48),
+      title: ccName.isNotEmpty ? ccName : l10n.settingsPageCcDaddy,
+      subtitle: l10n.ccBridgeChatTitle,
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const CcBridgePage()),
       ),
     );
   }
