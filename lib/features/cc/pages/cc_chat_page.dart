@@ -9,6 +9,7 @@
 // The input bar attaches images/files (raw-bytes upload to /chat/upload).
 
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -42,8 +43,24 @@ class _CcChatPageState extends State<CcChatPage> {
   int _lastCount = 0;
   bool _uploading = false;
 
+  // Pending attachment: picked but not sent yet, so a caption can be typed and
+  // the file + text go out together (one message), like the API window.
+  Uint8List? _pendingBytes;
+  String? _pendingName;
+  bool _pendingIsImage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh the send/preview UI as the caption is typed (toggles send button).
+    _inputCtl.addListener(_onInputChanged);
+  }
+
+  void _onInputChanged() => setState(() {});
+
   @override
   void dispose() {
+    _inputCtl.removeListener(_onInputChanged);
     _inputCtl.dispose();
     _scrollCtl.dispose();
     super.dispose();
@@ -54,17 +71,59 @@ class _CcChatPageState extends State<CcChatPage> {
     _scrollCtl.jumpTo(_scrollCtl.position.maxScrollExtent);
   }
 
+  // Pin to the newest message: jump now, then once more after async content
+  // (network images / lazily-loaded reasoning cards) has expanded the height.
+  void _pinBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _scrollToBottom();
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _scrollToBottom();
+      });
+    });
+  }
+
+  bool get _canSend =>
+      !_uploading && (_inputCtl.text.trim().isNotEmpty || _pendingBytes != null);
+
   Future<void> _send() async {
+    if (!_canSend) return;
     final l10n = AppLocalizations.of(context)!;
     final text = _inputCtl.text.trim();
-    if (text.isEmpty) return;
+    final bytes = _pendingBytes;
     final provider = context.read<CcBridgeProvider>();
-    _inputCtl.clear();
-    final res = await provider.sendText(text);
+    setState(() => _uploading = true);
+    CcSendResult? res;
+    try {
+      if (bytes != null) {
+        res = await provider.uploadFile(
+          bytes,
+          filename: _pendingName ?? 'file',
+          text: text.isEmpty ? null : text,
+        );
+      } else {
+        res = await provider.sendText(text);
+      }
+    } catch (_) {
+      res = null;
+    }
     if (!mounted) return;
+    final accepted = res != null && (res.ok || res.agentUnreachable);
+    setState(() {
+      _uploading = false;
+      if (accepted) {
+        _inputCtl.clear();
+        _pendingBytes = null;
+        _pendingName = null;
+        _pendingIsImage = false;
+      }
+    });
     if (res != null && res.agentUnreachable) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.ccBridgeAgentUnreachableToast)),
+      );
+    } else if (!accepted && bytes != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.ccBridgeUploadFailed)),
       );
     }
   }
@@ -118,46 +177,38 @@ class _CcChatPageState extends State<CcChatPage> {
 
   Future<void> _pickImage(ImageSource source) async {
     final x = await ImagePicker().pickImage(source: source, imageQuality: 90);
-    if (x == null) return;
-    await _upload(await x.readAsBytes(), x.name);
+    if (x == null || !mounted) return;
+    _stageAttachment(await x.readAsBytes(), x.name, isImage: true);
   }
 
   Future<void> _pickFile() async {
     final res = await FilePicker.platform.pickFiles(withData: false);
     final path = res?.files.single.path;
-    if (path == null) return;
-    await _upload(await File(path).readAsBytes(), res!.files.single.name);
+    if (path == null || !mounted) return;
+    _stageAttachment(
+      await File(path).readAsBytes(),
+      res!.files.single.name,
+      isImage: false,
+    );
   }
 
-  Future<void> _upload(List<int> bytes, String filename) async {
-    final l10n = AppLocalizations.of(context)!;
-    final provider = context.read<CcBridgeProvider>();
-    // Carry any typed text along as the attachment caption.
-    final caption = _inputCtl.text.trim();
-    setState(() => _uploading = true);
-    CcSendResult? res;
-    try {
-      res = await provider.uploadFile(
-        bytes,
-        filename: filename,
-        text: caption.isEmpty ? null : caption,
-      );
-      if (caption.isNotEmpty) _inputCtl.clear();
-    } catch (_) {
-      res = null;
-    }
+  // Hold the picked file as a pending preview; it sends together with the
+  // typed caption when the send button is tapped.
+  void _stageAttachment(Uint8List bytes, String name, {required bool isImage}) {
     if (!mounted) return;
-    setState(() => _uploading = false);
-    final ok = res != null && (res.ok || res.agentUnreachable);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          res != null && res.agentUnreachable
-              ? l10n.ccBridgeAgentUnreachableToast
-              : (ok ? l10n.ccBridgeUploadDone : l10n.ccBridgeUploadFailed),
-        ),
-      ),
-    );
+    setState(() {
+      _pendingBytes = bytes;
+      _pendingName = name;
+      _pendingIsImage = isImage;
+    });
+  }
+
+  void _clearPending() {
+    setState(() {
+      _pendingBytes = null;
+      _pendingName = null;
+      _pendingIsImage = false;
+    });
   }
 
   @override
@@ -166,11 +217,11 @@ class _CcChatPageState extends State<CcChatPage> {
     final cs = Theme.of(context).colorScheme;
     final provider = context.watch<CcBridgeProvider>();
 
-    // Auto-scroll when new records arrive.
+    // Pin to the newest message on open and whenever new records arrive.
     final count = provider.records.length;
     if (count != _lastCount) {
       _lastCount = count;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      _pinBottom();
     }
 
     return Scaffold(
@@ -330,67 +381,125 @@ class _CcChatPageState extends State<CcChatPage> {
     final cs = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Tooltip(
-              message: l10n.ccBridgeAttachLabel,
-              child: IosIconButton(
-                icon: Lucide.Plus,
-                color: cs.onSurface.withValues(alpha: 0.75),
-                size: 22,
-                minSize: 42,
-                onTap: _uploading ? null : _showAttachSheet,
-              ),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(22),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                child: TextField(
-                  controller: _inputCtl,
-                  minLines: 1,
-                  maxLines: 5,
-                  textInputAction: TextInputAction.send,
-                  onSubmitted: (_) => _send(),
-                  style: TextStyle(fontSize: 15, color: cs.onSurface),
-                  decoration: InputDecoration(
-                    isCollapsed: true,
-                    border: InputBorder.none,
-                    hintText: l10n.ccBridgeChatInputHint,
-                    hintStyle: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.4),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_pendingBytes != null) _pendingPreview(context),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Tooltip(
+                  message: l10n.ccBridgeAttachLabel,
+                  child: IosIconButton(
+                    icon: Lucide.Plus,
+                    color: cs.onSurface.withValues(alpha: 0.75),
+                    size: 22,
+                    minSize: 42,
+                    onTap: _uploading ? null : _showAttachSheet,
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IosCardPress(
-              onTap: _uploading ? () {} : () => _send(),
-              borderRadius: BorderRadius.circular(22),
-              baseColor: cs.primary,
-              padding: const EdgeInsets.all(10),
-              child: _uploading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: cs.onPrimary,
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cs.surfaceContainerHighest.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: TextField(
+                      controller: _inputCtl,
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _send(),
+                      style: TextStyle(fontSize: 15, color: cs.onSurface),
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        border: InputBorder.none,
+                        hintText: l10n.ccBridgeChatInputHint,
+                        hintStyle: TextStyle(
+                          color: cs.onSurface.withValues(alpha: 0.4),
+                        ),
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 10),
                       ),
-                    )
-                  : Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IosCardPress(
+                  onTap: _canSend ? () => _send() : () {},
+                  borderRadius: BorderRadius.circular(22),
+                  baseColor:
+                      _canSend ? cs.primary : cs.primary.withValues(alpha: 0.4),
+                  padding: const EdgeInsets.all(10),
+                  child: _uploading
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.onPrimary,
+                          ),
+                        )
+                      : Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pendingPreview(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: _pendingIsImage && _pendingBytes != null
+                ? Image.memory(
+                    _pendingBytes!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  )
+                : Container(
+                    width: 44,
+                    height: 44,
+                    color: cs.surfaceContainerHighest.withValues(alpha: 0.6),
+                    child: Icon(
+                      Lucide.FileText,
+                      size: 20,
+                      color: cs.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _pendingName ?? l10n.ccBridgeAttachmentLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 13, color: cs.onSurface),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IosIconButton(
+            icon: Lucide.X,
+            size: 18,
+            minSize: 36,
+            color: cs.onSurface.withValues(alpha: 0.7),
+            onTap: _uploading ? null : _clearPending,
+          ),
+        ],
       ),
     );
   }
