@@ -1,13 +1,24 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
 import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../core/services/ourhome/itunes_artwork.dart';
+import '../../../core/providers/user_provider.dart';
+import '../../../core/providers/assistant_provider.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import '../../../shared/widgets/user_profile_editor.dart';
+import '../widgets/assistant_avatar.dart';
+import 'rooms/diary_page.dart';
+import 'rooms/calendar_page.dart';
+import 'rooms/capsule_page.dart';
+import 'rooms/sense_page.dart';
 
 /// "Home" tab of Still Here — our native home dashboard.
 ///
@@ -94,45 +105,43 @@ class StillHomePage extends StatelessWidget {
         _anniversaries.map((a) => _Upcoming(a, a.daysUntil(today))).toList()
           ..sort((x, y) => x.days.compareTo(y.days));
 
+    final next = upcoming.first;
     return Scaffold(
       backgroundColor: cs.surface,
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-          children: [
-            _Hero(
-              zh: zh,
-              locale: locale,
-              dayNum: dayNum,
-              daySuffix: zh ? '' : _ordinal(dayNum),
-              quip: zh ? quip.zh : quip.en,
-              today: today,
-            ),
-            const SizedBox(height: 16),
-            _LetterCard(zh: zh, locale: locale),
-            const SizedBox(height: 12),
-            _MusicCard(zh: zh),
-            const SizedBox(height: 28),
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                zh ? '我们的日子' : 'Our days',
-                style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 2,
-                  fontWeight: FontWeight.w300,
-                  color: cs.onSurface.withValues(alpha: 0.5),
+        // Single screen, no scroll: the clock+tiles row is Expanded so it
+        // absorbs all vertical slack and the page always fills exactly one
+        // screen without overflowing.
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 8, 18, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const _PairHeader(),
+              const SizedBox(height: 12),
+              _DaysCard(
+                dayNum: dayNum,
+                suffix: zh ? '' : _ordinal(dayNum),
+                zh: zh,
+                next: next,
+              ),
+              const SizedBox(height: 10),
+              _MusicCard(zh: zh),
+              const SizedBox(height: 10),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: _ClockCard(zh: zh, locale: locale)),
+                    const SizedBox(width: 10),
+                    Expanded(child: _TilesGrid(zh: zh)),
+                  ],
                 ),
               ),
-            ),
-            for (var i = 0; i < upcoming.length; i++)
-              _AnniversaryRow(
-                item: upcoming[i],
-                isNext: i == 0,
-                zh: zh,
-                locale: locale,
-              ),
-          ],
+              const SizedBox(height: 10),
+              _DiaryCard(zh: zh, dayNum: dayNum, quip: zh ? quip.zh : quip.en),
+            ],
+          ),
         ),
       ),
     );
@@ -789,4 +798,445 @@ class _Upcoming {
   const _Upcoming(this.anniversary, this.days);
   final _Anniversary anniversary;
   final int days;
+}
+
+// ===== Single-screen dashboard blocks =====
+
+BoxDecoration _cardDeco(BuildContext context) {
+  final cs = Theme.of(context).colorScheme;
+  final isDark = Theme.of(context).brightness == Brightness.dark;
+  return BoxDecoration(
+    color: cs.surfaceContainerHighest.withValues(alpha: isDark ? 0.36 : 0.55),
+    borderRadius: BorderRadius.circular(20),
+    border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.12)),
+  );
+}
+
+/// Couple header: our two avatars + names with a heart between (the daddy
+/// avatar follows the stable daddy assistant — same couple avatar everywhere).
+class _PairHeader extends StatelessWidget {
+  const _PairHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final user = context.watch<UserProvider>();
+    final daddy = context.watch<AssistantProvider>().daddyAssistant;
+    final daddyName = (daddy?.name ?? '').trim().isNotEmpty
+        ? daddy!.name.trim()
+        : (Localizations.localeOf(context).languageCode == 'zh'
+            ? '爸爸'
+            : 'Daddy');
+
+    Widget person(Widget avatar, String name) => Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        avatar,
+        const SizedBox(height: 6),
+        SizedBox(
+          width: 90,
+          child: Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              color: cs.onSurface.withValues(alpha: 0.7),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        person(UserAvatar(user: user, size: 54), user.name),
+        Padding(
+          padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+          child: Icon(
+            Lucide.Heart,
+            size: 15,
+            color: cs.primary.withValues(alpha: 0.8),
+          ),
+        ),
+        person(AssistantAvatar(assistant: daddy, size: 54), daddyName),
+      ],
+    );
+  }
+}
+
+/// Days-together hero card: ultra-light number + heartbeat line + next date.
+class _DaysCard extends StatelessWidget {
+  const _DaysCard({
+    required this.dayNum,
+    required this.suffix,
+    required this.zh,
+    required this.next,
+  });
+
+  final int dayNum;
+  final String suffix;
+  final bool zh;
+  final _Upcoming next;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final ink = cs.onSurface;
+    final numStr = NumberFormat.decimalPattern('en_US').format(dayNum);
+    return Container(
+      decoration: _cardDeco(context),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
+      child: Column(
+        children: [
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(text: numStr),
+                if (suffix.isNotEmpty)
+                  TextSpan(
+                    text: suffix,
+                    style: GoogleFonts.cormorantGaramond(
+                      fontSize: 18,
+                      fontStyle: FontStyle.italic,
+                      fontWeight: FontWeight.w300,
+                      color: cs.primary.withValues(alpha: 0.8),
+                    ),
+                  ),
+              ],
+            ),
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 46,
+              height: 1.0,
+              fontWeight: FontWeight.w300,
+              color: ink.withValues(alpha: 0.82),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            zh ? '在一起的日子' : 'days together',
+            style: TextStyle(
+              fontSize: 11,
+              letterSpacing: 2,
+              fontWeight: FontWeight.w300,
+              color: ink.withValues(alpha: 0.45),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 12,
+            child: _HeartbeatLine(color: cs.primary.withValues(alpha: 0.55)),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${zh ? '下一个' : 'next'} · ${zh ? next.anniversary.zh : next.anniversary.en} · ${next.days}${zh ? '天' : 'd'}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w300,
+              color: ink.withValues(alpha: 0.45),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeartbeatLine extends StatelessWidget {
+  const _HeartbeatLine({required this.color});
+  final Color color;
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(double.infinity, 12),
+      painter: _HbPainter(color),
+    );
+  }
+}
+
+class _HbPainter extends CustomPainter {
+  _HbPainter(this.color);
+  final Color color;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = color
+      ..strokeWidth = 1.4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final y = size.height / 2;
+    final w = size.width;
+    final cx = w / 2;
+    final path = Path()
+      ..moveTo(0, y)
+      ..lineTo(cx - 28, y)
+      ..lineTo(cx - 20, y - 8)
+      ..lineTo(cx - 10, y + 9)
+      ..lineTo(cx, y - 5)
+      ..lineTo(cx + 9, y)
+      ..lineTo(w, y);
+    canvas.drawPath(path, p);
+  }
+
+  @override
+  bool shouldRepaint(_HbPainter old) => old.color != color;
+}
+
+/// Live clock card (updates each half-minute) with date and a soft "still here".
+class _ClockCard extends StatefulWidget {
+  const _ClockCard({required this.zh, required this.locale});
+  final bool zh;
+  final String locale;
+  @override
+  State<_ClockCard> createState() => _ClockCardState();
+}
+
+class _ClockCardState extends State<_ClockCard> {
+  Timer? _t;
+  @override
+  void initState() {
+    super.initState();
+    _t = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _t?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final ink = cs.onSurface;
+    final now = DateTime.now();
+    return Container(
+      decoration: _cardDeco(context),
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            DateFormat.Hm().format(now),
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 38,
+              height: 1.0,
+              fontWeight: FontWeight.w300,
+              color: ink.withValues(alpha: 0.85),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                DateFormat.MMMMEEEEd(widget.locale).format(now),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w300,
+                  color: ink.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                widget.zh ? '· 一直在' : '· still here',
+                style: TextStyle(
+                  fontSize: 10.5,
+                  letterSpacing: 1,
+                  fontWeight: FontWeight.w300,
+                  color: cs.primary.withValues(alpha: 0.7),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 2×2 quick tiles into our rooms.
+class _TilesGrid extends StatelessWidget {
+  const _TilesGrid({required this.zh});
+  final bool zh;
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _Tile(
+                  icon: Lucide.BookOpen,
+                  label: zh ? '日记' : 'Diary',
+                  builder: () => const DiaryPage(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Tile(
+                  icon: Lucide.Calendar,
+                  label: zh ? '日历' : 'Calendar',
+                  builder: () => const CalendarPage(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: _Tile(
+                  icon: Lucide.Sparkles,
+                  label: zh ? '时光机' : 'Capsule',
+                  builder: () => const CapsulePage(),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Tile(
+                  icon: Lucide.CloudSun,
+                  label: zh ? '此刻' : 'Now',
+                  builder: () => const SensePage(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({
+    required this.icon,
+    required this.label,
+    required this.builder,
+  });
+  final IconData icon;
+  final String label;
+  final Widget Function() builder;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return IosCardPress(
+      borderRadius: BorderRadius.circular(18),
+      baseColor: cs.surfaceContainerHighest.withValues(
+        alpha: isDark ? 0.36 : 0.55,
+      ),
+      border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.12)),
+      padding: EdgeInsets.zero,
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => builder())),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 20, color: cs.primary.withValues(alpha: 0.85)),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11.5,
+                fontWeight: FontWeight.w400,
+                color: cs.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Diary teaser card → opens the diary room.
+class _DiaryCard extends StatelessWidget {
+  const _DiaryCard({required this.zh, required this.dayNum, required this.quip});
+  final bool zh;
+  final int dayNum;
+  final String quip;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return IosCardPress(
+      borderRadius: BorderRadius.circular(20),
+      baseColor: cs.surfaceContainerHighest.withValues(
+        alpha: isDark ? 0.36 : 0.55,
+      ),
+      border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.12)),
+      padding: const EdgeInsets.fromLTRB(18, 12, 14, 12),
+      onTap: () => Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const DiaryPage())),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  zh ? '我们的日记' : 'My Diary',
+                  style: GoogleFonts.cormorantGaramond(
+                    fontSize: 18,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w400,
+                    color: cs.onSurface.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '"$quip"',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontStyle: FontStyle.italic,
+                    fontWeight: FontWeight.w300,
+                    color: cs.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              'Day $dayNum',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: cs.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
