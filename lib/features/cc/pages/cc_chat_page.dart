@@ -21,6 +21,7 @@ import 'package:Kelivo/theme/app_font_weights.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/models/chat_message.dart';
+import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/services/cc/cc_bridge_models.dart';
 import '../../../core/services/haptics.dart';
@@ -545,15 +546,32 @@ class _ChatBubbleState extends State<_ChatBubble> {
     );
   }
 
-  // Action callbacks left null → native action buttons (copy/regenerate/…) hide.
+  // CC reuses the native bubble but: hides the action toolbar (showActions:false,
+  // CC has no copy/regenerate/tts/translate), and for assistant turns borrows the
+  // current assistant's name + avatar so daddy shows up identically to the main
+  // chat (same name, same couple avatar) instead of the default "Assistant".
   Widget _native(ChatMessage m,
       {String? reasoningText, bool reasoningToggle = false}) {
+    final isAssistant = m.role == 'assistant';
+    final assistant =
+        isAssistant ? context.watch<AssistantProvider>().currentAssistant : null;
+    final hasReasoning = reasoningText != null && reasoningText.isNotEmpty;
     return ChatMessageWidget(
       message: m,
       showModelIcon: false,
       showTokenStats: false,
+      showActions: false,
+      useAssistantName: assistant != null,
+      useAssistantAvatar: assistant != null,
+      assistantName: assistant?.name,
+      assistantAvatar: assistant?.avatar,
       reasoningText: reasoningText,
       reasoningExpanded: _reasoningExpanded,
+      // Mark the reasoning as finished so the card is collapsible (without a
+      // finishedAt it stays in the non-collapsible "loading" state).
+      reasoningFinishedAt: hasReasoning
+          ? (DateTime.tryParse(widget.record.ts)?.toLocal() ?? DateTime.now())
+          : null,
       onToggleReasoning: reasoningToggle
           ? () => setState(() => _reasoningExpanded = !_reasoningExpanded)
           : null,
