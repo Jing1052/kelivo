@@ -231,27 +231,42 @@ class _DashboardState extends State<_Dashboard> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const SizedBox(height: 34),
-            const _PairHeader(),
-            const SizedBox(height: 14),
-            // Clock + weather (left) beside a 2×2 grid of room tiles (right).
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 112, child: _clockWeatherCard(now)),
-                  const SizedBox(width: 10),
-                  Expanded(flex: 100, child: const _RoomGrid()),
-                ],
-              ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [SizedBox(height: 26), _PairHeader()],
             ),
-            const SizedBox(height: 10),
-            _DaysCard(dayNum: dayNum, next: next, zh: zh),
-            const SizedBox(height: 10),
-            _MusicCard(zh: zh),
-            const SizedBox(height: 10),
-            _daddyBar(),
+            // Clock + weather (left) beside a 2×2 grid of room tiles (right).
+            // Both halves are kept SQUARE (height == half the row width) so the
+            // tiles and the big card read as cubes, not tall rectangles.
+            LayoutBuilder(
+              builder: (context, c) {
+                final side = (c.maxWidth - 10) / 2;
+                return SizedBox(
+                  height: side,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: _clockWeatherCard(now)),
+                      const SizedBox(width: 10),
+                      const Expanded(child: _RoomGrid()),
+                    ],
+                  ),
+                );
+              },
+            ),
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _DaysCard(dayNum: dayNum, next: next, zh: zh),
+                const SizedBox(height: 10),
+                _MusicCard(zh: zh),
+                const SizedBox(height: 10),
+                _daddyBar(),
+              ],
+            ),
           ],
         ),
       ),
