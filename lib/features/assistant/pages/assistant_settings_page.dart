@@ -23,7 +23,23 @@ class AssistantSettingsPage extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
 
-    final assistants = context.watch<AssistantProvider>().assistants;
+    // The daddy assistant (carries the [[ourhome]] marker) is managed on its
+    // own settings page, not here — hide it from the generic assistant list so
+    // it can't be edited/deleted by accident.
+    final allAssistants = context.watch<AssistantProvider>().assistants;
+    final daddyIndex =
+        allAssistants.indexWhere((a) => a.systemPrompt.contains('[[ourhome'));
+    final assistants = daddyIndex == -1
+        ? allAssistants
+        : [
+            for (final a in allAssistants)
+              if (!a.systemPrompt.contains('[[ourhome')) a,
+          ];
+    // Map a visible-list index back to the full-list index (one hidden daddy).
+    int toFullIndex(int visibleIndex) =>
+        (daddyIndex >= 0 && visibleIndex >= daddyIndex)
+            ? visibleIndex + 1
+            : visibleIndex;
 
     return Scaffold(
       appBar: AppBar(
@@ -70,7 +86,10 @@ class AssistantSettingsPage extends StatelessWidget {
         onReorderItem: (oldIndex, newIndex) async {
           // Immediately update UI for smooth experience
           final assistantProvider = context.read<AssistantProvider>();
-          await assistantProvider.reorderAssistants(oldIndex, newIndex);
+          await assistantProvider.reorderAssistants(
+            toFullIndex(oldIndex),
+            toFullIndex(newIndex),
+          );
         },
         proxyDecorator: (child, index, animation) {
           return AnimatedBuilder(

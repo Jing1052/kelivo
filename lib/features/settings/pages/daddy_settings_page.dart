@@ -60,6 +60,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
   final TextEditingController _recapPromptCtrl = TextEditingController();
   final TextEditingController _keepCtrl = TextEditingController();
   final TextEditingController _triggerCtrl = TextEditingController();
+  final TextEditingController _rebuildTokenCtrl = TextEditingController();
 
   String? _daddyId;
   String _markerStr = '[[ourhome]]';
@@ -286,7 +287,35 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     _recapPromptCtrl.dispose();
     _keepCtrl.dispose();
     _triggerCtrl.dispose();
+    _rebuildTokenCtrl.dispose();
     super.dispose();
+  }
+
+  // Re-create the daddy assistant from the gateway token (recovery after the
+  // daddy assistant was deleted). The token == OMBRE_GATEWAY_TOKEN; embedding
+  // it as the [[ourhome:<token>]] marker re-establishes daddy + the gateway.
+  Future<void> _rebuildDaddy() async {
+    final l10n = AppLocalizations.of(context)!;
+    final token = _rebuildTokenCtrl.text.trim();
+    if (token.isEmpty) return;
+    final ap = _assistantProvider;
+    final id = await ap.addAssistant(name: l10n.daddySettingsPageTitle);
+    final created = ap.assistants.firstWhere((a) => a.id == id);
+    await ap.updateAssistant(
+      created.copyWith(systemPrompt: '[[ourhome:$token]]'),
+    );
+    await ap.setCurrentAssistant(id);
+    if (!mounted) return;
+    setState(() {
+      _daddyId = id;
+      _markerStr = '[[ourhome:$token]]';
+      _rebuildTokenCtrl.clear();
+    });
+    showAppSnackBar(
+      context,
+      message: l10n.daddySettingsRebuildDone,
+      type: NotificationType.success,
+    );
   }
 
   static Assistant? _findDaddy(List<Assistant> assistants) {
@@ -381,6 +410,27 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                       fontSize: 13,
                       color: cs.onSurface.withValues(alpha: 0.7),
                       height: 1.4,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                  child: IosFormTextField(
+                    label: l10n.daddySettingsRebuildTokenLabel,
+                    controller: _rebuildTokenCtrl,
+                    hintText: l10n.daddySettingsRebuildTokenHint,
+                    outerPadding: EdgeInsets.zero,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 14),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: IosTileButton(
+                      label: l10n.daddySettingsRebuildButton,
+                      icon: Lucide.Heart,
+                      backgroundColor: cs.primary,
+                      onTap: _rebuildDaddy,
                     ),
                   ),
                 ),

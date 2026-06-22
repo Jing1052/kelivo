@@ -502,6 +502,10 @@ class AssistantProvider extends ChangeNotifier {
   Future<bool> deleteAssistant(String id) async {
     final idx = _assistants.indexWhere((a) => a.id == id);
     if (idx == -1) return false;
+    // Protect the daddy assistant: it carries the [[ourhome:<token>]] gateway
+    // token + identity. Deleting it bricks the gateway connection, so it can
+    // only be managed via the dedicated daddy settings page.
+    if (_assistants[idx].systemPrompt.contains('[[ourhome')) return false;
     // Do not allow deleting the last remaining assistant
     if (_assistants.length <= 1) return false;
 
