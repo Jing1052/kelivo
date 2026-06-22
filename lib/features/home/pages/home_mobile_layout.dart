@@ -17,6 +17,7 @@ import '../../../core/providers/assistant_provider.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/animations/widgets.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import '../../../shared/widgets/appearance_quick_sheet.dart';
 import '../../../utils/sandbox_path_resolver.dart';
 import '../widgets/assistant_avatar.dart';
 import '../widgets/assistant_entry_actions.dart';
@@ -285,6 +286,7 @@ class HomeMobileScaffold extends StatelessWidget {
               ],
             ),
       actions: [
+        const AppearanceQuickButton(),
         IosIconButton(
           size: 20,
           minSize: 44,
