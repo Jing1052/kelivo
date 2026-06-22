@@ -270,6 +270,10 @@ class CcBridgeProvider extends ChangeNotifier {
   String attachmentUrl(String relativePath) =>
       _client?.attachmentUrl(relativePath) ?? relativePath;
 
+  /// Auth headers needed to load attachment images (`Image.network(headers:)`).
+  Map<String, String> get attachmentHeaders =>
+      _client?.attachmentHeaders ?? const {};
+
   // ---- Remote control: terminal mirror + slash commands ----
   //
   // All gated on [CcBridgeConfig.remoteControlEnabled] except [clearSession],

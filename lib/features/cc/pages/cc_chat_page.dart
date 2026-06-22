@@ -675,6 +675,18 @@ class _AttachOption extends StatelessWidget {
   }
 }
 
+bool _looksLikeImage(String? s) {
+  if (s == null) return false;
+  final l = s.toLowerCase();
+  return l.endsWith('.jpg') ||
+      l.endsWith('.jpeg') ||
+      l.endsWith('.png') ||
+      l.endsWith('.gif') ||
+      l.endsWith('.webp') ||
+      l.endsWith('.heic') ||
+      l.endsWith('.bmp');
+}
+
 class _Attachment extends StatelessWidget {
   const _Attachment({required this.record});
   final CcChatRecord record;
@@ -685,7 +697,11 @@ class _Attachment extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final provider = context.read<CcBridgeProvider>();
     final url = provider.attachmentUrl(record.attachmentUrl!);
-    final isImage = record.attachmentType == 'image';
+    // Treat as image when the server tagged it OR the name/url has an image
+    // extension (server may omit attachment_type).
+    final isImage = record.attachmentType == 'image' ||
+        _looksLikeImage(record.attachmentUrl) ||
+        _looksLikeImage(record.attachmentFilename);
 
     if (isImage) {
       return Padding(
@@ -696,6 +712,9 @@ class _Attachment extends StatelessWidget {
             constraints: const BoxConstraints(maxHeight: 240),
             child: Image.network(
               url,
+              // /attachments/ is auth-gated — pass the bridge token or it 401s
+              // and we fall back to showing the filename.
+              headers: provider.attachmentHeaders,
               fit: BoxFit.cover,
               loadingBuilder: (ctx, child, progress) => progress == null
                   ? child

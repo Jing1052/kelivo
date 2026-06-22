@@ -63,6 +63,9 @@ class CcBridgeClient {
   Map<String, String> get _authHeaders =>
       sharedSecret.isEmpty ? const {} : {'X-Auth-Token': sharedSecret};
 
+  /// Auth headers for loading attachment media via `Image.network(headers:)`.
+  Map<String, String> get attachmentHeaders => _authHeaders;
+
   Map<String, String> get _jsonHeaders => {
         ..._authHeaders,
         'Content-Type': 'application/json; charset=utf-8',
