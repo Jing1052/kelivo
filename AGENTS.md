@@ -2,6 +2,8 @@
 
 > Kelivo is a cross-platform Flutter LLM chat client (Android / iOS / macOS / Windows / Linux).
 > This file defines hard constraints for AI-assisted development. Predictable, auditable, repeatable.
+>
+> 📋 设置项审查清单见根目录 `SETTINGS_AUDIT.md`：原生设置每项在我们这套（API 爸爸 + CC 桥）管不管用、我们改过哪些都记在那。**改了某个设置项的行为，回去更新它 + 追加改动记录。**
 
 ## 1. Repository Facts
 
