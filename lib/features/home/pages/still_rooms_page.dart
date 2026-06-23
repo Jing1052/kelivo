@@ -7,6 +7,7 @@ import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import '../widgets/still_glass.dart';
 import 'rooms/parlour_page.dart';
 import 'rooms/diary_page.dart';
 import 'rooms/study_page.dart';
@@ -302,14 +303,11 @@ class _DoorTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accent = Color(door.color);
 
-    return IosCardPress(
-      borderRadius: BorderRadius.circular(18),
-      baseColor: accent.withValues(alpha: isDark ? 0.16 : 0.10),
-      border: Border.all(color: accent.withValues(alpha: 0.22)),
-      pressedScale: 0.97,
+    return StillGlass(
+      radius: 18,
+      blur: false,
       padding: const EdgeInsets.all(16),
       onTap: () {
         Haptics.soft();

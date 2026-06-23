@@ -11,6 +11,7 @@ import '../../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../../shared/pages/webview_page.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_checkbox.dart';
+import '../../widgets/still_glass.dart';
 import 'lyric_song_page.dart';
 import 'room_state_hint.dart';
 
@@ -340,9 +341,9 @@ class _LoungePageState extends State<LoungePage> {
           final l = _lyrics[i];
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: IosCardPress(
-              borderRadius: BorderRadius.circular(14),
-              baseColor: cs.onSurface.withValues(alpha: 0.04),
+            child: StillGlass(
+              radius: 14,
+              blur: false,
               padding: const EdgeInsets.all(12),
               onTap: () {
                 Haptics.soft();
@@ -428,9 +429,9 @@ class _LoungePageState extends State<LoungePage> {
           final g = _games[i];
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: IosCardPress(
-              borderRadius: BorderRadius.circular(14),
-              baseColor: cs.onSurface.withValues(alpha: 0.04),
+            child: StillGlass(
+              radius: 14,
+              blur: false,
               padding: const EdgeInsets.all(14),
               onTap: () {
                 Haptics.soft();
@@ -533,9 +534,9 @@ class _LoungePageState extends State<LoungePage> {
   Widget _row(OurHomeFoyerItem it, ColorScheme cs) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: IosCardPress(
-        borderRadius: BorderRadius.circular(14),
-        baseColor: cs.onSurface.withValues(alpha: 0.04),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
         padding: const EdgeInsets.all(10),
         onTap: it.seed ? null : () => _toggle(it),
         onLongPress: it.seed ? null : () => _delete(it),

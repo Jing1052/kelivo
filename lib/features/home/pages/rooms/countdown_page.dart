@@ -6,6 +6,7 @@ import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 
 /// Anniversaries (倒计时) — every day that's coming for us, already counted.
 /// Fully client-side: recurring anniversaries + "together" milestones.
@@ -189,10 +190,13 @@ class _CountRow extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         color: highlight
             ? cs.primary.withValues(alpha: 0.10)
-            : cs.onSurface.withValues(alpha: 0.04),
-        border: highlight
-            ? Border.all(color: cs.primary.withValues(alpha: 0.30))
-            : null,
+            : stillGlassFill(context),
+        border: Border.all(
+          color: highlight
+              ? cs.primary.withValues(alpha: 0.30)
+              : stillGlassLine(context),
+          width: 1,
+        ),
       ),
       child: Row(
         children: [

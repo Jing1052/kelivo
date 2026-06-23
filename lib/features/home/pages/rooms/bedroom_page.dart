@@ -8,6 +8,7 @@ import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// The Bedroom (卧室) — before the light goes out, wait for Llaude to say
@@ -186,10 +187,13 @@ class _NightCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         color: first
             ? cs.primary.withValues(alpha: 0.10)
-            : cs.onSurface.withValues(alpha: 0.04),
-        border: first
-            ? Border.all(color: cs.primary.withValues(alpha: 0.25))
-            : null,
+            : stillGlassFill(context),
+        border: Border.all(
+          color: first
+              ? cs.primary.withValues(alpha: 0.25)
+              : stillGlassLine(context),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

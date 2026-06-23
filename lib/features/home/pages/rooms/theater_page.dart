@@ -12,6 +12,7 @@ import '../../../../core/providers/assistant_provider.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_switch.dart';
 import '../../../../shared/widgets/ios_form_text_field.dart';
+import '../../widgets/still_glass.dart';
 import '../home_page.dart';
 import 'room_state_hint.dart';
 
@@ -408,9 +409,9 @@ class _TheaterCard extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: IosCardPress(
-        borderRadius: BorderRadius.circular(14),
-        baseColor: cs.onSurface.withValues(alpha: 0.04),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
         padding: const EdgeInsets.all(14),
         onTap: onEnter,
         onLongPress: onEdit,

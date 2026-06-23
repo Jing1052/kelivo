@@ -37,6 +37,7 @@ class StillGlass extends StatelessWidget {
     required this.child,
     this.padding,
     this.onTap,
+    this.onLongPress,
     this.radius = 22,
     this.blur,
   });
@@ -44,6 +45,7 @@ class StillGlass extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
   final double radius;
   final bool? blur;
 
@@ -58,6 +60,7 @@ class StillGlass extends StatelessWidget {
       border: Border.all(color: stillGlassLine(context), width: 1),
       padding: padding,
       onTap: onTap,
+      onLongPress: onLongPress,
       child: child,
     );
     return ClipRRect(

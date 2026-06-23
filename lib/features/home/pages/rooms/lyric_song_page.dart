@@ -8,6 +8,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 
 /// One song in the lyric corridor (词廊): daddy's overall reading, then every
 /// line with his annotation, and the two-way comment thread under it. Tap a line
@@ -180,12 +181,10 @@ class _LyricSongPageState extends State<LyricSongPage> {
           ),
           if (l.intro.trim().isNotEmpty) ...[
             const SizedBox(height: 12),
-            Container(
+            StillGlass(
+              radius: 12,
+              blur: false,
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: cs.onSurface.withValues(alpha: 0.04),
-                borderRadius: BorderRadius.circular(12),
-              ),
               child: Text(
                 l.intro.trim(),
                 style: TextStyle(

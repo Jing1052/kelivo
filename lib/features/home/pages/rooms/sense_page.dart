@@ -9,6 +9,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_switch.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// Right Now (此刻) — where Cing is, the sky over her, her battery. Read-only
@@ -77,14 +78,13 @@ class _SensePageState extends State<SensePage> {
   }
 
   Widget _morningCard(bool zh, ColorScheme cs) {
-    return Container(
-      margin: const EdgeInsets.only(top: 4, bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 12),
+      child: StillGlass(
+        radius: 16,
+        blur: false,
+        padding: const EdgeInsets.all(16),
+        child: Row(
         children: [
           Container(
             width: 44,
@@ -129,6 +129,7 @@ class _SensePageState extends State<SensePage> {
             onChanged: _savingMorning ? null : _setMorningBrief,
           ),
         ],
+        ),
       ),
     );
   }
@@ -338,24 +339,23 @@ class _SenseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: color.withValues(alpha: 0.14),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: StillGlass(
+        radius: 16,
+        blur: false,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: color.withValues(alpha: 0.14),
+              ),
+              child: Icon(icon, size: 22, color: color),
             ),
-            child: Icon(icon, size: 22, color: color),
-          ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
@@ -382,6 +382,7 @@ class _SenseCard extends StatelessWidget {
             ),
           ),
         ],
+        ),
       ),
     );
   }
