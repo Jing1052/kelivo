@@ -10,6 +10,7 @@ import '../../../shared/widgets/interactive_drawer.dart';
 import '../../../shared/responsive/breakpoints.dart';
 import '../../../shared/widgets/ios_form_text_field.dart';
 import '../../../shared/widgets/ios_tactile.dart';
+import '../../../shared/widgets/chat_backdrop.dart';
 import '../../../shared/widgets/loading_dialog_card.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../theme/app_font_weights.dart';
@@ -985,72 +986,30 @@ class _HomePageState extends State<HomePage>
   // UI Component Builders
   // ============================================================================
 
+  /// Effective chat background: the assistant's own background, or — when that
+  /// is left blank ("follow home background") — the active home background.
+  String? _effectiveChatBgPath(BuildContext context) {
+    final assistantBg =
+        (context.watch<AssistantProvider>().currentAssistant?.background ?? '')
+            .trim();
+    if (assistantBg.isNotEmpty) return assistantBg;
+    final homeBg = context.watch<SettingsProvider>().homeBackgroundActive.trim();
+    return homeBg.isEmpty ? null : homeBg;
+  }
+
   Widget _buildChatBackground(BuildContext context, ColorScheme cs) {
-    return Builder(
-      builder: (context) {
-        final bg = context
-            .watch<AssistantProvider>()
-            .currentAssistant
-            ?.background;
-        final maskStrength = context
-            .watch<SettingsProvider>()
-            .chatBackgroundMaskStrength;
-        if (bg == null || bg.trim().isEmpty) return const SizedBox.shrink();
-        ImageProvider provider;
-        if (bg.startsWith('http')) {
-          provider = NetworkImage(bg);
-        } else {
-          final localPath = SandboxPathResolver.fix(bg);
-          final file = File(localPath);
-          if (!file.existsSync()) return const SizedBox.shrink();
-          provider = FileImage(file);
-        }
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: provider,
-                    fit: BoxFit.cover,
-                    colorFilter: ColorFilter.mode(
-                      Colors.black.withValues(alpha: 0.04),
-                      BlendMode.srcATop,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: () {
-                        final top = (0.20 * maskStrength).clamp(0.0, 1.0);
-                        final bottom = (0.50 * maskStrength).clamp(0.0, 1.0);
-                        return [
-                          cs.surface.withValues(alpha: top),
-                          cs.surface.withValues(alpha: bottom),
-                        ];
-                      }(),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    final maskStrength =
+        context.watch<SettingsProvider>().chatBackgroundMaskStrength;
+    return ChatBackdrop(
+      rawPath: _effectiveChatBgPath(context),
+      maskStrength: maskStrength,
     );
   }
 
   Widget _buildAssistantBackground(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final assistant = context.watch<AssistantProvider>().currentAssistant;
-    final bgRaw = (assistant?.background ?? '').trim();
+    // Assistant's own background, or the home background when blank (follow home).
+    final bgRaw = (_effectiveChatBgPath(context) ?? '').trim();
     Widget? bg;
     if (bgRaw.isNotEmpty) {
       if (bgRaw.startsWith('http')) {
@@ -1093,17 +1052,9 @@ class _HomePageState extends State<HomePage>
   }
 
   bool _assistantBackgroundActive(BuildContext context) {
-    final bgRaw =
-        (context.watch<AssistantProvider>().currentAssistant?.background ?? '')
-            .trim();
-    if (bgRaw.isEmpty) return false;
-    if (bgRaw.startsWith('http')) return true;
-    try {
-      final fixed = SandboxPathResolver.fix(bgRaw);
-      return File(fixed).existsSync();
-    } catch (_) {
-      return false;
-    }
+    // Active when the assistant has its own background, or — when blank — the
+    // home background it follows resolves to a usable image.
+    return ChatBackdrop.resolves(_effectiveChatBgPath(context));
   }
 
   double _chatTopOverlayInset(BuildContext context) {
