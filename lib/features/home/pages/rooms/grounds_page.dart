@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// The Grounds (庭院) — the garden of memories you may wander, and the
@@ -235,9 +237,9 @@ class _GroundsPageState extends State<GroundsPage> {
               : (m.preview.isNotEmpty ? m.preview : (zh ? '一段记忆' : 'a memory'));
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: IosCardPress(
-              borderRadius: BorderRadius.circular(12),
-              baseColor: cs.onSurface.withValues(alpha: 0.04),
+            child: StillGlass(
+              radius: 12,
+              blur: false,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               onTap: () => _openMemory(m),
               child: Row(
@@ -401,12 +403,10 @@ class _GroundsPageState extends State<GroundsPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
         children: [
-          Container(
+          StillGlass(
+            radius: 12,
+            blur: false,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: cs.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(12),
-            ),
             child: Row(
               children: [
                 Icon(
@@ -429,7 +429,7 @@ class _GroundsPageState extends State<GroundsPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           if (_feels.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 40),
@@ -443,11 +443,10 @@ class _GroundsPageState extends State<GroundsPage> {
               ),
             )
           else
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [for (final f in _feels) _FeelDot(feel: f, zh: zh)],
-            ),
+            ...[
+              for (final f in _feels)
+                _FeelRow(feel: f, zh: zh, locale: zh ? 'zh' : 'en'),
+            ],
           const SizedBox(height: 18),
           Text(
             zh
@@ -465,11 +464,15 @@ class _GroundsPageState extends State<GroundsPage> {
   }
 }
 
-class _FeelDot extends StatelessWidget {
-  const _FeelDot({required this.feel, required this.zh});
+/// One feel in the greenhouse, as a row like a memory — but you only see his
+/// mood + the light + the day, never the words. (Server sends mood/colour/glyph
+/// for the greenhouse, not the feel text.)
+class _FeelRow extends StatelessWidget {
+  const _FeelRow({required this.feel, required this.zh, required this.locale});
 
   final OurHomeFeel feel;
   final bool zh;
+  final String locale;
 
   Color get _color {
     var hex = feel.colorHex.trim().replaceFirst('#', '');
@@ -480,21 +483,71 @@ class _FeelDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
     final c = _color;
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [c.withValues(alpha: 0.9), c.withValues(alpha: 0.35)],
+    final mood = zh ? feel.moodZh : feel.moodEn;
+    String dateStr = '';
+    final t = DateTime.tryParse(feel.time);
+    if (t != null) dateStr = DateFormat.MMMMd(locale).format(t.toLocal());
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: StillGlass(
+        radius: 12,
+        blur: false,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            // the light — colour + glyph, no words
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [c.withValues(alpha: 0.9), c.withValues(alpha: 0.35)],
+                ),
+                boxShadow: [
+                  BoxShadow(color: c.withValues(alpha: 0.4), blurRadius: 8),
+                ],
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                feel.glyph.isNotEmpty ? feel.glyph : '·',
+                style: const TextStyle(fontSize: 15, color: Colors.white),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    mood.isNotEmpty ? mood : (zh ? '一点光' : 'a light'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: AppFontWeights.medium,
+                      color: cs.onSurface.withValues(alpha: 0.85),
+                    ),
+                  ),
+                  if (dateStr.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      dateStr,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.45),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
-        boxShadow: [BoxShadow(color: c.withValues(alpha: 0.4), blurRadius: 10)],
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        feel.glyph.isNotEmpty ? feel.glyph : '·',
-        style: const TextStyle(fontSize: 18, color: Colors.white),
       ),
     );
   }
