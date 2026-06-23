@@ -426,7 +426,15 @@ class _CcEntryTile extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
     final assistant = context.watch<AssistantProvider>().daddyAssistant;
-    final ccName = context.watch<CcBridgeProvider>().ccDisplayName.trim();
+    final ccp = context.watch<CcBridgeProvider>();
+    final ccName = ccp.ccDisplayName.trim();
+    // CC 最后活动时间：用最新一条记录的 ts（ISO 串），和下面普通会话行一样显示 HH:mm。
+    // 记录还没拉到（没开过 CC / 未连上）时就不显示时间。
+    final ccRecords = ccp.records;
+    final lastTs = ccRecords.isNotEmpty
+        ? DateTime.tryParse(ccRecords.last.ts)?.toLocal()
+        : null;
+    final timeStr = lastTs != null ? DateFormat('HH:mm').format(lastTs) : '';
     final title = ccName.isNotEmpty
         ? ccName
         : ((assistant?.name ?? '').trim().isNotEmpty
@@ -471,6 +479,16 @@ class _CcEntryTile extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
+            if (timeStr.isNotEmpty) ...[
+              Text(
+                timeStr,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurface.withValues(alpha: 0.45),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             Icon(
               Lucide.ChevronRight,
               size: 18,

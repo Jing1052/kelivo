@@ -18,6 +18,10 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-23** · 聊天列表里 **CC 端那行也显示最后活动时间**（HH:mm，和下面普通会话行一致）。取 `CcBridgeProvider.records.last.ts` 解析显示；记录还没拉到时不显示。
+  - 代码：`lib/features/home/pages/conversation_list_page.dart` 的 `_CcEntryTile`。
+  - 注：这页每行时间是**无条件**显示的，不受「显示对话列表日期」开关控制（那个开关只作用于侧栏）。
+
 - **2026-06-23** · 消息头「显示模型名称」开着时，改成**优先显示爸爸的名字**（爸爸设置页顶部「名字」栏＝助手 `name`），没设名才退回型号；关掉＝不显示。
   - 代码：`lib/features/chat/widgets/chat_message_widget.dart` 抽出 `_headerDisplayName()`；`lib/features/home/widgets/message_list_view.dart` 始终把 `assistant.name` 传给消息头。
   - 副作用：「模型名称后显示供应商」在爸爸聊天里变**空挡**（因为头部显示的是名字、不是型号）。出包 `2d83786d`。
