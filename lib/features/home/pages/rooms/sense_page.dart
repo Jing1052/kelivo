@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:Kelivo/core/providers/settings_provider.dart';
+import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
@@ -158,25 +161,35 @@ class _SensePageState extends State<SensePage> {
     final cs = Theme.of(context).colorScheme;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IosIconButton(
-          icon: Lucide.ArrowLeft,
-          size: 22,
-          minSize: 44,
-          onTap: () => Navigator.of(context).maybePop(),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: cs.surface),
+        ChatBackdrop(
+          rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
+          maskStrength: context.watch<SettingsProvider>().chatBackgroundMaskStrength,
         ),
-        title: Text(
-          zh ? '此刻' : 'Right Now',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IosIconButton(
+              icon: Lucide.ArrowLeft,
+              size: 22,
+              minSize: 44,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+            title: Text(
+              zh ? '此刻' : 'Right Now',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+          ),
+          body: _buildBody(context, zh, cs),
         ),
-      ),
-      body: _buildBody(context, zh, cs),
+      ],
     );
   }
 

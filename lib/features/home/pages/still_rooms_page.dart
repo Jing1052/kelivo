@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:Kelivo/core/providers/settings_provider.dart';
+import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
@@ -179,11 +182,19 @@ class StillRoomsPage extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: cs.surface),
+        ChatBackdrop(
+          rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
+          maskStrength: context.watch<SettingsProvider>().chatBackgroundMaskStrength,
+        ),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          body: SafeArea(
+            child: CustomScrollView(
+              slivers: [
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(24, 24, 24, 18),
@@ -241,6 +252,8 @@ class StillRoomsPage extends StatelessWidget {
           ],
         ),
       ),
+    ),
+      ],
     );
   }
 }
@@ -358,25 +371,33 @@ class _RoomStubPage extends StatelessWidget {
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     final accent = Color(door.color);
 
-    return Scaffold(
-      backgroundColor: cs.surface,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IosIconButton(
-          icon: Lucide.ArrowLeft,
-          size: 22,
-          minSize: 44,
-          onTap: () => Navigator.of(context).maybePop(),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: cs.surface),
+        ChatBackdrop(
+          rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
+          maskStrength: context.watch<SettingsProvider>().chatBackgroundMaskStrength,
         ),
-        title: Text(
-          zh ? door.zh : door.en,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: Center(
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IosIconButton(
+              icon: Lucide.ArrowLeft,
+              size: 22,
+              minSize: 44,
+              onTap: () => Navigator.of(context).maybePop(),
+            ),
+            title: Text(
+              zh ? door.zh : door.en,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+            ),
+          ),
+          body: Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 36),
           child: Column(
@@ -415,6 +436,8 @@ class _RoomStubPage extends StatelessWidget {
           ),
         ),
       ),
+    ),
+      ],
     );
   }
 }
