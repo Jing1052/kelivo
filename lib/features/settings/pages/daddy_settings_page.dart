@@ -14,6 +14,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/iphone_link_service.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
+import 'heartbeat_settings_page.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../home/widgets/assistant_avatar.dart';
@@ -632,6 +633,27 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                   value: settings.daddyMemoryEnabled,
                   onChanged: (v) =>
                       context.read<SettingsProvider>().setDaddyMemoryEnabled(v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            // 心跳 · 主动唤醒（老家共用，server-backed；推送走网页版/Bark）
+            _iosSectionCard(
+              children: [
+                _iosNavRow(
+                  context,
+                  icon: Lucide.HeartPulse,
+                  label:
+                      Localizations.localeOf(context).languageCode == 'zh'
+                      ? '心跳 · 主动唤醒'
+                      : 'Heartbeat · Proactive',
+                  detailText: '',
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const HeartbeatSettingsPage(),
+                    ),
+                  ),
                 ),
               ],
             ),

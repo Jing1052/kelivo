@@ -1359,6 +1359,82 @@ class OurHomeGateway {
     }
   }
 
+  /// Heartbeat (proactive-wake) status + tunable config from
+  /// `/api/home/heartbeat`. Null on any failure (logged).
+  Future<
+    ({
+      Map<String, dynamic> config,
+      String kaLastAt,
+      bool pending,
+      bool providerOk,
+    })?
+  >
+  fetchHeartbeat() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/heartbeat'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchHeartbeat HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      final cfg = (data['config'] is Map)
+          ? Map<String, dynamic>.from(data['config'] as Map)
+          : <String, dynamic>{};
+      final ka = (data['keepalive'] is Map)
+          ? (data['keepalive'] as Map)
+          : const {};
+      return (
+        config: cfg,
+        kaLastAt: (ka['last_at'] ?? '').toString(),
+        pending: ka['pending'] == true,
+        providerOk: data['provider_ok'] == true,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchHeartbeat failed: $e');
+      return null;
+    }
+  }
+
+  /// Update heartbeat config keys (POST action=config). Throws on error.
+  Future<void> updateHeartbeatConfig(Map<String, dynamic> changed) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/heartbeat'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'action': 'config', ...changed}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'heartbeat config HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/heartbeat'),
+      );
+    }
+  }
+
+  /// Force daddy to reach out right now (POST action=trigger_keepalive).
+  /// Returns the server's message. Throws on error.
+  Future<String> triggerKeepalive() async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/heartbeat'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'action': 'trigger_keepalive'}),
+        )
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'trigger_keepalive HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/heartbeat'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    return data is Map ? (data['msg'] ?? '').toString() : '';
+  }
+
   /// All little theaters (小剧场 settings). Returns null on any failure
   /// (logged) so the caller can tell a network failure apart from an empty list.
   Future<List<OurHomeTheater>?> fetchTheaters() async {
