@@ -9,6 +9,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// Letters in Time (来日信) — written, then sealed until a chosen day. Talks to
@@ -225,10 +226,13 @@ class _CapsulePageState extends State<CapsulePage> {
         borderRadius: BorderRadius.circular(16),
         color: canOpen
             ? cs.primary.withValues(alpha: 0.10)
-            : cs.onSurface.withValues(alpha: 0.04),
-        border: canOpen
-            ? Border.all(color: cs.primary.withValues(alpha: 0.3))
-            : null,
+            : stillGlassFill(context),
+        border: Border.all(
+          color: canOpen
+              ? cs.primary.withValues(alpha: 0.3)
+              : stillGlassLine(context),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

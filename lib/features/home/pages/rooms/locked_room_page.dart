@@ -9,6 +9,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// The Locked Room (调教室) — the two desire profiles and the play-log. The
@@ -251,14 +252,13 @@ class _LockedRoomPageState extends State<LockedRoomPage> {
           if (parsed != null) {
             time = DateFormat.yMMMMd(zh ? 'zh' : 'en').format(parsed);
           }
-          return Container(
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-            decoration: BoxDecoration(
-              color: cs.onSurface.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: StillGlass(
+              radius: 14,
+              blur: false,
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -319,6 +319,7 @@ class _LockedRoomPageState extends State<LockedRoomPage> {
                 ),
               ],
             ),
+            ),
           );
         },
       ),
@@ -344,12 +345,10 @@ class _ProfileCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Container(
+    return StillGlass(
+      radius: 16,
+      blur: false,
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

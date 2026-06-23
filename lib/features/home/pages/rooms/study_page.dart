@@ -9,6 +9,7 @@ import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_checkbox.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// The Study (书房) — the shared to-do list and the shared bookshelf. Talks to
@@ -509,9 +510,9 @@ class _TodoRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: IosCardPress(
-        borderRadius: BorderRadius.circular(14),
-        baseColor: cs.onSurface.withValues(alpha: 0.04),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onTap: () => onToggle(todo),
         onLongPress: () => onDelete(todo),
@@ -602,9 +603,9 @@ class _BookRow extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: IosCardPress(
-        borderRadius: BorderRadius.circular(14),
-        baseColor: cs.onSurface.withValues(alpha: 0.04),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
         padding: const EdgeInsets.all(14),
         onTap: onTap,
         child: Row(

@@ -9,6 +9,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// The Parlour (客厅) — the two-faced mailbox. Cing leaves a note (board);
@@ -370,9 +371,9 @@ class _ParlourPageState extends State<ParlourPage> {
           }
           return Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: IosCardPress(
-              borderRadius: BorderRadius.circular(14),
-              baseColor: cs.tertiary.withValues(alpha: 0.08),
+            child: StillGlass(
+              radius: 14,
+              blur: false,
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
               onTap: () => _openLetter(l),
               child: Row(
@@ -520,20 +521,19 @@ class _NoteCard extends StatelessWidget {
           : DateFormat.Hm().format(parsed);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                zh ? '你' : 'You',
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: StillGlass(
+        radius: 16,
+        blur: false,
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  zh ? '你' : 'You',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: AppFontWeights.semibold,
@@ -614,6 +614,7 @@ class _NoteCard extends StatelessWidget {
               ],
             ),
         ],
+        ),
       ),
     );
   }
