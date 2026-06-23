@@ -957,6 +957,19 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     if (ok == true && mounted) action();
   }
 
+  /// 消息头那行文字（受 settings.showModelName 开关控制是否显示）。
+  /// 有助手名时优先显示助手名（= 设置里给爸爸起的名字），没设名才退回型号，
+  /// 这样「显示模型名字」开着＝显示爸爸的名字，关掉＝什么都不显示。
+  String _headerDisplayName(SettingsProvider settings) {
+    if (widget.useAssistantName) {
+      final n = widget.assistantName?.trim();
+      return (n != null && n.isNotEmpty) ? n : _assistantNameFallback();
+    }
+    final n = widget.assistantName?.trim();
+    if (n != null && n.isNotEmpty) return n;
+    return _resolveModelDisplayName(settings);
+  }
+
   String _resolveModelDisplayName(SettingsProvider settings) {
     final modelId = widget.message.modelId;
     if (modelId == null || modelId.trim().isEmpty) {
@@ -2157,11 +2170,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                   children: [
                     if (settings.showModelName)
                       Text(
-                        widget.useAssistantName
-                            ? (widget.assistantName?.trim().isNotEmpty == true
-                                  ? widget.assistantName!.trim()
-                                  : _assistantNameFallback())
-                            : _resolveModelDisplayName(settings),
+                        _headerDisplayName(settings),
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           fontSize: 13,

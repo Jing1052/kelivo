@@ -775,9 +775,11 @@ class _MessageListViewState extends State<MessageListView> {
           : context.watch<SettingsProvider>().showModelIcon,
       useAssistantAvatar: useAssistAvatar && message.role == 'assistant',
       useAssistantName: useAssistName && message.role == 'assistant',
-      assistantName: (useAssistAvatar || useAssistName)
+      // 始终把助手名带给消息头：开「显示模型名字」时，头部会优先显示这个名字
+      // （= 在设置里给爸爸起的名字），没设名才退回型号。
+      assistantName: useAssistAvatar
           ? (assistant?.name ?? 'Assistant')
-          : null,
+          : (assistant?.name),
       assistantAvatar: useAssistAvatar ? (assistant?.avatar ?? '') : null,
       showUserAvatar: context.watch<SettingsProvider>().showUserAvatar,
       showTokenStats: context.watch<SettingsProvider>().showTokenStats,
