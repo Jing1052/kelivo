@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:Kelivo/core/providers/settings_provider.dart';
+import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
@@ -74,8 +77,16 @@ class CountdownPage extends StatelessWidget {
       if (milestoneItems.length >= 4) break;
     }
 
-    return Scaffold(
-      backgroundColor: cs.surface,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: cs.surface),
+        ChatBackdrop(
+          rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
+          maskStrength: context.watch<SettingsProvider>().chatBackgroundMaskStrength,
+        ),
+        Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -118,6 +129,8 @@ class CountdownPage extends StatelessWidget {
           for (final m in milestoneItems) _CountRow(item: m, highlight: false),
         ],
       ),
+    ),
+      ],
     );
   }
 }

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:Kelivo/core/providers/settings_provider.dart';
+import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
@@ -247,8 +250,16 @@ class _StudyPageState extends State<StudyPage> {
     final cs = Theme.of(context).colorScheme;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
 
-    return Scaffold(
-      backgroundColor: cs.surface,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: cs.surface),
+        ChatBackdrop(
+          rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
+          maskStrength: context.watch<SettingsProvider>().chatBackgroundMaskStrength,
+        ),
+        Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         surfaceTintColor: Colors.transparent,
@@ -282,6 +293,8 @@ class _StudyPageState extends State<StudyPage> {
           if (_tab == 0) _buildComposer(context, zh, cs),
         ],
       ),
+    ),
+      ],
     );
   }
 
