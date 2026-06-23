@@ -8,6 +8,7 @@ import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
 /// The Diary (日记本) — read-only. Llaude writes the you of each day into a
@@ -145,7 +146,10 @@ class _DiaryPageState extends State<DiaryPage> {
   }
 }
 
-class _DiaryCard extends StatelessWidget {
+/// One diary page, collapsed to its date + opening lines; tap to unfold the
+/// whole entry. Uses the shared [StillGlass] card (no per-item blur — the
+/// translucent fill keeps it readable in a long scrolling list).
+class _DiaryCard extends StatefulWidget {
   const _DiaryCard({
     required this.entry,
     required this.zh,
@@ -157,46 +161,74 @@ class _DiaryCard extends StatelessWidget {
   final String locale;
 
   @override
+  State<_DiaryCard> createState() => _DiaryCardState();
+}
+
+class _DiaryCardState extends State<_DiaryCard> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final entry = widget.entry;
     String dateStr = entry.name;
     final parsed = DateTime.tryParse(entry.time);
     if (dateStr.isEmpty && parsed != null) {
-      dateStr = DateFormat.yMMMMd(locale).format(parsed);
+      dateStr = DateFormat.yMMMMd(widget.locale).format(parsed);
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(16),
-        border: Border(
-          left: BorderSide(color: cs.primary.withValues(alpha: 0.5), width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (dateStr.isNotEmpty)
-            Text(
-              dateStr,
-              style: TextStyle(
-                fontSize: 13.5,
-                fontWeight: AppFontWeights.semibold,
-                color: cs.primary.withValues(alpha: 0.85),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: StillGlass(
+        radius: 16,
+        blur: false,
+        padding: const EdgeInsets.fromLTRB(18, 14, 14, 16),
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    dateStr,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.primary.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ),
+                AnimatedRotation(
+                  turns: _expanded ? 0.5 : 0.0,
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    Lucide.ChevronDown,
+                    size: 16,
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              alignment: Alignment.topCenter,
+              child: Text(
+                entry.text,
+                maxLines: _expanded ? null : 2,
+                overflow:
+                    _expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 15.5,
+                  height: 1.7,
+                  color: cs.onSurface.withValues(alpha: 0.9),
+                ),
               ),
             ),
-          const SizedBox(height: 10),
-          Text(
-            entry.text,
-            style: TextStyle(
-              fontSize: 15.5,
-              height: 1.7,
-              color: cs.onSurface.withValues(alpha: 0.9),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

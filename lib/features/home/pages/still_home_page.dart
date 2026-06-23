@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -19,6 +18,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/user_profile_editor.dart';
 import '../widgets/assistant_avatar.dart';
+import '../widgets/still_glass.dart';
 import 'rooms/diary_page.dart';
 import 'rooms/calendar_page.dart';
 import 'rooms/sense_page.dart';
@@ -277,7 +277,7 @@ class _DashboardState extends State<_Dashboard> {
     final hasWx = _temp != null;
     final placeText = (_place != null && _place!.isNotEmpty) ? _place! : null;
 
-    return _Glass(
+    return StillGlass(
       onTap: _pickCity,
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 12),
       child: Column(
@@ -381,58 +381,6 @@ class _DashboardState extends State<_Dashboard> {
 
 // ===== Frosted-glass helpers =====
 
-Color _glassFill(BuildContext c) {
-  final dark = Theme.of(c).brightness == Brightness.dark;
-  final op = c.select<SettingsProvider, double>((s) => s.homeCardOpacity);
-  return Colors.white.withValues(alpha: dark ? op * 0.34 : op);
-}
-
-Color _glassLine(BuildContext c) {
-  final dark = Theme.of(c).brightness == Brightness.dark;
-  return dark
-      ? Colors.white.withValues(alpha: 0.12)
-      : Colors.white.withValues(alpha: 0.55);
-}
-
-/// A frosted widget tile: blurs the background photo behind it, soft translucent
-/// fill + hairline border, with the repo's iOS press feel when [onTap] is set.
-class _Glass extends StatelessWidget {
-  const _Glass({
-    required this.child,
-    this.padding,
-    this.onTap,
-    this.radius = 22,
-  });
-
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final VoidCallback? onTap;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final br = BorderRadius.circular(radius);
-    final blur = context.select<SettingsProvider, bool>((s) => s.homeCardBlur);
-    final card = IosCardPress(
-      borderRadius: br,
-      baseColor: _glassFill(context),
-      border: Border.all(color: _glassLine(context), width: 1),
-      padding: padding,
-      onTap: onTap,
-      child: child,
-    );
-    return ClipRRect(
-      borderRadius: br,
-      child: blur
-          ? BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: card,
-            )
-          : card,
-    );
-  }
-}
-
 // ===== Avatar + days-together card (avatars straddle the top edge) =====
 
 class _AvatarDaysCard extends StatelessWidget {
@@ -469,7 +417,7 @@ class _AvatarDaysCard extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: _avatar / 2),
-          child: _Glass(
+          child: StillGlass(
             padding: EdgeInsets.fromLTRB(16, _avatar / 2 + 10, 16, 14),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -816,7 +764,7 @@ class _MusicSquareState extends State<_MusicSquare> {
     final zh = widget.zh;
     final pick = _pick;
 
-    return _Glass(
+    return StillGlass(
       onTap: pick == null ? null : _shuffle,
       padding: const EdgeInsets.all(13),
       child: Column(
@@ -983,7 +931,7 @@ class _IconTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return _Glass(
+    return StillGlass(
       radius: 20,
       onTap: () => Navigator.of(
         context,
