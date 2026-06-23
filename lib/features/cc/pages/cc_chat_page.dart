@@ -23,11 +23,13 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/cc_bridge_provider.dart';
+import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/cc/cc_bridge_models.dart';
 import '../../../core/services/haptics.dart';
 import '../../../features/chat/widgets/chat_message_widget.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/ios_tile_button.dart';
+import '../../../shared/widgets/chat_backdrop.dart';
 import 'cc_bridge_page.dart';
 import 'cc_terminal_page.dart';
 
@@ -264,9 +266,23 @@ class _CcChatPageState extends State<CcChatPage> {
           ),
         ],
       ),
-      body: provider.isConfigured
-          ? _chatBody(context, provider)
-          : _notConfigured(context),
+      body: Stack(
+        children: [
+          // CC window follows the home background (read-only here).
+          Positioned.fill(
+            child: ChatBackdrop(
+              rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
+              maskStrength:
+                  context.watch<SettingsProvider>().chatBackgroundMaskStrength,
+            ),
+          ),
+          Positioned.fill(
+            child: provider.isConfigured
+                ? _chatBody(context, provider)
+                : _notConfigured(context),
+          ),
+        ],
+      ),
     );
   }
 
