@@ -28,11 +28,14 @@ class ItunesArtwork {
 
   static Future<String?> _fetch(String term, String media, String key) async {
     try {
+      // 苹果中国区没有电影/剧集目录：movie/tvShow/all 在 CN 区一律空手而归（→没海报）。
+      // 所以非音乐一律走有完整片库的美区；音乐留 CN（本地化歌曲封面更准）。
+      final country = media == 'music' ? 'CN' : 'US';
       final uri = Uri.https('itunes.apple.com', '/search', {
         'term': term,
         'media': media,
         'limit': '1',
-        'country': 'CN',
+        'country': country,
       });
       final res = await http.get(uri).timeout(const Duration(seconds: 12));
       if (res.statusCode == 200) {

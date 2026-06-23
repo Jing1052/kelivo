@@ -531,7 +531,6 @@ class _LoungePageState extends State<LoungePage> {
   );
 
   Widget _row(OurHomeFoyerItem it, ColorScheme cs) {
-    final muted = cs.onSurface.withValues(alpha: 0.45);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: IosCardPress(
@@ -567,11 +566,7 @@ class _LoungePageState extends State<LoungePage> {
                     style: TextStyle(
                       fontSize: 15.5,
                       height: 1.35,
-                      color: it.done ? muted : cs.onSurface,
-                      decoration: it.done
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      decorationColor: muted,
+                      color: cs.onSurface,
                     ),
                   ),
                   if (it.note.isNotEmpty)
