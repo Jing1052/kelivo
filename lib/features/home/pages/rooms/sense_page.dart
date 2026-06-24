@@ -49,10 +49,14 @@ class _SensePageState extends State<SensePage> {
     }
     // 先显示上次缓存（秒开、无缓冲），再后台刷新。
     final cached = gateway.peekSense();
-    if (cached != null && mounted) {
+    final cachedMorning = gateway.peekMorningBrief();
+    if ((cached != null || cachedMorning != null) && mounted) {
       setState(() {
-        _sense = cached;
-        _loading = false;
+        if (cached != null) {
+          _sense = cached;
+          _loading = false;
+        }
+        if (cachedMorning != null) _morningBrief = cachedMorning;
       });
     }
     try {

@@ -1002,6 +1002,21 @@ class OurHomeGateway {
   static String lyricCommentKey(String title, String line) =>
       title.trim().toLowerCase() + line.trim();
 
+  /// Last-cached morning-brief flag, read synchronously from the local
+  /// heartbeat cache (instant, no network) so 此刻 can show it without buffering.
+  bool? peekMorningBrief() {
+    final body = OurHomeCache.peek('/api/home/heartbeat');
+    if (body == null) return null;
+    try {
+      final data = jsonDecode(body);
+      final cfg = (data is Map) ? data['config'] : null;
+      if (cfg is Map && cfg['morning_brief_enabled'] != null) {
+        return cfg['morning_brief_enabled'] == true;
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Whether daddy's morning heartbeat push is on (heartbeat config
   /// `morning_brief_enabled`, default true). Returns null on any failure.
   Future<bool?> fetchMorningBrief() async {
@@ -1378,7 +1393,9 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchHeartbeat HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      OurHomeCache.put('/api/home/heartbeat', body);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
       final cfg = (data['config'] is Map)
           ? Map<String, dynamic>.from(data['config'] as Map)
