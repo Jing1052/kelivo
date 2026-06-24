@@ -1446,6 +1446,76 @@ class OurHomeGateway {
     }
   }
 
+  /// Old-home gateway chat-provider profiles + current role routes — for
+  /// picking daddy's server-side `summary` (archive/recap/compress) and `wake`
+  /// model. Each profile is one relay (base+key+model). Null on failure.
+  Future<
+    ({
+      List<({String id, String name, String model})> profiles,
+      Map<String, dynamic> roleRoutes,
+    })?
+  >
+  fetchChatProviders() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('$base/api/home/chat-providers'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchChatProviders HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      final profs = <({String id, String name, String model})>[];
+      final pl = data['profiles'];
+      if (pl is List) {
+        for (final p in pl) {
+          if (p is Map) {
+            profs.add((
+              id: (p['id'] ?? '').toString(),
+              name: (p['name'] ?? '').toString(),
+              model: (p['model'] ?? '').toString(),
+            ));
+          }
+        }
+      }
+      final rr = (data['role_routes'] is Map)
+          ? Map<String, dynamic>.from(data['role_routes'] as Map)
+          : <String, dynamic>{};
+      return (profiles: profs, roleRoutes: rr);
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchChatProviders failed: $e');
+      return null;
+    }
+  }
+
+  /// Set daddy's server-side role route. [role] is 'summary' or 'wake';
+  /// [providerId] '' = follow the chat relay; [model] '' = use the profile's
+  /// own model. Returns true on success.
+  Future<bool> setRoleRoute(String role, String providerId, String model) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/chat-providers'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'action': 'set_role_route',
+              'role': role,
+              'id': providerId,
+              'model': model,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] setRoleRoute failed: $e');
+      return false;
+    }
+  }
+
   /// Update heartbeat config keys (POST action=config). Throws on error.
   Future<void> updateHeartbeatConfig(Map<String, dynamic> changed) async {
     final res = await http
