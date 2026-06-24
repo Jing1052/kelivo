@@ -6,6 +6,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../model/pages/default_model_page.dart';
 import '../../provider/pages/providers_page.dart';
 import 'display_settings_page.dart';
+import 'settings_guide_page.dart';
 import '../../mcp/pages/mcp_page.dart';
 import 'daddy_tools_page.dart';
 import '../../assistant/pages/assistant_settings_page.dart';
@@ -111,6 +112,27 @@ class SettingsPage extends StatelessWidget {
           header(l10n.settingsPageGeneralSection, first: true),
           _iosSectionCard(
             children: [
+              _iosNavRow(
+                context,
+                icon: Lucide.BookOpen,
+                label:
+                    WidgetsBinding
+                            .instance
+                            .platformDispatcher
+                            .locale
+                            .languageCode ==
+                        'zh'
+                    ? '使用说明'
+                    : 'Guide',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const SettingsGuidePage(),
+                    ),
+                  );
+                },
+              ),
+              _iosDivider(context),
               _iosNavRow(
                 context,
                 icon: Lucide.Monitor,
