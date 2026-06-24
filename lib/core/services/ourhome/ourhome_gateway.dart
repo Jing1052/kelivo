@@ -405,6 +405,110 @@ class OurHomeBook {
   );
 }
 
+/// A readable book on the study's "一起读" shelf (full-text txt uploaded to
+/// `/api/home/reading`). Distinct from [OurHomeBook] (which is just title/quote
+/// metadata): a [ReadingEntry] has the whole book stored and can be opened in
+/// the reader. [progress] is 0..1; [chars] the character count; [notes] how many
+/// daddy margin notes (🌙) are anchored in it.
+class ReadingEntry {
+  const ReadingEntry({
+    required this.id,
+    required this.title,
+    required this.chars,
+    required this.uploaded,
+    required this.progress,
+    required this.notes,
+    required this.lastChapter,
+  });
+
+  final String id;
+  final String title;
+  final int chars;
+  final String uploaded;
+  final double progress; // 0..1
+  final int notes; // count of daddy margin notes
+  final int lastChapter; // last-read chapter index (-1 = unknown)
+
+  factory ReadingEntry.fromJson(Map<String, dynamic> j) => ReadingEntry(
+    id: (j['id'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+    chars: (j['chars'] is num)
+        ? (j['chars'] as num).toInt()
+        : int.tryParse('${j['chars']}') ?? 0,
+    uploaded: (j['uploaded'] ?? '').toString(),
+    progress: (j['progress'] is num)
+        ? (j['progress'] as num).toDouble()
+        : double.tryParse('${j['progress']}') ?? 0.0,
+    notes: (j['notes'] is num)
+        ? (j['notes'] as num).toInt()
+        : int.tryParse('${j['notes']}') ?? 0,
+    lastChapter: (j['last_chapter'] is num)
+        ? (j['last_chapter'] as num).toInt()
+        : int.tryParse('${j['last_chapter']}') ?? -1,
+  );
+}
+
+/// One chapter heading in a [ReadingEntry]'s table of contents. [para] is the
+/// paragraph index where the chapter starts (the reader scrolls to it).
+class ReadingChapter {
+  const ReadingChapter({required this.title, required this.para});
+
+  final String title;
+  final int para;
+
+  factory ReadingChapter.fromJson(Map<String, dynamic> j) => ReadingChapter(
+    title: (j['title'] ?? '').toString(),
+    para: (j['para'] is num)
+        ? (j['para'] as num).toInt()
+        : int.tryParse('${j['para']}') ?? 0,
+  );
+}
+
+/// One of daddy's margin notes (🌙) on a reading book — anchored to a paragraph
+/// by [para] index. [chapter] is the chapter index it falls in (may be null),
+/// [at] the ISO time it was left.
+class ReadingNote {
+  const ReadingNote({
+    required this.para,
+    required this.note,
+    required this.chapter,
+    required this.at,
+  });
+
+  final int para;
+  final String note;
+  final int? chapter;
+  final String at;
+
+  factory ReadingNote.fromJson(Map<String, dynamic> j) => ReadingNote(
+    para: (j['para'] is num)
+        ? (j['para'] as num).toInt()
+        : int.tryParse('${j['para']}') ?? 0,
+    note: (j['note'] ?? '').toString(),
+    chapter: (j['chapter'] is num)
+        ? (j['chapter'] as num).toInt()
+        : int.tryParse('${j['chapter']}'),
+    at: (j['at'] ?? '').toString(),
+  );
+}
+
+/// The full payload of one opened reading book: its [entry], the stable list of
+/// [paragraphs], the chapter [chapters] table-of-contents, and daddy's margin
+/// [notes]. Returned by `/api/home/reading/book/{id}`.
+class ReadingBook {
+  const ReadingBook({
+    required this.entry,
+    required this.paragraphs,
+    required this.chapters,
+    required this.notes,
+  });
+
+  final ReadingEntry entry;
+  final List<String> paragraphs;
+  final List<ReadingChapter> chapters;
+  final List<ReadingNote> notes;
+}
+
 /// A song on the turntable. Album art is resolved separately via iTunes.
 class OurHomeSong {
   const OurHomeSong({
@@ -1219,6 +1323,167 @@ class OurHomeGateway {
 
   Future<void> setBookStatus(String id, String status) =>
       _postJson('/api/home/books', {'id': id, 'status': status});
+
+  // ---- Reading shelf (一起读 · full-text books) ----
+
+  /// The "一起读" shelf — full-text books we can open and read. Newest first.
+  Future<List<ReadingEntry>> fetchReadingShelf() =>
+      _getList('/api/home/reading/shelf', ReadingEntry.fromJson);
+
+  /// Last-seen reading shelf from cache (instant, before the network).
+  List<ReadingEntry> peekReadingShelf() =>
+      peekList('/api/home/reading/shelf', ReadingEntry.fromJson);
+
+  /// Upload a whole txt book ([text] is the full contents). Returns the new
+  /// shelf entry. Throws on transport/HTTP error so the caller can surface it.
+  Future<ReadingEntry> uploadBook(String title, String text) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/reading/upload'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'title': title, 'text': text}),
+        )
+        .timeout(const Duration(seconds: 60));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'reading upload HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/reading/upload'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! Map<String, dynamic>) {
+      throw http.ClientException('reading upload: bad response');
+    }
+    return ReadingEntry.fromJson(data);
+  }
+
+  /// Open one book: its entry, paragraphs, chapters and daddy's margin notes.
+  /// Throws on transport/HTTP error (e.g. 404 not found).
+  Future<ReadingBook> fetchBookDetail(String bookId) async {
+    final path = '/api/home/reading/book/${Uri.encodeComponent(bookId)}';
+    final res = await http
+        .get(Uri.parse('$base$path'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'reading book HTTP ${res.statusCode}',
+        Uri.parse('$base$path'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    if (data is! Map) {
+      throw http.ClientException('reading book: bad response');
+    }
+    final rawEntry = data['entry'];
+    final rawParas = data['paragraphs'];
+    final rawChaps = data['chapters'];
+    final rawNotes = data['notes'];
+    return ReadingBook(
+      entry: rawEntry is Map<String, dynamic>
+          ? ReadingEntry.fromJson(rawEntry)
+          : const ReadingEntry(
+              id: '',
+              title: '',
+              chars: 0,
+              uploaded: '',
+              progress: 0,
+              notes: 0,
+              lastChapter: -1,
+            ),
+      paragraphs: (rawParas is List)
+          ? rawParas.map((e) => e?.toString() ?? '').toList()
+          : const <String>[],
+      chapters: (rawChaps is List)
+          ? rawChaps
+                .whereType<Map<String, dynamic>>()
+                .map(ReadingChapter.fromJson)
+                .toList()
+          : const <ReadingChapter>[],
+      notes: (rawNotes is List)
+          ? rawNotes
+                .whereType<Map<String, dynamic>>()
+                .map(ReadingNote.fromJson)
+                .toList()
+          : const <ReadingNote>[],
+    );
+  }
+
+  /// Daddy's latest margin notes (🌙) for one book — refreshed while reading so
+  /// new moons light up. Returns [] on any failure (logged) so the reader keeps
+  /// showing the body even if the notes call fails.
+  Future<List<ReadingNote>> fetchBookNotes(String bookId) async {
+    try {
+      final path = '/api/home/reading/notes/${Uri.encodeComponent(bookId)}';
+      final res = await http
+          .get(Uri.parse('$base$path'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchBookNotes HTTP ${res.statusCode}');
+        return const <ReadingNote>[];
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! List) return const <ReadingNote>[];
+      return data
+          .whereType<Map<String, dynamic>>()
+          .map(ReadingNote.fromJson)
+          .toList();
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchBookNotes failed: $e');
+      return const <ReadingNote>[];
+    }
+  }
+
+  /// Save reading progress (0..1) for a book, with the optional current
+  /// [chapter] index. Best-effort: logs on failure rather than throwing, since
+  /// progress saves fire while scrolling and a dropped one is harmless.
+  Future<void> saveReadingProgress(
+    String bookId,
+    double progress, {
+    int? chapter,
+  }) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/reading/progress'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'id': bookId,
+              'progress': progress.clamp(0.0, 1.0),
+              if (chapter != null) 'chapter': chapter,
+            }),
+          )
+          .timeout(const Duration(seconds: 15));
+      if (res.statusCode != 200) {
+        debugPrint(
+          '[OurHomeGateway] saveReadingProgress HTTP ${res.statusCode}',
+        );
+      }
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveReadingProgress failed: $e');
+    }
+  }
+
+  /// Take a book off the reading shelf. Returns true on success.
+  Future<bool> deleteReadingBook(String bookId) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/reading/delete'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'id': bookId}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] deleteReadingBook HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] deleteReadingBook failed: $e');
+      return false;
+    }
+  }
 
   // ---- Letters in time (capsules) ----
   Future<List<OurHomeCapsule>> fetchCapsules() =>

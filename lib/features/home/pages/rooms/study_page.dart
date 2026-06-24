@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
@@ -10,6 +13,7 @@ import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../../../shared/widgets/ios_checkbox.dart';
 import '../../widgets/still_glass.dart';
+import 'book_reader_page.dart';
 import 'room_state_hint.dart';
 
 /// The Study (书房) — the shared to-do list and the shared bookshelf. Talks to
@@ -28,9 +32,11 @@ class _StudyPageState extends State<StudyPage> {
   OurHomeGateway? _gateway;
   List<OurHomeTodo> _todos = const [];
   List<OurHomeBook> _books = const [];
+  List<ReadingEntry> _reading = const [];
   bool _loading = true;
   bool _error = false;
   bool _sending = false;
+  bool _uploading = false;
   int _tab = 0; // 0 = todos, 1 = bookshelf
 
   @override
@@ -70,10 +76,12 @@ class _StudyPageState extends State<StudyPage> {
     // Instant: seed from on-device cache, then refresh from the server.
     final ct = gateway.peekList('/api/home/todo', OurHomeTodo.fromJson);
     final cbk = gateway.peekList('/api/home/books', OurHomeBook.fromJson);
-    if ((ct.isNotEmpty || cbk.isNotEmpty) && mounted) {
+    final cr = gateway.peekReadingShelf();
+    if ((ct.isNotEmpty || cbk.isNotEmpty || cr.isNotEmpty) && mounted) {
       setState(() {
         _todos = ct;
         _books = cbk;
+        _reading = cr;
         _loading = false;
       });
     }
@@ -81,11 +89,13 @@ class _StudyPageState extends State<StudyPage> {
       final results = await Future.wait([
         gateway.fetchTodos(),
         gateway.fetchBooks(),
+        gateway.fetchReadingShelf(),
       ]);
       if (!mounted) return;
       setState(() {
         _todos = results[0] as List<OurHomeTodo>;
         _books = results[1] as List<OurHomeBook>;
+        _reading = results[2] as List<ReadingEntry>;
         _loading = false;
       });
     } catch (e) {
@@ -203,6 +213,201 @@ class _StudyPageState extends State<StudyPage> {
     }
   }
 
+  // ---- Reading shelf (一起读 · whole-text books) ----
+
+  void _openReader(ReadingEntry e) {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    Haptics.soft();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BookReaderPage(
+          gateway: gateway,
+          bookId: e.id,
+          title: e.title,
+        ),
+      ),
+    );
+  }
+
+  /// Import a whole txt book. Primary path: pick a .txt file (bytes read in
+  /// memory, decoded as UTF-8). The sheet also offers a paste-text fallback for
+  /// when the file picker can't reach the file.
+  Future<void> _importBook() async {
+    final gateway = _gateway;
+    if (gateway == null || _uploading) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final choice = await showModalBottomSheet<_ImportChoice>(
+      context: context,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IosCardPress(
+              borderRadius: BorderRadius.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              onTap: () => Navigator.of(ctx).pop(_ImportChoice.file),
+              child: Row(
+                children: [
+                  const Icon(Lucide.Upload, size: 20),
+                  const SizedBox(width: 16),
+                  Text(
+                    zh ? '选一个 txt 文件' : 'Pick a .txt file',
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            IosCardPress(
+              borderRadius: BorderRadius.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              onTap: () => Navigator.of(ctx).pop(_ImportChoice.paste),
+              child: Row(
+                children: [
+                  const Icon(Lucide.FileText, size: 20),
+                  const SizedBox(width: 16),
+                  Text(
+                    zh ? '粘贴整本正文' : 'Paste the whole text',
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null || !mounted) return;
+    if (choice == _ImportChoice.file) {
+      await _importFromFile(gateway, zh);
+    } else {
+      await _importFromPaste(gateway, zh);
+    }
+  }
+
+  Future<void> _importFromFile(OurHomeGateway gateway, bool zh) async {
+    final res = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: const ['txt'],
+      withData: true,
+    );
+    if (res == null || res.files.isEmpty || !mounted) return;
+    final f = res.files.first;
+    final bytes = f.bytes;
+    if (bytes == null) {
+      _toast(zh ? '没读到文件内容' : "couldn't read the file");
+      return;
+    }
+    String text;
+    try {
+      text = utf8.decode(bytes);
+    } catch (_) {
+      // Not valid UTF-8 — keep the bytes we can, rather than failing outright.
+      text = utf8.decode(bytes, allowMalformed: true);
+    }
+    if (text.trim().isEmpty) {
+      _toast(zh ? '这个文件是空的' : 'that file is empty');
+      return;
+    }
+    // Use the filename (without .txt) as the default title.
+    var title = f.name;
+    if (title.toLowerCase().endsWith('.txt')) {
+      title = title.substring(0, title.length - 4);
+    }
+    await _doUpload(gateway, title.trim(), text, zh);
+  }
+
+  Future<void> _importFromPaste(OurHomeGateway gateway, bool zh) async {
+    final res = await showModalBottomSheet<_PastedBook>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _PasteBookSheet(zh: zh),
+    );
+    if (res == null || !mounted) return;
+    await _doUpload(gateway, res.title, res.text, zh);
+  }
+
+  Future<void> _doUpload(
+    OurHomeGateway gateway,
+    String title,
+    String text,
+    bool zh,
+  ) async {
+    setState(() => _uploading = true);
+    Haptics.soft();
+    try {
+      await gateway.uploadBook(title.isEmpty ? (zh ? '未命名' : 'Untitled') : title, text);
+      await _load();
+    } catch (e) {
+      debugPrint('[Study] uploadBook failed: $e');
+      _toast(zh ? '没传上去，再试一次' : "couldn't upload, try again");
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  Future<void> _deleteReading(ReadingEntry e) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final cs = Theme.of(context).colorScheme;
+    Haptics.light();
+    final confirm = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: IosCardPress(
+          borderRadius: BorderRadius.circular(12),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          onTap: () => Navigator.of(ctx).pop(true),
+          child: Row(
+            children: [
+              const Icon(Lucide.Trash, size: 20, color: Colors.red),
+              const SizedBox(width: 16),
+              Text(
+                zh ? '从书架撤下' : 'Remove from shelf',
+                style: const TextStyle(
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await gateway.deleteReadingBook(e.id);
+      await _load();
+    } catch (err) {
+      debugPrint('[Study] deleteReadingBook failed: $err');
+    }
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
   Future<void> _delete(OurHomeTodo todo) async {
     final gateway = _gateway;
     if (gateway == null) return;
@@ -277,13 +482,20 @@ class _StudyPageState extends State<StudyPage> {
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         actions: [
-          if (_gateway != null && _tab == 1)
+          if (_gateway != null && _tab == 1) ...[
+            IosIconButton(
+              icon: Lucide.Upload,
+              size: 21,
+              minSize: 44,
+              onTap: _uploading ? null : _importBook,
+            ),
             IosIconButton(
               icon: Lucide.Plus,
               size: 22,
               minSize: 44,
               onTap: _addBook,
             ),
+          ],
           const SizedBox(width: 6),
         ],
       ),
@@ -393,25 +605,55 @@ class _StudyPageState extends State<StudyPage> {
   }
 
   Widget _bookView(bool zh, ColorScheme cs) {
-    if (_books.isEmpty) {
+    if (_books.isEmpty && _reading.isEmpty) {
       return RoomStateHint(
         icon: Lucide.BookOpen,
-        text: zh ? '书柜还空着。\n右上角加一本我们想一起读的。' : 'The shelf is empty.',
+        text: zh
+            ? '书柜还空着。\n右上角导入一本整书，或加一本想一起读的。'
+            : 'The shelf is empty.',
       );
     }
+    // Two sections: "在读的整本书" (full-text, openable) on top, then the
+    // want/reading/read metadata bookshelf below. Both scroll together.
+    final hasReading = _reading.isNotEmpty;
+    final hasBooks = _books.isNotEmpty;
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: _books.length,
-        itemBuilder: (context, i) => _BookRow(
-          book: _books[i],
-          zh: zh,
-          onTap: () => _cycleBook(_books[i]),
-        ),
+        children: [
+          if (hasReading) ...[
+            _sectionLabel(zh ? '在读的整本书' : 'Books to read together', cs),
+            for (final e in _reading)
+              _ReadingRow(
+                entry: e,
+                zh: zh,
+                onTap: () => _openReader(e),
+                onLongPress: () => _deleteReading(e),
+              ),
+          ],
+          if (hasReading && hasBooks) const SizedBox(height: 14),
+          if (hasBooks) ...[
+            _sectionLabel(zh ? '想读的书' : 'On the shelf', cs),
+            for (final b in _books)
+              _BookRow(book: b, zh: zh, onTap: () => _cycleBook(b)),
+          ],
+        ],
       ),
     );
   }
+
+  Widget _sectionLabel(String label, ColorScheme cs) => Padding(
+    padding: const EdgeInsets.fromLTRB(4, 2, 4, 8),
+    child: Text(
+      label,
+      style: TextStyle(
+        fontSize: 12.5,
+        fontWeight: AppFontWeights.semibold,
+        color: cs.onSurface.withValues(alpha: 0.45),
+      ),
+    ),
+  );
 
   Widget _buildComposer(BuildContext context, bool zh, ColorScheme cs) {
     final canAdd = !_sending && _gateway != null;
@@ -718,6 +960,106 @@ class _BookRow extends StatelessWidget {
   }
 }
 
+/// A row on the "在读的整本书" shelf — a full-text book that opens in the reader.
+/// Shows the title, a progress bar + percent, and how many 🌙 daddy left.
+class _ReadingRow extends StatelessWidget {
+  const _ReadingRow({
+    required this.entry,
+    required this.zh,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  final ReadingEntry entry;
+  final bool zh;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final pct = (entry.progress.clamp(0.0, 1.0) * 100).round();
+    final started = entry.progress > 0.0001;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
+        padding: const EdgeInsets.all(14),
+        onTap: onTap,
+        onLongPress: onLongPress,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Lucide.BookOpen, size: 20, color: cs.primary.withValues(alpha: 0.9)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    entry.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: AppFontWeights.medium,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: LinearProgressIndicator(
+                      value: entry.progress.clamp(0.0, 1.0),
+                      minHeight: 4,
+                      backgroundColor: cs.onSurface.withValues(alpha: 0.08),
+                      valueColor: AlwaysStoppedAnimation<Color>(cs.primary),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Text(
+                        started
+                            ? (zh ? '已读 $pct%' : '$pct% read')
+                            : (zh ? '还没开始' : 'not started'),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: cs.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      if (entry.notes > 0) ...[
+                        const SizedBox(width: 10),
+                        const Text('🌙', style: TextStyle(fontSize: 11)),
+                        const SizedBox(width: 3),
+                        Text(
+                          zh ? '${entry.notes} 处' : '${entry.notes}',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: cs.onSurface.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.3),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _Chip extends StatelessWidget {
   const _Chip({required this.label, required this.color, this.icon});
 
@@ -759,6 +1101,104 @@ class _NewBook {
   final String title;
   final String author;
   final String quote;
+}
+
+enum _ImportChoice { file, paste }
+
+class _PastedBook {
+  const _PastedBook(this.title, this.text);
+  final String title;
+  final String text;
+}
+
+/// Fallback import: paste the whole book text + a title. Used when the file
+/// picker can't reach the file (or there's no .txt to hand).
+class _PasteBookSheet extends StatefulWidget {
+  const _PasteBookSheet({required this.zh});
+  final bool zh;
+
+  @override
+  State<_PasteBookSheet> createState() => _PasteBookSheetState();
+}
+
+class _PasteBookSheetState extends State<_PasteBookSheet> {
+  final _title = TextEditingController();
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    InputDecoration deco(String hint) => InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: cs.onSurface.withValues(alpha: 0.05),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _title,
+            autofocus: true,
+            style: const TextStyle(fontSize: 15.5),
+            decoration: deco(zh ? '书名…' : 'title…'),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _text,
+            maxLines: 8,
+            minLines: 5,
+            style: const TextStyle(fontSize: 14),
+            decoration: deco(zh ? '把整本正文粘贴到这里…' : 'paste the whole text here…'),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: IosCardPress(
+              baseColor: cs.primary,
+              borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              onTap: () {
+                final t = _text.text.trim();
+                if (t.isEmpty) return;
+                Navigator.of(
+                  context,
+                ).pop(_PastedBook(_title.text.trim(), _text.text));
+              },
+              child: Center(
+                child: Text(
+                  zh ? '导入' : 'Import',
+                  style: TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.onPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _AddBookSheet extends StatefulWidget {
