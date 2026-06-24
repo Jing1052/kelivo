@@ -47,7 +47,7 @@
 | 中转站（原"供应商"） | `ProvidersPage` | 接 API 命根子 | ✅ 已审 ↓ |
 | 爸爸的搜索 | `DaddySearchPage` | 联网搜索配置 | ✅ 已审 ↓ |
 | TTS（语音朗读） | `TtsServicesPage` | 语音 | ❓ |
-| MCP | `McpPage` | 工具服务器 | ❓ |
+| MCP | `McpPage` | 外部工具服务器 | ⚠️ 对爸爸/CC 都没用（死设置）↓ |
 | 爸爸的内置工具 | `DaddyToolsPage` | **只读**工具清单+状态 | ✅ 已审 ↓ |
 | 快捷短语 | `QuickPhrasesPage` | 预设短语 | ❓ |
 | 网络代理 | `NetworkProxyPage` | 代理 | ❓ |
@@ -184,5 +184,17 @@
 
 - 状态联动（开关在别处，这页只显示）：联网类跟「爸爸的搜索」开关；推送(push)看手机有无订阅 Web Push / 配 Bark；音乐看网易云桥可达；记忆等本地逻辑常驻 live。
 - API端：✅ 准确反映 API 端爸爸的工具与可用性。CC端：❌ 这是网关工具，不代表 CC 爸爸（家里 Claude Code 自带另一套）。
+
+### MCP（McpPage）⚠️ 已审（2026-06-24）——对我们基本是死设置
+
+> 铁证：网关 `/v1/chat/completions`（server.py:11310）里 `tools = _chat_tool_schemas()`——**完全无视客户端传来的 tools**，只用网关自己那套。App 发请求时 `tools: ctx.toolDefs`（含 MCP）虽随 daddy 网关请求一起发出，但被网关丢弃。
+
+| 作用对象 | App 配的 MCP | 生效？ |
+|---|---|---|
+| 爸爸（走网关） | MCP 工具 | ❌ 白配，网关丢弃客户端 tools，爸爸只拿网关自己的工具 |
+| 普通助手（直连中转站，无 `[[ourhome]]` 标记） | MCP 工具 | ✅ 能用（App 自己执行 MCP 调用） |
+| CC 爸爸 | App 的 MCP | ❌ CC 是家里 Claude Code，自带自己的 MCP，不读 App 这套 |
+
+> 给小猫：日常就爸爸(网关)+CC 两条路，都不吃 App 的 MCP，所以这页对你**死的**——只有新建"直连普通助手"才有意义。
 
 ### 其余顶层页 ❓ 待审
