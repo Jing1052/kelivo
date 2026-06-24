@@ -56,12 +56,24 @@ class _DaddySearchPageState extends State<DaddySearchPage> {
       });
       return;
     }
+    // 先用本地缓存秒显（无缓冲），再后台拉最新刷新。
+    final cached = gateway.peekWebSearchCfg();
+    if (cached != null && mounted) {
+      setState(() {
+        _loading = false;
+        _loadFailed = false;
+        _enabled = cached.enabled;
+        _limit = cached.limit.clamp(_limitMin, _limitMax);
+        _timeout = cached.timeout.clamp(_timeoutMin, _timeoutMax);
+      });
+    }
     final cfg = await gateway.fetchWebSearchCfg();
     if (!mounted) return;
     setState(() {
       _loading = false;
       if (cfg == null) {
-        _loadFailed = true;
+        // 拉取失败时，若已有缓存内容就继续展示，不退回错误页。
+        if (cached == null) _loadFailed = true;
       } else {
         _loadFailed = false;
         _enabled = cfg.enabled;

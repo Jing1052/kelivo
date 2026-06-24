@@ -1538,15 +1538,36 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchDaddyTools HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       final list = (data is Map) ? data['tools'] : null;
       if (list is! List) return const <DaddyTool>[];
+      OurHomeCache.put('/api/home/daddy-tools', body);
       return list
           .whereType<Map<String, dynamic>>()
           .map(DaddyTool.fromJson)
           .toList();
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchDaddyTools failed: $e');
+      return null;
+    }
+  }
+
+  /// Last-seen daddy tools from cache (instant, before the network). Null if
+  /// nothing cached yet, so the caller can keep the buffering state on a cold
+  /// first open.
+  List<DaddyTool>? peekDaddyTools() {
+    final body = OurHomeCache.peek('/api/home/daddy-tools');
+    if (body == null || body.isEmpty) return null;
+    try {
+      final data = jsonDecode(body);
+      final list = (data is Map) ? data['tools'] : null;
+      if (list is! List) return const <DaddyTool>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(DaddyTool.fromJson)
+          .toList();
+    } catch (_) {
       return null;
     }
   }
@@ -1656,8 +1677,10 @@ class OurHomeGateway {
         debugPrint('[OurHomeGateway] fetchWebSearchCfg HTTP ${res.statusCode}');
         return null;
       }
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
       if (data is! Map) return null;
+      OurHomeCache.put('/api/home/web-search-cfg', body);
       return (
         enabled: data['enabled'] == true,
         limit: (data['limit'] as num?)?.toInt() ?? 0,
@@ -1665,6 +1688,24 @@ class OurHomeGateway {
       );
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchWebSearchCfg failed: $e');
+      return null;
+    }
+  }
+
+  /// Last-seen web-search config from cache (instant, before the network).
+  /// Null if nothing cached yet.
+  ({bool enabled, int limit, int timeout})? peekWebSearchCfg() {
+    final body = OurHomeCache.peek('/api/home/web-search-cfg');
+    if (body == null || body.isEmpty) return null;
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map) return null;
+      return (
+        enabled: data['enabled'] == true,
+        limit: (data['limit'] as num?)?.toInt() ?? 0,
+        timeout: (data['timeout'] as num?)?.toInt() ?? 0,
+      );
+    } catch (_) {
       return null;
     }
   }

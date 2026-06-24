@@ -47,18 +47,31 @@ class _DaddyToolsPageState extends State<DaddyToolsPage> {
       }
       return;
     }
+    // 先用本地缓存秒显（无缓冲），再后台拉最新刷新。
+    final cached = gateway.peekDaddyTools();
+    if (cached != null && mounted) {
+      setState(() {
+        _tools = cached;
+        _loading = false;
+        _error = false;
+      });
+    }
     final list = await gateway.fetchDaddyTools();
     if (!mounted) return;
     if (list == null) {
-      setState(() {
-        _loading = false;
-        _error = true;
-      });
+      // 拉取失败时，若已有缓存内容就继续展示，不退回错误页。
+      if (cached == null) {
+        setState(() {
+          _loading = false;
+          _error = true;
+        });
+      }
       return;
     }
     setState(() {
       _tools = list;
       _loading = false;
+      _error = false;
     });
   }
 
