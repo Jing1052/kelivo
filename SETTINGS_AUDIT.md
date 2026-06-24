@@ -18,6 +18,9 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-24** · 新增**可搜索「使用说明」页**（设置→通用首行 Guide 入口）：把本清单的设置图谱做成 App 内可搜列表，每条标 API端/CC端 结论。`settings_guide_page.dart`（快照自本文件，更新本文件后记得同步它）。
+- **2026-06-24** · CC 桥页加**「上下文档位」开关**（日常 low / 大窗口 high），远程切家里 session-watcher 的 `.threshold_mode`（≤30s 生效）。App：`cc_bridge_client/provider/page`；家里：CcCompanion apns-server 新增 `/watcher/mode`（需家里 pull+重启 apns-server 生效）。未连上/未部署时开关显示禁用态。
+
 - **2026-06-24** · 默认模型页：把对爸爸空转的三槽（整理记忆/前情提要/压缩）**合并替换为一张「爸爸·归档/前情/压缩模型」卡**——它们在老家是同一个 `summary` 角色、共用一个模型。新卡拉**老家网关的中转站**(`/api/home/chat-providers`)选 profile，存回 `set_role_route(summary)`；留空=跟随聊天中转站。kelivo 的对话/标题/OCR 三卡保留。
   - 代码：`ourhome_gateway.dart` 加 `fetchChatProviders`/`setRoleRoute`；`default_model_page.dart` 删三卡+非daddy提示+压缩prompt sheet，加 `_DaddyGatewayModelCard`。
 
