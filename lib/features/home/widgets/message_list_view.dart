@@ -780,7 +780,11 @@ class _MessageListViewState extends State<MessageListView> {
       assistantName: useAssistAvatar
           ? (assistant?.name ?? 'Assistant')
           : (assistant?.name),
-      assistantAvatar: useAssistAvatar ? (assistant?.avatar ?? '') : null,
+      // 始终把头像数据带给消息组件：极简布局（关「显示模型名称」）强制显示双方头像，
+      // 需要 daddy 头像随时可用，与 useAssistAvatar 无关。非极简分支仍用上面的旧逻辑。
+      assistantAvatar: useAssistAvatar
+          ? (assistant?.avatar ?? '')
+          : (assistant?.avatar),
       showUserAvatar: context.watch<SettingsProvider>().showUserAvatar,
       showTokenStats: context.watch<SettingsProvider>().showTokenStats,
       hideStreamingIndicator:

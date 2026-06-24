@@ -214,8 +214,18 @@ class _CcChatPageState extends State<CcChatPage> {
     final cs = Theme.of(context).colorScheme;
     final provider = context.watch<CcBridgeProvider>();
 
+    // 居中显示 CC 名 / 爸爸名：复用与消息头一致的 displayName 逻辑
+    // （CC 专属名优先，没设则回退到 daddyAssistant 的名字，再回退会话标题）。
+    final ccName = context.watch<CcBridgeProvider>().ccDisplayName.trim();
+    final daddyName =
+        context.watch<AssistantProvider>().daddyAssistant?.name.trim() ?? '';
+    final centeredTitle = ccName.isNotEmpty
+        ? ccName
+        : (daddyName.isNotEmpty ? daddyName : l10n.ccBridgeChatTitle);
+
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         leading: Tooltip(
           message: l10n.settingsPageBackButton,
           child: IosIconButton(
@@ -226,10 +236,10 @@ class _CcChatPageState extends State<CcChatPage> {
           ),
         ),
         title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(l10n.ccBridgeChatTitle),
+            Text(centeredTitle),
             Text(
               _presenceLabel(context, provider),
               style: TextStyle(

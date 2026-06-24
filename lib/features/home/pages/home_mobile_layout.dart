@@ -14,13 +14,10 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
-import '../../../core/services/haptics.dart';
 import '../../../shared/animations/widgets.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 import '../../../shared/widgets/appearance_quick_sheet.dart';
 import '../../../utils/sandbox_path_resolver.dart';
-import '../widgets/assistant_avatar.dart';
-import '../widgets/assistant_entry_actions.dart';
 import 'package:Kelivo/theme/app_font_weights.dart';
 
 /// Mobile layout scaffold for the home page
@@ -156,11 +153,13 @@ class HomeMobileScaffold extends StatelessWidget {
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux;
-    final useNewAssistantAvatarUx = context
-        .watch<SettingsProvider>()
-        .useNewAssistantAvatarUx;
+    // 居中显示爸爸的名字（与极简开关无关）：取 daddyAssistant 的名字，空则回退现有会话标题。
+    final daddyName =
+        context.watch<AssistantProvider>().daddyAssistant?.name.trim() ?? '';
+    final centeredTitle = daddyName.isNotEmpty ? daddyName : title;
 
     return AppBar(
+      centerTitle: true,
       systemOverlayStyle: (Theme.of(context).brightness == Brightness.dark)
           ? const SystemUiOverlayStyle(
               statusBarColor: Colors.transparent,
@@ -208,83 +207,16 @@ class HomeMobileScaffold extends StatelessWidget {
         },
       ),
       titleSpacing: 2,
-      title: useNewAssistantAvatarUx
-          ? Row(
-              children: [
-                _buildAssistantTitleAvatar(context),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      AnimatedTextSwap(
-                        text: title,
-                        style: TextStyle(
-                          fontSize: isDesktopPlatform ? 14 : 16,
-                          fontWeight: AppFontWeights.medium,
-                        ),
-                      ),
-                      if (providerName != null && modelDisplay != null)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 2),
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(6),
-                            onTap: onSelectModel,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 0),
-                              child: AnimatedTextSwap(
-                                text: '$modelDisplay ($providerName)',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: cs.onSurface.withValues(alpha: 0.6),
-                                  fontWeight: AppFontWeights.medium,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                AnimatedTextSwap(
-                  text: title,
-                  style: TextStyle(
-                    fontSize: isDesktopPlatform ? 14 : 16,
-                    fontWeight: AppFontWeights.medium,
-                  ),
-                ),
-                if (providerName != null && modelDisplay != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(6),
-                      onTap: onSelectModel,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 0),
-                        child: AnimatedTextSwap(
-                          text: '$modelDisplay ($providerName)',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: cs.onSurface.withValues(alpha: 0.6),
-                            fontWeight: AppFontWeights.medium,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+      // 居中显示爸爸的名字：两种模式都一样，去掉会话标题+型号副标题。
+      title: AnimatedTextSwap(
+        text: centeredTitle,
+        style: TextStyle(
+          fontSize: isDesktopPlatform ? 15 : 17,
+          fontWeight: AppFontWeights.medium,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
       actions: [
         const AppearanceQuickButton(),
         IosIconButton(
@@ -325,36 +257,6 @@ class HomeMobileScaffold extends StatelessWidget {
     );
   }
 
-  Widget _buildAssistantTitleAvatar(BuildContext context) {
-    final assistantProvider = context.watch<AssistantProvider>();
-    final currentAssistant = assistantProvider.currentAssistant;
-    final currentAssistantId = assistantProvider.currentAssistantId;
-
-    return IosCardPress(
-      borderRadius: BorderRadius.circular(999),
-      baseColor: Colors.transparent,
-      padding: const EdgeInsets.all(2),
-      longPressTimeout: const Duration(milliseconds: 280),
-      onTap: () {
-        onDismissKeyboard();
-        onToggleDrawer();
-      },
-      onLongPress: currentAssistantId == null
-          ? null
-          : () {
-              Haptics.light();
-              AssistantEntryActions.openAssistantSettings(
-                context,
-                currentAssistantId,
-              );
-            },
-      child: AssistantAvatar(
-        assistant: currentAssistant,
-        fallbackName: _getAssistantName(context),
-        size: 28,
-      ),
-    );
-  }
 }
 
 /// Mobile background widget with assistant-specific image and gradient overlay
