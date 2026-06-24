@@ -476,7 +476,7 @@ class _StudyPageState extends State<StudyPage> {
   }
 }
 
-class _TodoRow extends StatelessWidget {
+class _TodoRow extends StatefulWidget {
   const _TodoRow({
     required this.todo,
     required this.zh,
@@ -489,24 +489,51 @@ class _TodoRow extends StatelessWidget {
   final ValueChanged<OurHomeTodo> onToggle;
   final ValueChanged<OurHomeTodo> onDelete;
 
+  @override
+  State<_TodoRow> createState() => _TodoRowState();
+}
+
+class _TodoRowState extends State<_TodoRow> {
+  bool _expanded = false;
+
   String? _ownerLabel() {
-    switch (todo.owner) {
+    switch (widget.todo.owner) {
       case 'L':
-        return zh ? '爸爸' : 'Llaude';
+        return widget.zh ? '爸爸' : 'Llaude';
       case 'C':
-        return zh ? '我' : 'me';
+        return widget.zh ? '我' : 'me';
       case 'us':
-        return zh ? '我们' : 'us';
+        return widget.zh ? '我们' : 'us';
       default:
         return null;
     }
   }
 
+  String get _title {
+    final firstLine = widget.todo.text
+        .split('\n')
+        .firstWhere((s) => s.trim().isNotEmpty, orElse: () => widget.todo.text);
+    return firstLine.trim();
+  }
+
   @override
   Widget build(BuildContext context) {
+    final todo = widget.todo;
     final cs = Theme.of(context).colorScheme;
     final owner = _ownerLabel();
     final muted = cs.onSurface.withValues(alpha: 0.45);
+    // The full body is only worth expanding when there is more than the
+    // single title line we already show collapsed.
+    final hasMore = todo.text.trim() != _title;
+
+    final titleStyle = TextStyle(
+      fontSize: 15.5,
+      height: 1.35,
+      color: todo.done ? muted : cs.onSurface,
+      decoration:
+          todo.done ? TextDecoration.lineThrough : TextDecoration.none,
+      decorationColor: muted,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -514,8 +541,13 @@ class _TodoRow extends StatelessWidget {
         radius: 14,
         blur: false,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        onTap: () => onToggle(todo),
-        onLongPress: () => onDelete(todo),
+        onTap: () {
+          if (hasMore) {
+            Haptics.soft();
+            setState(() => _expanded = !_expanded);
+          }
+        },
+        onLongPress: () => widget.onDelete(todo),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -523,7 +555,7 @@ class _TodoRow extends StatelessWidget {
               padding: const EdgeInsets.only(top: 1),
               child: IosCheckbox(
                 value: todo.done,
-                onChanged: (_) => onToggle(todo),
+                onChanged: (_) => widget.onToggle(todo),
                 size: 21,
               ),
             ),
@@ -533,17 +565,14 @@ class _TodoRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Collapsed shows the title (one line); expanded shows the
+                  // full multi-line body.
                   Text(
-                    todo.text,
-                    style: TextStyle(
-                      fontSize: 15.5,
-                      height: 1.35,
-                      color: todo.done ? muted : cs.onSurface,
-                      decoration: todo.done
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      decorationColor: muted,
-                    ),
+                    _expanded ? todo.text.trim() : _title,
+                    maxLines: _expanded ? null : 1,
+                    overflow:
+                        _expanded ? TextOverflow.clip : TextOverflow.ellipsis,
+                    style: titleStyle,
                   ),
                   if (owner != null || todo.due.isNotEmpty)
                     Padding(
@@ -566,6 +595,15 @@ class _TodoRow extends StatelessWidget {
                 ],
               ),
             ),
+            if (hasMore)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 1),
+                child: Icon(
+                  _expanded ? Lucide.ChevronUp : Lucide.ChevronDown,
+                  size: 16,
+                  color: cs.onSurface.withValues(alpha: 0.3),
+                ),
+              ),
           ],
         ),
       ),
