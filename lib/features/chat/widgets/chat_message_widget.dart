@@ -18,7 +18,6 @@ import '../../home/widgets/file_processing_indicator.dart';
 import '../pages/image_viewer_page.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../icons/lucide_adapter.dart';
-import '../../../icons/reasoning_icons.dart';
 // import '../../../theme/design_tokens.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/services/chat/chat_service.dart';
@@ -33,6 +32,7 @@ import '../../../shared/widgets/markdown_with_highlight.dart';
 import '../../../shared/widgets/snackbar.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../l10n/app_localizations.dart';
+import 'daddy_doodles.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/model_provider.dart';
 import '../../../core/models/assistant_regex.dart';
@@ -1205,7 +1205,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     if (userProvider.avatarType == 'emoji' &&
         userProvider.avatarValue != null) {
       final bool isIOS = defaultTargetPlatform == TargetPlatform.iOS;
-      final double fs = 18;
+      final double fs = 20;
       final Offset? nudge = isIOS ? Offset(fs * 0.065, fs * -0.05) : null;
       avatarContent = Center(
         child: EmojiText(
@@ -1226,8 +1226,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             return ClipOval(
               child: Image.file(
                 File(p),
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 fit: BoxFit.cover,
               ),
             );
@@ -1235,8 +1235,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
           return ClipOval(
             child: Image.network(
               url,
-              width: 32,
-              height: 32,
+              width: 36,
+              height: 36,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
                   Icon(Lucide.User, size: 18, color: cs.primary),
@@ -1250,7 +1250,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       final f = File(fixed);
       if (f.existsSync()) {
         avatarContent = ClipOval(
-          child: Image.file(f, width: 32, height: 32, fit: BoxFit.cover),
+          child: Image.file(f, width: 36, height: 36, fit: BoxFit.cover),
         );
       } else {
         avatarContent = Icon(Lucide.User, size: 18, color: cs.primary);
@@ -1260,8 +1260,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     }
 
     return Container(
-      width: 32,
-      height: 32,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         color: cs.primary.withValues(alpha: 0.1),
         shape: BoxShape.circle,
@@ -2940,8 +2940,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
               return ClipOval(
                 child: Image.file(
                   File(p),
-                  width: 32,
-                  height: 32,
+                  width: 36,
+                  height: 36,
                   fit: BoxFit.cover,
                 ),
               );
@@ -2949,8 +2949,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             return ClipOval(
               child: Image.network(
                 av,
-                width: 32,
-                height: 32,
+                width: 36,
+                height: 36,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _assistantInitial(cs),
               ),
@@ -2963,18 +2963,18 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         final f = File(fixed);
         if (f.existsSync()) {
           return ClipOval(
-            child: Image.file(f, width: 32, height: 32, fit: BoxFit.cover),
+            child: Image.file(f, width: 36, height: 36, fit: BoxFit.cover),
           );
         }
         return _assistantInitial(cs);
       }
       // treat as emoji or single char label
       final bool isIOS = defaultTargetPlatform == TargetPlatform.iOS;
-      final double fs = 18;
+      final double fs = 20;
       final Offset? nudge = isIOS ? Offset(fs * 0.065, fs * -0.05) : null;
       return Container(
-        width: 32,
-        height: 32,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: cs.primary.withValues(alpha: 0.1),
           shape: BoxShape.circle,
@@ -2995,8 +2995,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     final name = (widget.assistantName ?? '').trim();
     final ch = name.isNotEmpty ? name.characters.first.toUpperCase() : 'A';
     return Container(
-      width: 32,
-      height: 32,
+      width: 36,
+      height: 36,
       decoration: BoxDecoration(
         color: cs.primary.withValues(alpha: 0.1),
         shape: BoxShape.circle,
@@ -3925,7 +3925,7 @@ class _ChainOfThoughtReasoningStepState
       child: Center(
         child: _Shimmer(
           enabled: widget.step.loading,
-          child: ReasoningIcons.thinkingCardIcon(size: 18, color: fg.strong),
+          child: DaddyThinkingDoodle(size: 18, color: fg.strong),
         ),
       ),
     );
@@ -6068,7 +6068,7 @@ class _ReasoningSectionState extends State<_ReasoningSection>
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         child: Row(
           children: [
-            ReasoningIcons.thinkingCardIcon(size: 18, color: fg.strong),
+            DaddyThinkingDoodle(size: 18, color: fg.strong),
             const SizedBox(width: 8),
             _Shimmer(
               enabled: loading,

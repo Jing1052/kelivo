@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
@@ -34,10 +35,47 @@ class _ParlourPageState extends State<ParlourPage> {
   bool _sending = false;
   int _tab = 0; // 0 = my notes (board), 1 = daddy's letters
 
+  // Locally tracked "last time we opened the letters tab", in epoch ms. The
+  // red dot lights when any letter is newer than this — independent of whether
+  // the backend ever writes back readAt. Persisted so it survives a restart.
+  static const String _lastReadKey = 'parlour_letters_last_read_ms';
+  int _lettersLastReadMs = 0;
+
   @override
   void initState() {
     super.initState();
+    _loadLastRead();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _loadLastRead() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _lettersLastReadMs = prefs.getInt(_lastReadKey) ?? 0);
+  }
+
+  /// Newest letter timestamp across all letters, in epoch ms (0 if none parse).
+  int _newestLetterMs() {
+    int newest = 0;
+    for (final l in _letters) {
+      final parsed = DateTime.tryParse(l.time);
+      if (parsed != null && parsed.millisecondsSinceEpoch > newest) {
+        newest = parsed.millisecondsSinceEpoch;
+      }
+    }
+    return newest;
+  }
+
+  bool get _hasUnreadLetters => _newestLetterMs() > _lettersLastReadMs;
+
+  /// Mark every currently-loaded letter as read by advancing the local
+  /// watermark to the newest letter's time (not now, to dodge clock drift).
+  Future<void> _markLettersRead() async {
+    final newest = _newestLetterMs();
+    if (newest <= _lettersLastReadMs) return;
+    setState(() => _lettersLastReadMs = newest);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastReadKey, newest);
   }
 
   @override
@@ -119,6 +157,10 @@ class _ParlourPageState extends State<ParlourPage> {
 
   Future<void> _openLetter(OurHomeLetter letter) async {
     Haptics.soft();
+    // Opening any letter clears the red dot: advance the local watermark to the
+    // newest letter and persist it, so the dot stays gone across restarts even
+    // if the backend never writes readAt back.
+    await _markLettersRead();
     await _showLetterSheet(letter);
     if (letter.unread) {
       await _gateway?.markLetterSeen(letter.id);
@@ -292,7 +334,7 @@ class _ParlourPageState extends State<ParlourPage> {
       );
     }
 
-    final hasUnread = _letters.any((l) => l.unread);
+    final hasUnread = _hasUnreadLetters;
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       decoration: BoxDecoration(
