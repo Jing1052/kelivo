@@ -32,6 +32,7 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
     context.watch<SettingsProvider>();
 
     String paletteName() {
@@ -218,7 +219,12 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                     ),
                   ),
                 ),
-              if (Platform.isIOS) _iosDivider(context),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _groupLabel(context, zh ? '气泡' : 'Bubbles'),
+          _iosSectionCard(
+            children: [
               _iosNavRow(
                 context,
                 icon: Lucide.MessageSquare,
@@ -269,23 +275,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
               _iosDivider(context),
               _iosNavRow(
                 context,
-                icon: Lucide.RectangleHorizontal,
-                label: l10n.displaySettingsPageButtonShapeTitle,
-                detailBuilder: (ctx) {
-                  final sp = ctx.watch<SettingsProvider>();
-                  return Text(
-                    _buttonShapeLabel(l10n, sp.appButtonShape),
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  );
-                },
-                onTap: () => _showButtonShapeSheet(context),
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
                 icon: Lucide.Eye,
                 label: l10n.displaySettingsPageChatBubbleOpacityTitle,
                 detailBuilder: (ctx) {
@@ -300,7 +289,12 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 },
                 onTap: () => _showBubbleOpacitySheet(context),
               ),
-              _iosDivider(context),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _groupLabel(context, zh ? '背景' : 'Background'),
+          _iosSectionCard(
+            children: [
               _iosNavRow(
                 context,
                 icon: Lucide.Moon,
@@ -318,6 +312,51 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 onTap: () => _showBackgroundDimSheet(context),
               ),
               _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Image,
+                label: l10n.displaySettingsPageChatBackgroundMaskTitle,
+                detailBuilder: (ctx) {
+                  final v = ctx
+                      .watch<SettingsProvider>()
+                      .chatBackgroundMaskStrength;
+                  return Text(
+                    '${(v * 100).round()}%',
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  );
+                },
+                onTap: () => _showChatBackgroundMaskSheet(context),
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.RectangleHorizontal,
+                label: l10n.displaySettingsPageChatInputBackgroundOpacityTitle,
+                detailBuilder: (ctx) {
+                  final brightness = Theme.of(ctx).brightness;
+                  final settings = ctx.watch<SettingsProvider>();
+                  final opacity = settings.chatInputBackgroundOpacityFor(
+                    brightness,
+                  );
+                  return Text(
+                    '${(opacity * 100).round()}%',
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  );
+                },
+                onTap: () => _showChatInputBackgroundOpacitySheet(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _groupLabel(context, zh ? '字体与文字' : 'Text'),
+          _iosSectionCard(
+            children: [
               _iosNavRow(
                 context,
                 icon: Lucide.Type,
@@ -394,6 +433,28 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 },
                 onTap: () => _showChatFontSizeSheet(context),
               ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _groupLabel(context, zh ? '其它' : 'Other'),
+          _iosSectionCard(
+            children: [
+              _iosNavRow(
+                context,
+                icon: Lucide.RectangleHorizontal,
+                label: l10n.displaySettingsPageButtonShapeTitle,
+                detailBuilder: (ctx) {
+                  final sp = ctx.watch<SettingsProvider>();
+                  return Text(
+                    _buttonShapeLabel(l10n, sp.appButtonShape),
+                    style: TextStyle(
+                      color: cs.onSurface.withValues(alpha: 0.6),
+                      fontSize: 13,
+                    ),
+                  );
+                },
+                onTap: () => _showButtonShapeSheet(context),
+              ),
               _iosDivider(context),
               _iosNavRow(
                 context,
@@ -420,46 +481,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                   );
                 },
                 onTap: () => _showAutoScrollIdleSheet(context),
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Image,
-                label: l10n.displaySettingsPageChatBackgroundMaskTitle,
-                detailBuilder: (ctx) {
-                  final v = ctx
-                      .watch<SettingsProvider>()
-                      .chatBackgroundMaskStrength;
-                  return Text(
-                    '${(v * 100).round()}%',
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  );
-                },
-                onTap: () => _showChatBackgroundMaskSheet(context),
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.RectangleHorizontal,
-                label: l10n.displaySettingsPageChatInputBackgroundOpacityTitle,
-                detailBuilder: (ctx) {
-                  final brightness = Theme.of(ctx).brightness;
-                  final settings = ctx.watch<SettingsProvider>();
-                  final opacity = settings.chatInputBackgroundOpacityFor(
-                    brightness,
-                  );
-                  return Text(
-                    '${(opacity * 100).round()}%',
-                    style: TextStyle(
-                      color: cs.onSurface.withValues(alpha: 0.6),
-                      fontSize: 13,
-                    ),
-                  );
-                },
-                onTap: () => _showChatInputBackgroundOpacitySheet(context),
               ),
             ],
           ),
@@ -1601,6 +1622,21 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
 }
 
 // --- iOS-style helpers ---
+
+Widget _groupLabel(BuildContext context, String text) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+    child: Text(
+      text,
+      style: TextStyle(
+        fontSize: 13,
+        fontWeight: AppFontWeights.semibold,
+        color: cs.onSurface.withValues(alpha: 0.55),
+      ),
+    ),
+  );
+}
 
 Widget _iosSectionCard({required List<Widget> children}) {
   return Builder(
