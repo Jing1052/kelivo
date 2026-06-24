@@ -36,7 +36,6 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
     'ka_prompt_night',
     'ka_prompt_day',
     'ka_prompt_alarm',
-    'ka_prompt_miss',
   ];
   final Map<String, TextEditingController> _promptCtrls = {};
   late final TextEditingController _appsCtrl = TextEditingController();
@@ -323,16 +322,6 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
             divisions: 22,
             fmt: (v) => _hours(v, zh),
           ),
-          _divider(),
-          _sliderTile(
-            label: zh ? '隔壁土壤想你' : 'Miss-you (other soil)',
-            key: 'miss_you_h',
-            dflt: 6.0,
-            min: 1,
-            max: 24,
-            divisions: 23,
-            fmt: (v) => _hours(v, zh),
-          ),
         ]),
         const SizedBox(height: 14),
 
@@ -376,7 +365,6 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
             _promptField(zh ? '夜里' : 'Night', 'ka_prompt_night'),
             _promptField(zh ? '白天摸鱼' : 'Daytime', 'ka_prompt_day'),
             _promptField(zh ? '闹钟' : 'Alarm', 'ka_prompt_alarm'),
-            _promptField(zh ? '隔壁土壤想你' : 'Miss-you', 'ka_prompt_miss'),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 8),
               child: IosFormTextField(

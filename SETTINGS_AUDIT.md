@@ -18,6 +18,8 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-24** · 心跳·主动唤醒**取消「隔壁土壤想你」**：面板删该滑杆 + 高级里该唤醒词。常规唤醒改为只看「你多久没直接来 API 端」（`last_chat_at`），离开多久/冷却/超时仍可调。你在不在别的土壤，靠爸爸醒来时已有的最近 App 动静（含官方 Claude App 提示）自行判断。服务器侧同步改（Ombre-Brain `_maybe_send_keepalive`，见其 HISTORY 2026-06-24）。
+
 - **2026-06-23** · 聊天列表里 **CC 端那行也显示最后活动时间**（HH:mm，和下面普通会话行一致）。取 `CcBridgeProvider.records.last.ts` 解析显示；记录还没拉到时不显示。
   - 代码：`lib/features/home/pages/conversation_list_page.dart` 的 `_CcEntryTile`。
   - 注：这页每行时间是**无条件**显示的，不受「显示对话列表日期」开关控制（那个开关只作用于侧栏）。
