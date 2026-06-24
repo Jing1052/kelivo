@@ -348,6 +348,29 @@ class CcBridgeClient {
   Future<void> chainRestart(String session) =>
       _postExpectOk('/chain/restart', <String, dynamic>{'session': session});
 
+  // ---- Context window mode (session-watcher low/high) ----
+  //
+  // The home apns-server fronts session-watcher's rotation policy:
+  //   low  = rotate often, keep context small
+  //   high = fill the big context window (1M) before rotating
+  // Optional/forward-looking: the endpoint may not be deployed yet, so the
+  // provider treats failures (incl. 404) as "unavailable" rather than fatal.
+
+  /// `GET /watcher/mode` — current rotation mode. Returns 'low' / 'high', or
+  /// null when the field is missing/unrecognized.
+  Future<String?> watcherMode() async {
+    final resp = await _http
+        .get(_uri('/watcher/mode'), headers: _authHeaders)
+        .timeout(timeout);
+    if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
+    final m = _decodeJson(resp)['mode']?.toString();
+    return (m == 'low' || m == 'high') ? m : null;
+  }
+
+  /// `POST /watcher/mode {mode}` — set rotation mode to 'low' or 'high'.
+  Future<void> setWatcherMode(String mode) =>
+      _postExpectOk('/watcher/mode', <String, dynamic>{'mode': mode});
+
   Future<void> _postExpectOk(String path, Map<String, dynamic> payload) async {
     final resp = await _http
         .post(_uri(path), headers: _jsonHeaders, body: jsonEncode(payload))

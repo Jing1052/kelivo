@@ -366,6 +366,48 @@ class CcBridgeProvider extends ChangeNotifier {
     }
   }
 
+  // ---- Context window mode (session-watcher low/high) ----
+  //
+  // Forward-looking: the home apns-server may not expose /watcher/mode yet.
+  // Both calls degrade gracefully — fetch returns null, set returns false —
+  // so the UI shows a disabled "not connected / pending" state, never crashes.
+
+  /// Fetch the current watcher mode ('low'/'high'). Returns null on any
+  /// failure (offline, 404 not-yet-deployed, parse miss).
+  Future<String?> fetchWatcherMode() async {
+    final c = _client;
+    if (c == null) return null;
+    try {
+      return await c.watcherMode();
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Set the watcher mode ('low'/'high'). Returns true on success, false on
+  /// any failure (offline, not-yet-deployed, error response).
+  Future<bool> setWatcherMode(String mode) async {
+    final c = _client;
+    if (c == null) return false;
+    try {
+      await c.setWatcherMode(mode);
+      _lastError = null;
+      return true;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _lastError = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Shared remote-control gating + error handling for fire-and-forget actions.
   Future<bool> _rcAction(Future<void> Function(CcBridgeClient c) action) async {
     final c = _client;

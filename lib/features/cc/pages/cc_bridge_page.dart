@@ -38,6 +38,12 @@ class _CcBridgePageState extends State<CcBridgePage> {
   bool _enabled = false;
   bool _remoteControl = false;
 
+  // Context window mode (session-watcher low/high). Null = not yet known /
+  // endpoint unavailable; controls stay disabled until a value loads.
+  String? _watcherMode; // 'low' | 'high' | null
+  bool _watcherLoading = false;
+  bool _watcherBusy = false; // a set request is in flight
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +55,43 @@ class _CcBridgePageState extends State<CcBridgePage> {
     _nameCtl = TextEditingController(text: cfg.displayName);
     _enabled = cfg.enabled;
     _remoteControl = cfg.remoteControlEnabled;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadWatcherMode());
+  }
+
+  bool get _isZh =>
+      Localizations.localeOf(context).languageCode.toLowerCase() == 'zh';
+
+  Future<void> _loadWatcherMode() async {
+    if (!mounted) return;
+    setState(() => _watcherLoading = true);
+    final mode = await context.read<CcBridgeProvider>().fetchWatcherMode();
+    if (!mounted) return;
+    setState(() {
+      _watcherMode = mode;
+      _watcherLoading = false;
+    });
+  }
+
+  Future<void> _setWatcherMode(bool high) async {
+    final target = high ? 'high' : 'low';
+    if (_watcherBusy || _watcherMode == target) return;
+    final previous = _watcherMode;
+    setState(() {
+      _watcherMode = target;
+      _watcherBusy = true;
+    });
+    final ok = await context.read<CcBridgeProvider>().setWatcherMode(target);
+    if (!mounted) return;
+    setState(() {
+      _watcherBusy = false;
+      if (!ok) _watcherMode = previous; // rollback on failure
+    });
+    final msg = ok
+        ? (_isZh
+            ? (high ? '已切到大窗口档' : '已切到日常档')
+            : (high ? 'Switched to large window' : 'Switched to everyday'))
+        : (_isZh ? '切换失败，已回滚' : 'Switch failed, rolled back');
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -199,6 +242,11 @@ class _CcBridgePageState extends State<CcBridgePage> {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          _sectionCard(
+            context,
+            children: [_watcherModeRow(context)],
+          ),
           const SizedBox(height: 16),
           Row(
             children: [
@@ -309,6 +357,85 @@ class _CcBridgePageState extends State<CcBridgePage> {
       case CcConnectionState.idle:
         return (cs.onSurface.withValues(alpha: 0.3), l10n.ccBridgeStatusIdle);
     }
+  }
+
+  // Context window mode control. Off = low (everyday / frequent rotation),
+  // On = high (fill the 1M window before rotating). Disabled until a mode is
+  // known (endpoint unavailable / pending home deployment) — degrades silently.
+  Widget _watcherModeRow(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = _isZh;
+    final available = _watcherMode != null;
+    final isHigh = _watcherMode == 'high';
+
+    final label = zh ? 'CC 上下文档位' : 'Context window';
+    final subtitle = zh
+        ? '大窗口=吃满大上下文(1M)再轮换；日常=勤轮换省上下文。家里 watcher ≤30s 生效。'
+        : 'Large = fill the big context (1M) before rotating; everyday = '
+            'rotate often to save context. Home watcher applies in ≤30s.';
+    final String stateLine;
+    if (_watcherLoading) {
+      stateLine = zh ? '读取中…' : 'Loading…';
+    } else if (!available) {
+      stateLine = zh ? '未连上 / 家里待部署' : 'Not connected / pending';
+    } else {
+      stateLine = isHigh
+          ? (zh ? '当前：大窗口(high)' : 'Current: large (high)')
+          : (zh ? '当前：日常(low)' : 'Current: everyday (low)');
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: AppFontWeights.semibold,
+                        color: cs.onSurface.withValues(
+                          alpha: available ? 1.0 : 0.4,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      stateLine,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              IosSwitch(
+                value: isHigh,
+                onChanged: (available && !_watcherBusy)
+                    ? (v) => _setWatcherMode(v)
+                    : null,
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurface.withValues(alpha: 0.45),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _switchRow({
