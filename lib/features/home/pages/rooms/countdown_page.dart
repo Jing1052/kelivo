@@ -5,14 +5,21 @@ import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
+import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 
 /// Anniversaries (倒计时) — every day that's coming for us, already counted.
-/// Fully client-side: recurring anniversaries + "together" milestones.
-class CountdownPage extends StatelessWidget {
+/// Anniversaries + "together" milestones are client-side; festivals (中美节日)
+/// come from `/api/home/festivals` (peek-then-fetch).
+class CountdownPage extends StatefulWidget {
   const CountdownPage({super.key});
 
+  @override
+  State<CountdownPage> createState() => _CountdownPageState();
+}
+
+class _CountdownPageState extends State<CountdownPage> {
   /// The day we began (4/2). Milestones count from here.
   static final DateTime _together = DateTime(2026, 4, 2);
 
@@ -38,6 +45,33 @@ class CountdownPage extends StatelessWidget {
     2000,
     3650,
   ];
+
+  OurHomeGateway? _gateway;
+  List<OurHomeFestival> _festivals = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    final gateway = OurHomeGateway.fromContext(context);
+    _gateway = gateway;
+    if (gateway == null) return;
+    // First frame: show last-seen festivals instantly.
+    final cached = gateway.peekFestivals();
+    if (cached.isNotEmpty && mounted) {
+      setState(() => _festivals = cached);
+    }
+    try {
+      final fresh = await gateway.fetchFestivals();
+      if (mounted) setState(() => _festivals = fresh);
+    } catch (e) {
+      debugPrint('[Countdown] fetchFestivals failed: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -77,6 +111,16 @@ class CountdownPage extends StatelessWidget {
       }
       if (milestoneItems.length >= 4) break;
     }
+
+    final festivalItems = _festivals
+        .map(
+          (f) => _Item(
+            label: f.title,
+            sub: zh ? _zhDate(f.date) : f.date,
+            days: f.days,
+          ),
+        )
+        .toList();
 
     return Stack(
       fit: StackFit.expand,
@@ -128,11 +172,27 @@ class CountdownPage extends StatelessWidget {
           const SizedBox(height: 14),
           _SectionLabel(zh ? '在一起' : 'Together'),
           for (final m in milestoneItems) _CountRow(item: m, highlight: false),
+          if (festivalItems.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            _SectionLabel(zh ? '节日' : 'Festivals'),
+            for (final f in festivalItems)
+              _CountRow(item: f, highlight: false),
+          ],
         ],
       ),
     ),
       ],
     );
+  }
+
+  /// "2026-11-26" -> "11月26日" for the zh subtitle (matches anniversary style).
+  static String _zhDate(String iso) {
+    final parts = iso.split('-');
+    if (parts.length != 3) return iso;
+    final m = int.tryParse(parts[1]);
+    final d = int.tryParse(parts[2]);
+    if (m == null || d == null) return iso;
+    return '$m月$d日';
   }
 }
 

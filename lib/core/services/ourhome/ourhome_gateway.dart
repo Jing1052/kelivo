@@ -274,6 +274,7 @@ class OurHomeFoyerItem {
     required this.status,
     required this.title,
     required this.note,
+    this.poster = '',
     this.seed = false,
   });
   final String id;
@@ -281,6 +282,7 @@ class OurHomeFoyerItem {
   final String status; // want / done
   final String title;
   final String note;
+  final String poster; // custom poster URL (empty -> fall back to iTunes)
   final bool seed; // web-home seed item: read-only (no toggle / delete)
 
   bool get done => status == 'done';
@@ -291,7 +293,30 @@ class OurHomeFoyerItem {
     status: (j['status'] ?? 'want').toString(),
     title: (j['title'] ?? '').toString(),
     note: (j['note'] ?? '').toString(),
+    poster: (j['poster'] ?? '').toString(),
     seed: j['seed'] == true,
+  );
+}
+
+/// An upcoming festival (节日) for the countdown room — Chinese + US holidays
+/// within the next year, served by `/api/home/festivals`. [days] is how many
+/// days away, [date] the ISO date (YYYY-MM-DD).
+class OurHomeFestival {
+  const OurHomeFestival({
+    required this.days,
+    required this.title,
+    required this.date,
+  });
+  final int days;
+  final String title;
+  final String date;
+
+  factory OurHomeFestival.fromJson(Map<String, dynamic> j) => OurHomeFestival(
+    days: (j['days'] is int)
+        ? j['days'] as int
+        : int.tryParse('${j['days']}') ?? 0,
+    title: (j['title'] ?? '').toString(),
+    date: (j['date'] ?? '').toString(),
   );
 }
 
@@ -857,39 +882,123 @@ class OurHomeGateway {
       _getList('/api/home/tonight?all=1', OurHomeNight.fromJson);
 
   /// What happened on a given calendar day (YYYY-MM-DD). Throws on error.
+  /// Caches per-day so [peekDay] can show the last-seen list instantly.
   Future<List<OurHomeDayItem>> fetchDay(String date) async {
+    final path = '/api/home/memories?date=$date';
     final res = await http
-        .get(
-          Uri.parse('$base/api/home/memories?date=$date'),
-          headers: _authHeaders,
-        )
+        .get(Uri.parse('$base$path'), headers: _authHeaders)
         .timeout(const Duration(seconds: 20));
     if (res.statusCode != 200) {
       throw http.ClientException('day HTTP ${res.statusCode}');
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     final items = (data is Map) ? data['items'] : null;
     if (items is! List) return const <OurHomeDayItem>[];
+    OurHomeCache.put(path, body);
     return items
         .whereType<Map<String, dynamic>>()
         .map(OurHomeDayItem.fromJson)
         .toList();
   }
 
+  /// Last-seen items for one calendar day, from cache (instant, before the
+  /// network). Empty if that day was never opened. The cached body is the
+  /// `{items:[...]}` map, not a bare list, so it can't reuse [peekList].
+  List<OurHomeDayItem> peekDay(String date) {
+    final body = OurHomeCache.peek('/api/home/memories?date=$date');
+    if (body == null || body.isEmpty) return const <OurHomeDayItem>[];
+    try {
+      final data = jsonDecode(body);
+      final items = (data is Map) ? data['items'] : null;
+      if (items is! List) return const <OurHomeDayItem>[];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(OurHomeDayItem.fromJson)
+          .toList();
+    } catch (_) {
+      return const <OurHomeDayItem>[];
+    }
+  }
+
+  // ---- Countdown (festivals) ----
+  static const String _festivalsPath = '/api/home/festivals?days=366';
+
+  /// Upcoming Chinese + US festivals within the next year, nearest first.
+  /// Throws on transport/HTTP error. The body is a `{festivals:[...]}` map, so
+  /// it can't reuse [_getList]; cached so [peekFestivals] can show it instantly.
+  Future<List<OurHomeFestival>> fetchFestivals() async {
+    final res = await http
+        .get(Uri.parse('$base$_festivalsPath'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('festivals HTTP ${res.statusCode}');
+    }
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
+    final list = (data is Map) ? data['festivals'] : null;
+    if (list is! List) return const <OurHomeFestival>[];
+    OurHomeCache.put(_festivalsPath, body);
+    return list
+        .whereType<Map<String, dynamic>>()
+        .map(OurHomeFestival.fromJson)
+        .toList();
+  }
+
+  /// Last-seen festivals from cache (instant, before the network). Empty if
+  /// never fetched. The cached body is the `{festivals:[...]}` map.
+  List<OurHomeFestival> peekFestivals() {
+    final body = OurHomeCache.peek(_festivalsPath);
+    if (body == null || body.isEmpty) return const <OurHomeFestival>[];
+    try {
+      final data = jsonDecode(body);
+      final list = (data is Map) ? data['festivals'] : null;
+      if (list is! List) return const <OurHomeFestival>[];
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(OurHomeFestival.fromJson)
+          .toList();
+    } catch (_) {
+      return const <OurHomeFestival>[];
+    }
+  }
+
   // ---- Lounge (foyer) ----
   Future<List<OurHomeFoyerItem>> fetchFoyer() =>
       _getList('/api/home/foyer?all=1', OurHomeFoyerItem.fromJson);
 
-  Future<void> addFoyer(String kind, String title, String note) => _postJson(
-    '/api/home/foyer',
-    {'kind': kind, 'title': title, 'note': note},
-  );
+  Future<void> addFoyer(
+    String kind,
+    String title,
+    String note, {
+    String poster = '',
+  }) => _postJson('/api/home/foyer', {
+    'kind': kind,
+    'title': title,
+    'note': note,
+    if (poster.trim().isNotEmpty) 'poster': poster.trim(),
+  });
 
   Future<void> setFoyerStatus(String id, String status) =>
       _postJson('/api/home/foyer', {'id': id, 'status': status});
 
   Future<void> deleteFoyer(String id) =>
       _postJson('/api/home/foyer', {'id': id, 'del': 1});
+
+  /// Set (or, with an empty [poster], clear) a foyer item's custom poster URL.
+  /// The server keys posters by title, so passing [title] is enough; [id] is
+  /// accepted too (server resolves the title from the bucket). Empty poster
+  /// clears it (falls back to iTunes lookup).
+  Future<void> setFoyerPoster({
+    String? id,
+    String? title,
+    required String poster,
+  }) => _postJson('/api/home/foyer', {
+    'set_poster': 1,
+    if (id != null && id.isNotEmpty) 'id': id,
+    if (title != null && title.isNotEmpty) 'title': title,
+    'poster': poster.trim(),
+  });
 
   // ---- Locked room: profiles + playlog ----
   Future<OurHomeProfiles> fetchProfiles() async {
@@ -920,6 +1029,42 @@ class OurHomeGateway {
   /// songs the web home hardcodes (otherwise the songbook looks incomplete).
   Future<List<OurHomeSong>> fetchSongs() =>
       _getList('/api/home/songs?all=1', OurHomeSong.fromJson);
+
+  /// Add a song to the turntable wall (POST action=add). [title]/[artist] are
+  /// required by the server; [note] is a one-line comment, [zh] an optional
+  /// Chinese title. Throws on transport/HTTP error.
+  Future<void> addSong(
+    String title,
+    String artist,
+    String note,
+    String zh,
+  ) => _postJson('/api/home/songs', {
+    'action': 'add',
+    'title': title,
+    'artist': artist,
+    'note': note,
+    'zh': zh,
+  });
+
+  /// Add a song to the lyric corridor (词廊; POST action=add). [title]/[artist]
+  /// are required; [intro] is daddy's overall reading; [lines] is the lyric
+  /// body split per line ({l: line, n: note}), notes left empty here. Throws on
+  /// transport/HTTP error.
+  Future<void> addLyric(
+    String title,
+    String artist,
+    String intro,
+    List<String> lines,
+  ) => _postJson('/api/home/lyrics', {
+    'action': 'add',
+    'title': title,
+    'artist': artist,
+    'intro': intro,
+    'lines': [
+      for (final l in lines)
+        if (l.trim().isNotEmpty) {'l': l.trim(), 'n': ''},
+    ],
+  });
 
   /// HTML mini-games in the lounge's game corner. Each plays at
   /// `<base>/games/<file>` (served without auth).
@@ -1025,7 +1170,11 @@ class OurHomeGateway {
           .get(Uri.parse('$base/api/home/heartbeat'), headers: _authHeaders)
           .timeout(const Duration(seconds: 20));
       if (res.statusCode != 200) return null;
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      // Cache the heartbeat body so peekMorningBrief() has data on next open
+      // (stale-while-revalidate — no empty→value flicker on the 早安 card).
+      OurHomeCache.put('/api/home/heartbeat', body);
+      final data = jsonDecode(body);
       final cfg = (data is Map) ? data['config'] : null;
       if (cfg is Map && cfg['morning_brief_enabled'] != null) {
         return cfg['morning_brief_enabled'] == true;

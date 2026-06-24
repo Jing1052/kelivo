@@ -1,3 +1,5 @@
+import 'dart:convert' show LineSplitter;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
@@ -117,6 +119,8 @@ class _LoungePageState extends State<LoungePage> {
                     status: x.done ? 'want' : 'done',
                     title: x.title,
                     note: x.note,
+                    poster: x.poster,
+                    seed: x.seed,
                   )
                 : x,
           )
@@ -130,52 +134,92 @@ class _LoungePageState extends State<LoungePage> {
     }
   }
 
-  Future<void> _delete(OurHomeFoyerItem it) async {
+  /// Long-press menu for a foyer item: set/修改海报 (any item, incl. seed) and,
+  /// for non-seed items, 删掉这条.
+  Future<void> _longPressMenu(OurHomeFoyerItem it) async {
     final gateway = _gateway;
     if (gateway == null) return;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     final cs = Theme.of(context).colorScheme;
     Haptics.light();
-    final ok = await showModalBottomSheet<bool>(
+    final action = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: cs.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) => SafeArea(
-        child: IosCardPress(
-          borderRadius: BorderRadius.circular(12),
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          onTap: () => Navigator.of(ctx).pop(true),
-          child: Row(
-            children: [
-              const Icon(Lucide.Trash, size: 20, color: Colors.red),
-              const SizedBox(width: 16),
-              Text(
-                zh ? '删掉这条' : 'Delete',
-                style: const TextStyle(
-                  fontSize: 15.5,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.red,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IosCardPress(
+              borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              onTap: () => Navigator.of(ctx).pop('poster'),
+              child: Row(
+                children: [
+                  Icon(Lucide.Image, size: 20, color: cs.onSurface),
+                  const SizedBox(width: 16),
+                  Text(
+                    it.poster.isEmpty
+                        ? (zh ? '设置海报' : 'Set poster')
+                        : (zh ? '修改海报' : 'Change poster'),
+                    style: TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w500,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!it.seed)
+              IosCardPress(
+                borderRadius: BorderRadius.circular(12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 16,
+                ),
+                onTap: () => Navigator.of(ctx).pop('delete'),
+                child: Row(
+                  children: [
+                    const Icon(Lucide.Trash, size: 20, color: Colors.red),
+                    const SizedBox(width: 16),
+                    Text(
+                      zh ? '删掉这条' : 'Delete',
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
-    if (ok != true) return;
-    try {
-      await gateway.deleteFoyer(it.id);
-      await _load();
-    } catch (e) {
-      debugPrint('[Lounge] deleteFoyer failed: $e');
+    if (action == 'poster') {
+      await _editPoster(it);
+    } else if (action == 'delete') {
+      try {
+        await gateway.deleteFoyer(it.id);
+        await _load();
+      } catch (e) {
+        debugPrint('[Lounge] deleteFoyer failed: $e');
+      }
     }
   }
 
   Future<void> _add() async {
     final gateway = _gateway;
     if (gateway == null) return;
+    if (_tab == 1) return _addSong();
+    if (_tab == 3) return _addLyric();
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     final result = await showModalBottomSheet<_NewItem>(
       context: context,
@@ -188,10 +232,98 @@ class _LoungePageState extends State<LoungePage> {
     );
     if (result == null) return;
     try {
-      await gateway.addFoyer(result.kind, result.title, result.note);
+      await gateway.addFoyer(
+        result.kind,
+        result.title,
+        result.note,
+        poster: result.poster,
+      );
       await _load();
     } catch (e) {
       debugPrint('[Lounge] addFoyer failed: $e');
+    }
+  }
+
+  /// Set/clear an item's poster URL via a single-field sheet (prefilled with the
+  /// current poster). Empty input clears it (falls back to iTunes). Reloads on
+  /// success.
+  Future<void> _editPoster(OurHomeFoyerItem it) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final result = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _PosterSheet(zh: zh, initial: it.poster),
+    );
+    if (result == null) return; // cancelled
+    try {
+      await gateway.setFoyerPoster(
+        id: it.seed ? null : it.id,
+        title: it.title,
+        poster: result,
+      );
+      await _load();
+    } catch (e) {
+      debugPrint('[Lounge] setFoyerPoster failed: $e');
+    }
+  }
+
+  Future<void> _addSong() async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final result = await showModalBottomSheet<_NewSong>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _AddSongSheet(zh: zh),
+    );
+    if (result == null) return;
+    try {
+      await gateway.addSong(
+        result.title,
+        result.artist,
+        result.note,
+        result.zh,
+      );
+      await _load();
+    } catch (e) {
+      debugPrint('[Lounge] addSong failed: $e');
+    }
+  }
+
+  Future<void> _addLyric() async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final result = await showModalBottomSheet<_NewLyric>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _AddLyricSheet(zh: zh),
+    );
+    if (result == null) return;
+    try {
+      await gateway.addLyric(
+        result.title,
+        result.artist,
+        result.intro,
+        const LineSplitter().convert(result.body),
+      );
+      await _load();
+    } catch (e) {
+      debugPrint('[Lounge] addLyric failed: $e');
     }
   }
 
@@ -226,7 +358,7 @@ class _LoungePageState extends State<LoungePage> {
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
         ),
         actions: [
-          if (_gateway != null && _tab == 0)
+          if (_gateway != null && (_tab == 0 || _tab == 1 || _tab == 3))
             IosIconButton(
               icon: Lucide.Plus,
               size: 22,
@@ -539,10 +671,11 @@ class _LoungePageState extends State<LoungePage> {
         blur: false,
         padding: const EdgeInsets.all(10),
         onTap: it.seed ? null : () => _toggle(it),
-        onLongPress: it.seed ? null : () => _delete(it),
+        onLongPress: () => _longPressMenu(it),
         child: Row(
           children: [
-            _Artwork(
+            _Poster(
+              poster: it.poster,
               term: it.title,
               media: _mediaFor(it.kind),
               fallbackIcon: _kindIcon(it.kind),
@@ -737,11 +870,61 @@ class _Artwork extends StatelessWidget {
   }
 }
 
+/// A film/show/game thumbnail. If [poster] (a custom URL) is non-empty, it's
+/// shown first (rounded, with loading/error fallback to the iTunes [_Artwork]
+/// lookup). When empty, behaves exactly like [_Artwork].
+class _Poster extends StatelessWidget {
+  const _Poster({
+    required this.poster,
+    required this.term,
+    required this.media,
+    required this.fallbackIcon,
+    required this.width,
+    required this.height,
+    required this.radius,
+  });
+
+  final String poster;
+  final String term;
+  final String media;
+  final IconData fallbackIcon;
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = _Artwork(
+      term: term,
+      media: media,
+      fallbackIcon: fallbackIcon,
+      width: width,
+      height: height,
+      radius: radius,
+    );
+    if (poster.trim().isEmpty) return fallback;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: Image.network(
+        poster.trim(),
+        width: width,
+        height: height,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        loadingBuilder: (context, child, progress) =>
+            progress == null ? child : fallback,
+        errorBuilder: (context, _, __) => fallback,
+      ),
+    );
+  }
+}
+
 class _NewItem {
-  const _NewItem(this.kind, this.title, this.note);
+  const _NewItem(this.kind, this.title, this.note, this.poster);
   final String kind;
   final String title;
   final String note;
+  final String poster;
 }
 
 class _AddSheet extends StatefulWidget {
@@ -755,12 +938,14 @@ class _AddSheet extends StatefulWidget {
 class _AddSheetState extends State<_AddSheet> {
   final _title = TextEditingController();
   final _note = TextEditingController();
+  final _poster = TextEditingController();
   String _kind = 'film';
 
   @override
   void dispose() {
     _title.dispose();
     _note.dispose();
+    _poster.dispose();
     super.dispose();
   }
 
@@ -860,6 +1045,21 @@ class _AddSheetState extends State<_AddSheet> {
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _poster,
+            keyboardType: TextInputType.url,
+            style: const TextStyle(fontSize: 14.5),
+            decoration: InputDecoration(
+              hintText: zh ? '海报链接（可空）…' : 'poster URL (optional)…',
+              filled: true,
+              fillColor: cs.onSurface.withValues(alpha: 0.05),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: double.infinity,
@@ -870,9 +1070,9 @@ class _AddSheetState extends State<_AddSheet> {
               onTap: () {
                 final t = _title.text.trim();
                 if (t.isEmpty) return;
-                Navigator.of(
-                  context,
-                ).pop(_NewItem(_kind, t, _note.text.trim()));
+                Navigator.of(context).pop(
+                  _NewItem(_kind, t, _note.text.trim(), _poster.text.trim()),
+                );
               },
               child: Center(
                 child: Text(
@@ -885,6 +1085,310 @@ class _AddSheetState extends State<_AddSheet> {
                 ),
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Single-field sheet to set/修改 a foyer item's poster URL (prefilled with the
+/// current one). Pops the trimmed URL on submit (empty = clear), null on
+/// dismiss. Reuses the shared lounge field/submit styling.
+class _PosterSheet extends StatefulWidget {
+  const _PosterSheet({required this.zh, required this.initial});
+  final bool zh;
+  final String initial;
+
+  @override
+  State<_PosterSheet> createState() => _PosterSheetState();
+}
+
+class _PosterSheetState extends State<_PosterSheet> {
+  late final TextEditingController _url = TextEditingController(
+    text: widget.initial,
+  );
+
+  @override
+  void dispose() {
+    _url.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _loungeField(
+            cs: cs,
+            controller: _url,
+            hint: zh ? '海报链接（留空=清除）…' : 'poster URL (empty = clear)…',
+            autofocus: true,
+          ),
+          const SizedBox(height: 14),
+          _loungeSubmit(
+            context: context,
+            cs: cs,
+            label: zh ? '保存' : 'Save',
+            onTap: () => Navigator.of(context).pop(_url.text.trim()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Filled text field matching the lounge add sheets' look (same fill/radius as
+/// `_AddSheet`'s fields), kept local so all three sheets read identically.
+Widget _loungeField({
+  required ColorScheme cs,
+  required TextEditingController controller,
+  required String hint,
+  bool autofocus = false,
+  int maxLines = 1,
+  int? minLines,
+}) {
+  return TextField(
+    controller: controller,
+    autofocus: autofocus,
+    maxLines: maxLines,
+    minLines: minLines,
+    style: TextStyle(fontSize: maxLines > 1 ? 14.5 : 15.5),
+    decoration: InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: cs.onSurface.withValues(alpha: 0.05),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    ),
+  );
+}
+
+Widget _loungeSubmit({
+  required BuildContext context,
+  required ColorScheme cs,
+  required String label,
+  required VoidCallback onTap,
+}) {
+  return SizedBox(
+    width: double.infinity,
+    child: IosCardPress(
+      baseColor: cs.primary,
+      borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      onTap: onTap,
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 15.5,
+            fontWeight: AppFontWeights.semibold,
+            color: cs.onPrimary,
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
+class _NewSong {
+  const _NewSong(this.title, this.artist, this.note, this.zh);
+  final String title;
+  final String artist;
+  final String note;
+  final String zh;
+}
+
+class _AddSongSheet extends StatefulWidget {
+  const _AddSongSheet({required this.zh});
+  final bool zh;
+
+  @override
+  State<_AddSongSheet> createState() => _AddSongSheetState();
+}
+
+class _AddSongSheetState extends State<_AddSongSheet> {
+  final _title = TextEditingController();
+  final _artist = TextEditingController();
+  final _note = TextEditingController();
+  final _zh = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _artist.dispose();
+    _note.dispose();
+    _zh.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _loungeField(
+            cs: cs,
+            controller: _title,
+            hint: zh ? '歌名…' : 'song…',
+            autofocus: true,
+          ),
+          const SizedBox(height: 10),
+          _loungeField(
+            cs: cs,
+            controller: _artist,
+            hint: zh ? '歌手（可空）…' : 'artist (optional)…',
+          ),
+          const SizedBox(height: 10),
+          _loungeField(
+            cs: cs,
+            controller: _note,
+            hint: zh ? '一句注评（可空）…' : 'a note (optional)…',
+          ),
+          const SizedBox(height: 10),
+          _loungeField(
+            cs: cs,
+            controller: _zh,
+            hint: zh ? '中文译名（可空）…' : 'Chinese title (optional)…',
+          ),
+          const SizedBox(height: 14),
+          _loungeSubmit(
+            context: context,
+            cs: cs,
+            label: zh ? '加进来' : 'Add',
+            onTap: () {
+              final t = _title.text.trim();
+              if (t.isEmpty) return;
+              Navigator.of(context).pop(
+                _NewSong(
+                  t,
+                  _artist.text.trim(),
+                  _note.text.trim(),
+                  _zh.text.trim(),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NewLyric {
+  const _NewLyric(this.title, this.artist, this.intro, this.body);
+  final String title;
+  final String artist;
+  final String intro;
+  final String body;
+}
+
+class _AddLyricSheet extends StatefulWidget {
+  const _AddLyricSheet({required this.zh});
+  final bool zh;
+
+  @override
+  State<_AddLyricSheet> createState() => _AddLyricSheetState();
+}
+
+class _AddLyricSheetState extends State<_AddLyricSheet> {
+  final _title = TextEditingController();
+  final _artist = TextEditingController();
+  final _intro = TextEditingController();
+  final _body = TextEditingController();
+
+  @override
+  void dispose() {
+    _title.dispose();
+    _artist.dispose();
+    _intro.dispose();
+    _body.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final zh = widget.zh;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _loungeField(
+            cs: cs,
+            controller: _title,
+            hint: zh ? '歌名…' : 'song…',
+            autofocus: true,
+          ),
+          const SizedBox(height: 10),
+          _loungeField(
+            cs: cs,
+            controller: _artist,
+            hint: zh ? '歌手（可空）…' : 'artist (optional)…',
+          ),
+          const SizedBox(height: 10),
+          _loungeField(
+            cs: cs,
+            controller: _intro,
+            hint: zh ? '一段总赏（可空）…' : 'an overall reading (optional)…',
+            maxLines: 3,
+            minLines: 2,
+          ),
+          const SizedBox(height: 10),
+          _loungeField(
+            cs: cs,
+            controller: _body,
+            hint: zh ? '歌词正文，一行一句…' : 'lyrics, one line each…',
+            maxLines: 8,
+            minLines: 4,
+          ),
+          const SizedBox(height: 14),
+          _loungeSubmit(
+            context: context,
+            cs: cs,
+            label: zh ? '加进来' : 'Add',
+            onTap: () {
+              final t = _title.text.trim();
+              if (t.isEmpty) return;
+              Navigator.of(context).pop(
+                _NewLyric(
+                  t,
+                  _artist.text.trim(),
+                  _intro.text.trim(),
+                  _body.text,
+                ),
+              );
+            },
           ),
         ],
       ),

@@ -9,6 +9,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../widgets/still_glass.dart';
 
 /// The Calendar (日历) — our days, all on one page. Anniversaries are marked;
 /// tap a day to see what we lived that day (`/api/home/memories?date=`).
@@ -262,10 +263,15 @@ class _DaySheetState extends State<_DaySheet> {
       setState(() => _loading = false);
       return;
     }
+    final date = DateFormat('yyyy-MM-dd').format(widget.date);
+    // 先显示上次缓存（秒开、无缓冲），再后台刷新。
+    final cached = gateway.peekDay(date);
+    if (cached.isNotEmpty) {
+      _items = cached;
+      _loading = false;
+    }
     try {
-      final items = await gateway.fetchDay(
-        DateFormat('yyyy-MM-dd').format(widget.date),
-      );
+      final items = await gateway.fetchDay(date);
       if (mounted) {
         setState(() {
           _items = items;
@@ -350,33 +356,42 @@ class _DaySheetState extends State<_DaySheet> {
             )
           else
             ..._items.map((it) {
-              final title = it.name.isNotEmpty ? it.name : it.preview;
+              final hasTitle = it.name.isNotEmpty;
+              final title = hasTitle ? it.name : it.preview;
+              final showPreview = hasTitle && it.preview.isNotEmpty;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        height: 1.4,
-                        color: cs.onSurface.withValues(alpha: 0.85),
-                      ),
-                    ),
-                    if (it.name.isNotEmpty && it.preview.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          it.preview,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            height: 1.4,
-                            color: cs.onSurface.withValues(alpha: 0.5),
-                          ),
+                padding: const EdgeInsets.only(bottom: 10),
+                child: StillGlass(
+                  radius: 14,
+                  blur: false,
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.4,
+                          fontWeight: AppFontWeights.medium,
+                          color: cs.onSurface,
                         ),
                       ),
-                  ],
+                      if (showPreview)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 5),
+                          child: Text(
+                            it.preview,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.45,
+                              color: cs.onSurface.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               );
             }),
