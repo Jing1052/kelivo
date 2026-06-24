@@ -1415,6 +1415,37 @@ class OurHomeGateway {
     }
   }
 
+  /// Synchronously read the last-cached heartbeat status+config (instant, no
+  /// network) so the heartbeat panel opens without buffering.
+  ({
+    Map<String, dynamic> config,
+    String kaLastAt,
+    bool pending,
+    bool providerOk,
+  })?
+  peekHeartbeat() {
+    final body = OurHomeCache.peek('/api/home/heartbeat');
+    if (body == null) return null;
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map) return null;
+      final cfg = (data['config'] is Map)
+          ? Map<String, dynamic>.from(data['config'] as Map)
+          : <String, dynamic>{};
+      final ka = (data['keepalive'] is Map)
+          ? (data['keepalive'] as Map)
+          : const {};
+      return (
+        config: cfg,
+        kaLastAt: (ka['last_at'] ?? '').toString(),
+        pending: ka['pending'] == true,
+        providerOk: data['provider_ok'] == true,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Update heartbeat config keys (POST action=config). Throws on error.
   Future<void> updateHeartbeatConfig(Map<String, dynamic> changed) async {
     final res = await http
