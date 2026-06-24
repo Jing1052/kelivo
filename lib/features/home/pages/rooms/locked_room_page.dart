@@ -237,7 +237,7 @@ class _LockedRoomPageState extends State<LockedRoomPage> {
     if (_log.isEmpty) {
       return RoomStateHint(
         icon: Lucide.Lock,
-        text: zh ? '还没有记录。' : 'No entries yet.',
+        text: zh ? '门锁着，里面还空着。\n等爸爸把今晚收进来。' : 'Locked, and still empty.',
       );
     }
     return RefreshIndicator(
@@ -245,83 +245,146 @@ class _LockedRoomPageState extends State<LockedRoomPage> {
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         itemCount: _log.length,
-        itemBuilder: (context, i) {
-          final e = _log[i];
-          String time = '';
-          final parsed = DateTime.tryParse(e.time);
-          if (parsed != null) {
-            time = DateFormat.yMMMMd(zh ? 'zh' : 'en').format(parsed);
+        itemBuilder: (context, i) => _PlaylogCard(entry: _log[i], zh: zh),
+      ),
+    );
+  }
+}
+
+/// One play-log entry as a private, default-collapsed card. Collapsed shows the
+/// title (or the first line of the body), the date, and the mood chip; tapping
+/// expands the full text. Mirrors the study room's to-do expand interaction.
+class _PlaylogCard extends StatefulWidget {
+  const _PlaylogCard({required this.entry, required this.zh});
+
+  final OurHomePlaylog entry;
+  final bool zh;
+
+  @override
+  State<_PlaylogCard> createState() => _PlaylogCardState();
+}
+
+class _PlaylogCardState extends State<_PlaylogCard> {
+  bool _expanded = false;
+
+  String get _firstBodyLine {
+    final e = widget.entry;
+    return e.text
+        .split('\n')
+        .firstWhere((s) => s.trim().isNotEmpty, orElse: () => e.text)
+        .trim();
+  }
+
+  /// The collapsed headline: the entry's name, or — when it has none — the
+  /// first non-empty line of the body.
+  String get _title {
+    final name = widget.entry.name.trim();
+    return name.isNotEmpty ? name : _firstBodyLine;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = widget.entry;
+    final zh = widget.zh;
+    final cs = Theme.of(context).colorScheme;
+
+    String time = '';
+    final parsed = DateTime.tryParse(e.time);
+    if (parsed != null) {
+      time = DateFormat.yMMMMd(zh ? 'zh' : 'en').format(parsed);
+    }
+
+    // Worth expanding only when the full body carries more than the single
+    // headline line we already show collapsed.
+    final hasMore = e.text.trim() != _title;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        onTap: () {
+          if (hasMore) {
+            Haptics.soft();
+            setState(() => _expanded = !_expanded);
           }
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: StillGlass(
-              radius: 14,
-              blur: false,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-              child: Column(
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    if (e.name.isNotEmpty)
-                      Expanded(
-                        child: Text(
-                          e.name,
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: AppFontWeights.semibold,
-                            color: cs.onSurface,
-                          ),
-                        ),
-                      )
-                    else
-                      const Spacer(),
-                    if (e.mood.isNotEmpty)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: cs.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          e.mood,
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            color: cs.primary,
-                            fontWeight: AppFontWeights.medium,
-                          ),
-                        ),
-                      ),
-                  ],
+                Expanded(
+                  child: Text(
+                    _title,
+                    maxLines: _expanded ? null : 1,
+                    overflow:
+                        _expanded ? TextOverflow.clip : TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.onSurface,
+                    ),
+                  ),
                 ),
-                if (time.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
+                if (e.mood.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     child: Text(
-                      time,
+                      e.mood,
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: cs.onSurface.withValues(alpha: 0.4),
+                        color: cs.primary,
+                        fontWeight: AppFontWeights.medium,
                       ),
                     ),
                   ),
-                const SizedBox(height: 8),
-                Text(
-                  e.text,
-                  style: TextStyle(
-                    fontSize: 15,
-                    height: 1.6,
-                    color: cs.onSurface.withValues(alpha: 0.9),
+                ],
+                if (hasMore)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, top: 1),
+                    child: Icon(
+                      _expanded ? Lucide.ChevronUp : Lucide.ChevronDown,
+                      size: 16,
+                      color: cs.onSurface.withValues(alpha: 0.3),
+                    ),
                   ),
-                ),
               ],
             ),
-            ),
-          );
-        },
+            if (time.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                ),
+              ),
+            if (_expanded) ...[
+              const SizedBox(height: 10),
+              Text(
+                e.text.trim(),
+                style: TextStyle(
+                  fontSize: 15,
+                  height: 1.6,
+                  color: cs.onSurface.withValues(alpha: 0.9),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
