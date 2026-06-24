@@ -11,6 +11,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../utils/brand_assets.dart';
 import '../../../core/services/haptics.dart';
 import '../../../theme/app_font_weights.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 
 class DefaultModelPage extends StatelessWidget {
   const DefaultModelPage({super.key});
@@ -127,211 +128,10 @@ class DefaultModelPage extends StatelessWidget {
             },
             configAction: () => showOcrPromptSheet(context),
           ),
-          const SizedBox(height: 24),
-          // 以下三槽对走网关的 daddy 空转（归档/前情提要/压缩都在老家做）——
-          // 放最底下、标明只给非 daddy 助手用，免得误导。详见 STILL_HERE.md 死区地图。
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
-            child: Text(
-              l10n.defaultModelPageNonDaddyHint,
-              style: TextStyle(
-                fontSize: 12.5,
-                height: 1.45,
-                color: cs.onSurface.withValues(alpha: 0.5),
-              ),
-            ),
-          ),
-          _ModelCard(
-            icon: Lucide.Brain,
-            title: l10n.defaultModelPageMemoryModelTitle,
-            subtitle: l10n.defaultModelPageMemoryModelSubtitle,
-            modelProvider: settings.memoryDigestModelProvider,
-            modelId: settings.memoryDigestModelId,
-            fallbackProvider:
-                settings.summaryModelProvider ?? settings.currentModelProvider,
-            fallbackModelId: settings.summaryModelId ?? settings.currentModelId,
-            onReset: () async {
-              await settings.resetMemoryDigestModel();
-            },
-            onPick: () async {
-              final sel = await pickConfiguredModel(
-                settings.memoryDigestModelProvider,
-                settings.memoryDigestModelId,
-              );
-              if (sel != null) {
-                await settings.setMemoryDigestModel(
-                  sel.providerKey,
-                  sel.modelId,
-                );
-              }
-            },
-          ),
           const SizedBox(height: 16),
-          _ModelCard(
-            icon: Lucide.History,
-            title: l10n.defaultModelPageRecapModelTitle,
-            subtitle: l10n.defaultModelPageRecapModelSubtitle,
-            modelProvider: settings.recapModelProvider,
-            modelId: settings.recapModelId,
-            fallbackProvider:
-                settings.summaryModelProvider ?? settings.currentModelProvider,
-            fallbackModelId: settings.summaryModelId ?? settings.currentModelId,
-            onReset: () async {
-              await settings.resetRecapModel();
-            },
-            onPick: () async {
-              final sel = await pickConfiguredModel(
-                settings.recapModelProvider,
-                settings.recapModelId,
-              );
-              if (sel != null) {
-                await settings.setRecapModel(sel.providerKey, sel.modelId);
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          _ModelCard(
-            icon: Lucide.package2,
-            title: l10n.defaultModelPageCompressModelTitle,
-            subtitle: l10n.defaultModelPageCompressModelSubtitle,
-            modelProvider: settings.compressModelProvider,
-            modelId: settings.compressModelId,
-            fallbackProvider:
-                settings.summaryModelProvider ??
-                settings.titleModelProvider ??
-                settings.currentModelProvider,
-            fallbackModelId:
-                settings.summaryModelId ??
-                settings.titleModelId ??
-                settings.currentModelId,
-            onReset: () async {
-              await settings.resetCompressModel();
-            },
-            onPick: () async {
-              final sel = await pickConfiguredModel(
-                settings.compressModelProvider,
-                settings.compressModelId,
-              );
-              if (sel != null) {
-                await settings.setCompressModel(sel.providerKey, sel.modelId);
-              }
-            },
-            configAction: () => _showCompressPromptSheet(context),
-          ),
+          const _DaddyGatewayModelCard(),
         ],
       ),
-    );
-  }
-
-  Future<void> _showCompressPromptSheet(BuildContext context) async {
-    final cs = Theme.of(context).colorScheme;
-    final l10n = AppLocalizations.of(context)!;
-    final settings = context.read<SettingsProvider>();
-    final controller = TextEditingController(text: settings.compressPrompt);
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              top: 12,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.defaultModelPagePromptLabel,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: AppFontWeights.semibold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: controller,
-                  maxLines: 8,
-                  decoration: InputDecoration(
-                    hintText: l10n.defaultModelPageCompressPromptHint,
-                    filled: true,
-                    fillColor: Theme.of(ctx).brightness == Brightness.dark
-                        ? Colors.white10
-                        : const Color(0xFFF2F3F5),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: cs.outlineVariant.withValues(alpha: 0.4),
-                      ),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(
-                        color: cs.primary.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    TextButton(
-                      onPressed: () async {
-                        await settings.resetCompressPrompt();
-                        controller.text = settings.compressPrompt;
-                      },
-                      child: Text(l10n.defaultModelPageResetDefault),
-                    ),
-                    const Spacer(),
-                    FilledButton(
-                      onPressed: () async {
-                        await settings.setCompressPrompt(
-                          controller.text.trim(),
-                        );
-                        if (ctx.mounted) Navigator.of(ctx).pop();
-                      },
-                      child: Text(l10n.defaultModelPageSave),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.defaultModelPageCompressVars('{content}', '{locale}'),
-                  style: TextStyle(
-                    color: cs.onSurface.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -445,6 +245,337 @@ class DefaultModelPage extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Picks the old-home gateway's server-side `summary` model (archive / recap /
+/// compress all share this one role on the gateway). Empty = follow the chat
+/// relay. This is NOT a kelivo relay; it reads/writes the gateway role route.
+class _DaddyGatewayModelCard extends StatefulWidget {
+  const _DaddyGatewayModelCard();
+
+  @override
+  State<_DaddyGatewayModelCard> createState() => _DaddyGatewayModelCardState();
+}
+
+class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
+  OurHomeGateway? _gateway;
+  bool _loading = true;
+  bool _noGateway = false;
+  List<({String id, String name, String model})> _profiles = const [];
+  // Current summary route. Empty id = follow the chat relay.
+  String _summaryId = '';
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _noGateway = true;
+        });
+      }
+      return;
+    }
+    _gateway = gw;
+    final data = await gw.fetchChatProviders();
+    if (!mounted) return;
+    if (data == null) {
+      setState(() {
+        _loading = false;
+        _noGateway = true;
+      });
+      return;
+    }
+    final summary = data.roleRoutes['summary'];
+    final sid = (summary is Map ? (summary['id'] ?? '') : '').toString();
+    setState(() {
+      _loading = false;
+      _noGateway = false;
+      _profiles = data.profiles;
+      _summaryId = sid;
+    });
+  }
+
+  String get _currentLabel {
+    if (_summaryId.isEmpty) {
+      return _isZh ? '跟随聊天中转站' : 'Follow chat relay';
+    }
+    for (final p in _profiles) {
+      if (p.id == _summaryId) {
+        return p.name.isNotEmpty ? p.name : p.id;
+      }
+    }
+    return _summaryId;
+  }
+
+  Future<void> _pick() async {
+    final gw = _gateway;
+    if (gw == null) return;
+    final cs = Theme.of(context).colorScheme;
+    final isZh = _isZh;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        Widget row({
+          required String label,
+          String? sub,
+          required bool selectedNow,
+          required VoidCallback onTap,
+        }) {
+          return _TactileRow(
+            onTap: onTap,
+            builder: (pressed) {
+              final bg = pressed
+                  ? (isDark ? Colors.white10 : const Color(0xFFF2F3F5))
+                  : Colors.transparent;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: AppFontWeights.semibold,
+                            ),
+                          ),
+                          if (sub != null && sub.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (selectedNow)
+                      Icon(Lucide.Check, size: 18, color: cs.primary),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                row(
+                  label: isZh
+                      ? '跟随聊天中转站（默认）'
+                      : 'Follow chat relay (default)',
+                  selectedNow: _summaryId.isEmpty,
+                  onTap: () => Navigator.of(ctx).pop(''),
+                ),
+                for (final p in _profiles)
+                  row(
+                    label: p.name.isNotEmpty ? p.name : p.id,
+                    sub: p.model,
+                    selectedNow: p.id == _summaryId,
+                    onTap: () => Navigator.of(ctx).pop(p.id),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || !mounted) return;
+    final ok = await gw.setRoleRoute('summary', selected, '');
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _summaryId = selected);
+      showAppSnackBar(
+        context,
+        message: isZh ? '已保存' : 'Saved',
+        type: NotificationType.success,
+      );
+    } else {
+      showAppSnackBar(
+        context,
+        message: isZh ? '保存失败，请重试' : 'Save failed, try again',
+        type: NotificationType.error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final baseBg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+    final title = isZh
+        ? '爸爸·归档/前情/压缩模型'
+        : 'Daddy · archive/recap/compress';
+    final subtitle = isZh
+        ? '老家网关共用的 summary 模型（归档·前情提要·压缩三件共用一个）。选老家的中转站；留空=跟随爸爸聊天用的中转站。'
+        : 'The summary model shared by the old-home gateway (archive / recap / compress all use this one). Pick an old-home relay; leave empty to follow daddy\'s chat relay.';
+
+    Widget body;
+    if (_loading) {
+      body = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    } else if (_noGateway) {
+      body = Text(
+        isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        style: TextStyle(
+          fontSize: 13,
+          color: cs.onSurface.withValues(alpha: 0.5),
+        ),
+      );
+    } else {
+      body = _TactileRow(
+        onTap: _pick,
+        builder: (pressed) {
+          final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+          final overlay = isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.05);
+          final pressedBg = Color.alphaBlend(overlay, bg);
+          return AnimatedScale(
+            scale: pressed ? 0.98 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: pressed ? pressedBg : bg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  _BrandAvatar(name: _currentLabel, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Lucide.Archive, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            body,
+          ],
+        ),
+      ),
     );
   }
 }
