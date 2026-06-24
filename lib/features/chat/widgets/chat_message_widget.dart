@@ -1305,6 +1305,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     final userProvider = context.watch<UserProvider>();
     final l10n = AppLocalizations.of(context)!;
     final settings = context.watch<SettingsProvider>();
+    // 极简布局总开关：与助手侧一致，关「显示模型名称」即进入极简。
+    final bool minimalist = !settings.showModelName;
     final parsed = _parseUserContent(widget.message.content);
     final assistant = _assistantForMessage();
     final visualText = applyAssistantRegexes(
@@ -1330,6 +1332,57 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             ),
           )
         : null;
+
+    if (minimalist) {
+      // 极简：右对齐 气泡紧贴用户头像；不显示用户名/时间/操作按钮。
+      final bubbleContent = GestureDetector(
+        onLongPressStart: (_) {
+          final isDesktop =
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux;
+          if (isDesktop) return;
+          _showUserContextMenu();
+        },
+        onSecondaryTapDown: (details) {
+          final isDesktop =
+              defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux;
+          if (!isDesktop) return;
+          _showUserContextMenuAt(details.globalPosition);
+        },
+        behavior: HitTestBehavior.translucent,
+        child: Container(
+          key: _userBubbleKey,
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.sizeOf(context).width * 0.75,
+          ),
+          child: Column(
+            key: ValueKey('user-message-content:${widget.message.id}'),
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              if (mediaPreview != null) mediaPreview,
+              if (mediaPreview != null && textBubble != null)
+                const SizedBox(height: 8),
+              if (textBubble != null) textBubble,
+            ],
+          ),
+        ),
+      );
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Flexible(child: bubbleContent),
+            const SizedBox(width: 8),
+            _buildUserAvatar(userProvider, cs),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2106,6 +2159,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     final fg = _chatSurfaceForegroundPalette(context);
     final l10n = AppLocalizations.of(context)!;
     final settings = context.watch<SettingsProvider>();
+    // 极简布局总开关：关掉「显示模型名称」即进入 QQ/微信式极简。
+    final bool minimalist = !settings.showModelName;
     final assistant = _assistantForMessage();
 
     final parsedInlineThinking = _legacyInlineThinkingFor(widget);
@@ -2140,13 +2195,12 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         translationText == l10n.chatMessageWidgetTranslating;
     final searchItems = _allSearchItems();
 
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      child: Column(
+    final assistantColumn = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header: Model info and time
-          Row(
+          // Header: Model info and time（极简模式不显示名字/型号/时间行）
+          if (!minimalist)
+            Row(
             children: [
               if (widget.useAssistantAvatar) ...[
                 _buildAssistantAvatar(cs),
@@ -2203,7 +2257,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          if (!minimalist) const SizedBox(height: 8),
 
           // File Processing Indicator (inserted before content)
           if (widget.isProcessingFiles) ...[
@@ -2470,8 +2524,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
               onTap: () => _showCitationsSheet(searchItems),
             ),
           ],
-          // Action buttons (hidden while generating)
-          if (widget.showActions)
+          // Action buttons (hidden while generating; 极简模式整条工具条不渲染)
+          if (widget.showActions && !minimalist)
             AnimatedSwitcher(
             duration: const Duration(milliseconds: 220),
             switchInCurve: Curves.easeOutCubic,
@@ -2699,7 +2753,26 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             ),
           ],
         ],
-      ),
+      );
+
+    if (minimalist) {
+      // 极简：头像顶端对齐 + 紧贴气泡；不显示名字/时间/工具条/token。
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildAssistantAvatar(cs),
+            const SizedBox(width: 8),
+            Flexible(child: assistantColumn),
+          ],
+        ),
+      );
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: assistantColumn,
     );
   }
 
