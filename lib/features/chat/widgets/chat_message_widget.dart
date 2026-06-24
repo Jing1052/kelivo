@@ -3495,6 +3495,26 @@ class _TimelineStepData {
   bool get loading => reasoning?.loading ?? tool?.loading ?? false;
 }
 
+/// 单个时间线步骤的渲染计划，承载「剥离工具行后的思考段」与「该段的工具事件」。
+/// 见 [_ChainOfThoughtCardState._buildStepChildren]。
+class _StepRenderPlan {
+  _StepRenderPlan.reasoning({
+    required this.segment,
+    required this.toolHints,
+  }) : toolPart = null;
+
+  _StepRenderPlan.tool(this.toolPart)
+    : segment = null,
+      toolHints = const <String>[];
+
+  /// 非空时表示这一步渲染成思考时间线节点；为 null 表示思考被剔空、不渲染节点。
+  final ReasoningSegment? segment;
+  final ToolUIPart? toolPart;
+  final List<String> toolHints;
+
+  bool get isReasoningTimeline => segment != null;
+}
+
 enum _ReasoningStepState { collapsed, preview, expanded }
 
 const double _timelineStepPaddingV = 8;
@@ -3503,6 +3523,94 @@ const double _timelineIconColumnWidth = 24;
 const double _timelineGap = 8;
 const double _timelineLineGap = 3;
 const double _timelineLineX = (_timelineIconColumnWidth - 1) / 2;
+
+/// 网关爸爸的工具提示前缀。后端把工具事件作为 `reasoning_content` 发出，
+/// 固定以此开头（多个工具用「、」连在一行）。前端按行剥出来，单独渲染成卡片，
+/// 不再混在思考流里显示。详见 `_GatewayToolCard`。
+const String _gatewayToolHintPrefix = '[工具] ';
+
+/// 解析结果：剥掉工具行后剩下的真思考文本 + 抽出来的工具事件 hint（已去前缀）。
+class GatewayReasoningSplit {
+  const GatewayReasoningSplit({required this.thinking, required this.toolHints});
+
+  final String thinking;
+  final List<String> toolHints;
+
+  bool get hasToolHints => toolHints.isNotEmpty;
+}
+
+/// 纯函数：把 reasoning 全文按行分离成「真思考」与「网关工具事件」。
+///
+/// - 工具行：trim 后以 `[工具] ` 开头；去前缀后即 hint（多条可多行）。
+/// - 其余行原样保留为思考文本（保留原始换行/缩进，仅丢弃工具行本身）。
+/// - 流式稳健：行可能不完整或为空——空行/纯空白行不当作思考内容残留，
+///   但思考文本整体按原样拼回，最后 trim。
+GatewayReasoningSplit splitGatewayToolHints(String reasoning) {
+  if (reasoning.isEmpty) {
+    return const GatewayReasoningSplit(thinking: '', toolHints: <String>[]);
+  }
+  final lines = reasoning.split('\n');
+  final thinkingLines = <String>[];
+  final hints = <String>[];
+  for (final line in lines) {
+    final trimmed = line.trim();
+    if (trimmed.startsWith(_gatewayToolHintPrefix)) {
+      final hint = trimmed.substring(_gatewayToolHintPrefix.length).trim();
+      if (hint.isNotEmpty) hints.add(hint);
+      continue;
+    }
+    thinkingLines.add(line);
+  }
+  return GatewayReasoningSplit(
+    thinking: thinkingLines.join('\n').trim(),
+    toolHints: hints,
+  );
+}
+
+/// 网关爸爸工具调用的小卡片：左边一枚签名简笔画（月牙托心），右边一行文案。
+///
+/// 文案 = 「爸爸」+ 后端 hint 原文（hint 本身是中文动态文案，读起来像
+/// "爸爸 存了记忆 / 用了联网搜索"）。视觉低调，复用聊天面板表面样式，
+/// 圆角、淡背景、无 Android 水波纹。API 端与 CC 端同走此处。
+class _GatewayToolCard extends StatelessWidget {
+  const _GatewayToolCard({required this.hint});
+
+  final String hint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final fg = _chatSurfaceForegroundPalette(context);
+    return _buildSharedChatSurface(
+      context,
+      borderRadius: BorderRadius.circular(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      defaultColor: cs.primaryContainer.withValues(
+        alpha: theme.brightness == Brightness.dark ? 0.18 : 0.22,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          DaddyMarkDoodle(size: 16, color: fg.accent),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              // hint 是后端中文动态文案；冠以"爸爸"使其读起来像主语句。
+              '爸爸$hint',
+              style: TextStyle(
+                fontSize: 12.5,
+                height: 1.3,
+                color: fg.body,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class _ChainOfThoughtCard extends StatefulWidget {
   const _ChainOfThoughtCard({required this.steps, this.onRecoveredAnswer});
@@ -3517,6 +3625,92 @@ class _ChainOfThoughtCard extends StatefulWidget {
 
 class _ChainOfThoughtCardState extends State<_ChainOfThoughtCard> {
   bool _showAllSteps = false;
+
+  /// 把时间线步骤渲染成 widget 列表，并在过程中处理「网关爸爸工具行」：
+  /// - reasoning 步骤的文本里以 `[工具] ` 开头的行被剥出，渲染成独立的工具小卡；
+  ///   剔除工具行后的真思考用一个 text 被替换过的 [ReasoningSegment] 渲染。
+  /// - 若某 reasoning 步骤剔除后思考为空、但有工具事件，则**不渲染空思考卡**，
+  ///   只保留它的工具小卡（除非该步骤仍在 loading 且尚无任何工具事件——
+  ///   那是"正在想还没出字"的占位，照常渲染）。
+  /// - 工具卡不是时间线节点，所以 isFirst/isLast 只在真正渲染出来的时间线步骤之间计算。
+  List<Widget> _buildStepChildren(List<_TimelineStepData> steps) {
+    // 第一遍：决定每个 step 渲染成什么。
+    // timeline 行（reasoning/tool 步骤本体）需要正确的 isFirst/isLast，
+    // 所以先数出会真正渲染成时间线节点的步骤总数与各自序号。
+    final plans = <_StepRenderPlan>[];
+    int timelineCount = 0;
+    for (final step in steps) {
+      if (step.isReasoning) {
+        final segment = step.reasoning!;
+        final split = splitGatewayToolHints(segment.text.replaceAll('\r', ''));
+        // 仍在 loading 且既没真思考也没工具事件：保留占位思考卡。
+        final keepReasoning =
+            split.thinking.isNotEmpty ||
+            (segment.loading && !split.hasToolHints);
+        final stripped = keepReasoning
+            ? _withReasoningText(segment, split.thinking)
+            : null;
+        if (keepReasoning) timelineCount++;
+        plans.add(
+          _StepRenderPlan.reasoning(
+            segment: stripped,
+            toolHints: split.toolHints,
+          ),
+        );
+      } else {
+        timelineCount++;
+        plans.add(_StepRenderPlan.tool(step.tool!));
+      }
+    }
+
+    final children = <Widget>[];
+    int timelineIndex = 0;
+    for (final plan in plans) {
+      if (plan.isReasoningTimeline) {
+        children.add(
+          _ChainOfThoughtReasoningStep(
+            step: plan.segment!,
+            isFirst: timelineIndex == 0,
+            isLast: timelineIndex == timelineCount - 1,
+          ),
+        );
+        timelineIndex++;
+      } else if (plan.toolPart != null) {
+        children.add(
+          _ChainOfThoughtToolStep(
+            part: plan.toolPart!,
+            isFirst: timelineIndex == 0,
+            isLast: timelineIndex == timelineCount - 1,
+            onRecoveredAnswer: widget.onRecoveredAnswer,
+          ),
+        );
+        timelineIndex++;
+      }
+      // 该步骤携带的网关工具事件：渲染成独立小卡（非时间线节点）。
+      for (final hint in plan.toolHints) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.only(top: 6, bottom: 2),
+            child: _GatewayToolCard(hint: hint),
+          ),
+        );
+      }
+    }
+    return children;
+  }
+
+  /// 复制一个 [ReasoningSegment]，只替换它的 text（剔除工具行后的真思考）。
+  ReasoningSegment _withReasoningText(ReasoningSegment src, String text) {
+    return ReasoningSegment(
+      text: text,
+      expanded: src.expanded,
+      loading: src.loading,
+      startAt: src.startAt,
+      finishedAt: src.finishedAt,
+      onToggle: src.onToggle,
+      toolStartIndex: src.toolStartIndex,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -3597,23 +3791,7 @@ class _ChainOfThoughtCardState extends State<_ChainOfThoughtCard> {
                   ),
                 ),
               ),
-            ...visibleSteps.asMap().entries.map((entry) {
-              final index = entry.key;
-              final step = entry.value;
-              if (step.isReasoning) {
-                return _ChainOfThoughtReasoningStep(
-                  step: step.reasoning!,
-                  isFirst: index == 0,
-                  isLast: index == visibleSteps.length - 1,
-                );
-              }
-              return _ChainOfThoughtToolStep(
-                part: step.tool!,
-                isFirst: index == 0,
-                isLast: index == visibleSteps.length - 1,
-                onRecoveredAnswer: widget.onRecoveredAnswer,
-              );
-            }),
+            ..._buildStepChildren(visibleSteps),
           ],
         ),
       ),
@@ -6125,7 +6303,9 @@ class _ReasoningSectionState extends State<_ReasoningSection>
     );
 
     final bool isLoading = loading;
-    final display = _sanitize(widget.text);
+    // 剥离网关爸爸工具行：思考正文里不再混 `[工具] ` 行，工具事件单独成卡。
+    final split = splitGatewayToolHints(_sanitize(widget.text));
+    final display = split.thinking;
 
     // 未加载：不要再指定 color: fg，让它继承和"加载中"相同的颜色
     Widget reasoningContent(String text) {
@@ -6218,7 +6398,15 @@ class _ReasoningSectionState extends State<_ReasoningSection>
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [header, if (widget.expanded || isLoading) body],
+            children: [
+              header,
+              if (widget.expanded || isLoading) body,
+              for (final hint in split.toolHints)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: _GatewayToolCard(hint: hint),
+                ),
+            ],
           ),
         ),
       ),
