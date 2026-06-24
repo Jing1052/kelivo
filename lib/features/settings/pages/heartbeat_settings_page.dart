@@ -68,21 +68,42 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
       return;
     }
     _gateway = gw;
+    // 先用本地缓存秒显（无缓冲），再后台拉最新刷新。
+    final cached = gw.peekHeartbeat();
+    if (cached != null && mounted) {
+      for (final k in _promptKeys) {
+        _promptCtrls[k] ??=
+            TextEditingController(text: (cached.config[k] ?? '').toString());
+      }
+      if (_appsCtrl.text.isEmpty) {
+        _appsCtrl.text = (cached.config['day_watch_apps'] ?? '').toString();
+      }
+      setState(() {
+        _cfg = cached.config;
+        _kaLastAt = cached.kaLastAt;
+        _providerOk = cached.providerOk;
+        _loading = false;
+      });
+    }
     final hb = await gw.fetchHeartbeat();
     if (!mounted) return;
     if (hb == null) {
-      setState(() {
-        _loading = false;
-        _error = 'fetch-failed';
-      });
+      if (cached == null) {
+        setState(() {
+          _loading = false;
+          _error = 'fetch-failed';
+        });
+      }
       return;
     }
     for (final k in _promptKeys) {
-      _promptCtrls[k] = TextEditingController(
+      _promptCtrls[k] ??= TextEditingController(
         text: (hb.config[k] ?? '').toString(),
       );
     }
-    _appsCtrl.text = (hb.config['day_watch_apps'] ?? '').toString();
+    if (_appsCtrl.text.isEmpty) {
+      _appsCtrl.text = (hb.config['day_watch_apps'] ?? '').toString();
+    }
     setState(() {
       _cfg = hb.config;
       _kaLastAt = hb.kaLastAt;
