@@ -1141,6 +1141,56 @@ class OurHomeGateway {
     'poster': poster.trim(),
   });
 
+  /// Upload a poster image (base64 data URL, `data:image/<ext>;base64,<b64>`)
+  /// to the album. On success returns the server-side path (e.g.
+  /// `/api/home/album/<file>`) to store as the item's poster. That path is
+  /// relative + auth-protected, so [posterImageUrl] / [posterImageHeaders] must
+  /// be used when loading it. Returns null on any failure (logged) so the caller
+  /// can keep the paste-URL path working.
+  Future<String?> uploadPoster(String dataUrl) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/upload-poster'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'data_url': dataUrl}),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] uploadPoster HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is Map && data['ok'] == true) {
+        final url = (data['url'] ?? '').toString().trim();
+        return url.isEmpty ? null : url;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] uploadPoster failed: $e');
+      return null;
+    }
+  }
+
+  /// Whether a stored poster value is an auth-protected relative path served by
+  /// our home server (e.g. `/api/home/album/<file>` from [uploadPoster]) rather
+  /// than a public `http(s)://` URL the user pasted. Managed posters must be
+  /// loaded with [posterImageUrl] + [posterImageHeaders]; public URLs load bare.
+  static bool isManagedPoster(String poster) =>
+      poster.trim().startsWith('/api/home/');
+
+  /// Full URL to load a stored poster: managed relative paths get the gateway
+  /// [base] prepended; public URLs pass through unchanged.
+  String posterImageUrl(String poster) {
+    final p = poster.trim();
+    return isManagedPoster(p) ? '$base$p' : p;
+  }
+
+  /// Headers to load a stored poster: auth bearer for managed relative paths,
+  /// none for public URLs.
+  Map<String, String> posterImageHeaders(String poster) =>
+      isManagedPoster(poster) ? _authHeaders : const {};
+
   // ---- Locked room: profiles + playlog ----
   Future<OurHomeProfiles> fetchProfiles() async {
     final res = await http
