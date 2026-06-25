@@ -23,6 +23,18 @@ class DaddyGatewayRoute {
   /// daddy 标记：`[[ourhome]]` 或 `[[ourhome:TOKEN]]`。
   static final RegExp markerPattern = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
 
+  /// claude -p（订阅）后端哨兵服务商 id。
+  ///
+  /// 用户在「模型/服务商选择器」里选中 id 为此值的服务商时，本次聊天照常改道
+  /// 我们家网关，但由网关把请求转给家里的 `claude -p`（吃订阅），而**不**转发用户
+  /// 的中转站——表现为多发一个 `x-ombre-backend: claude_p` 头、并省掉 x-ombre-upstream-*。
+  /// 网关侧缺省（无此头）行为完全不变，仍转发中转站。
+  static const String claudePProviderId = 'ourhome-claudep';
+
+  /// 本次选中的上游是否是 claude -p 哨兵。
+  static bool isClaudePBackend(ProviderConfig? c) =>
+      c != null && c.id == claudePProviderId;
+
   /// 助手是否是 daddy（人设带标记）。
   static bool isDaddy(String? systemPrompt) =>
       markerPattern.hasMatch(systemPrompt ?? '');
@@ -81,10 +93,17 @@ class DaddyGatewayRoute {
 
     final gwHeaders = <String, String>{
       ...?extraHeaders,
-      'x-ombre-upstream-base': userConfig.baseUrl,
-      'x-ombre-upstream-key': userConfig.apiKey,
-      'x-ombre-upstream-proto': userProto,
     };
+    if (isClaudePBackend(userConfig)) {
+      // 走家里 claude -p（订阅）：网关不转发中转站，故不发 upstream 头，
+      // 只多发一个后端标记，由网关改调家里 /claudep/chat。
+      gwHeaders['x-ombre-backend'] = 'claude_p';
+    } else {
+      // 常规：把用户真实中转站（base/key/proto）透传给网关当上游中继。
+      gwHeaders['x-ombre-upstream-base'] = userConfig.baseUrl;
+      gwHeaders['x-ombre-upstream-key'] = userConfig.apiKey;
+      gwHeaders['x-ombre-upstream-proto'] = userProto;
+    }
 
     // 上下文窗口控制（网关侧 keep/trigger + 滚动前情提要）：仅在值有效时透传，
     // 缺省则网关用自己的默认；session 为空不传，网关按无会话处理。
