@@ -14,6 +14,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/iphone_link_service.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
+import 'brain_inject_page.dart';
 import 'heartbeat_settings_page.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
@@ -698,11 +699,27 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
             _caption(context, l10n.daddySettingsLongChatDesc),
             const SizedBox(height: 12),
 
-            // 爸爸的大脑·注入清单
+            // 爸爸的大脑·注入清单（概览 + 进控制台调节）
             _sectionTitle(context, l10n.daddySettingsInjectionTitle),
             _caption(context, l10n.daddySettingsInjectionDesc),
             const SizedBox(height: 6),
-            _iosSectionCard(children: _injectionRows(context, l10n, settings)),
+            _iosSectionCard(
+              children: [
+                ..._injectionRows(context, l10n, settings),
+                _iosDivider(context),
+                _iosNavRow(
+                  context,
+                  icon: Lucide.Brain,
+                  label: l10n.brainInjectTitle,
+                  detailText: l10n.daddySettingsInjectionTune,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const BrainInjectPage(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ],
       ),

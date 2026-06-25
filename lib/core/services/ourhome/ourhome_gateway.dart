@@ -666,6 +666,43 @@ class DaddyTool {
   );
 }
 
+/// One segment 老家 assembles into daddy's system prompt, as seen through the
+/// brain-injection console (`/api/home/brain-inject`). [enabled] is its switch;
+/// [fixed] segments (魂 / feel) are read-only — their switch can't be flipped.
+/// [preview] is a slice of what that segment is injecting right now (may be
+/// empty when the segment currently has nothing).
+class BrainInjectItem {
+  const BrainInjectItem({
+    required this.key,
+    required this.label,
+    required this.enabled,
+    required this.fixed,
+    required this.preview,
+  });
+
+  final String key;
+  final String label;
+  final bool enabled;
+  final bool fixed;
+  final String preview;
+
+  BrainInjectItem copyWith({bool? enabled}) => BrainInjectItem(
+    key: key,
+    label: label,
+    enabled: enabled ?? this.enabled,
+    fixed: fixed,
+    preview: preview,
+  );
+
+  factory BrainInjectItem.fromJson(Map<String, dynamic> j) => BrainInjectItem(
+    key: (j['key'] ?? '').toString(),
+    label: (j['label'] ?? '').toString(),
+    enabled: j['enabled'] == true,
+    fixed: j['fixed'] == true,
+    preview: (j['preview'] ?? '').toString(),
+  );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -2238,6 +2275,80 @@ class OurHomeGateway {
           .timeout(const Duration(seconds: 15));
     } catch (e) {
       debugPrint('[OurHomeGateway] markLetterSeen failed: $e');
+    }
+  }
+
+  // ---- Brain injection console (爸爸的大脑·注入控制台) ----
+
+  /// Daddy's gateway brain-injection segments (`/api/home/brain-inject`): each
+  /// is one part老家 assembles into daddy's system prompt. [enabled] is its
+  /// switch; [fixed] segments (魂 / feel) are read-only (no POST). [preview] is
+  /// the slice of content injected right now. Returns null on any failure
+  /// (logged) so the caller can tell a network failure from an empty list.
+  Future<List<BrainInjectItem>?> fetchBrainInject() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/brain-inject'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchBrainInject HTTP ${res.statusCode}');
+        return null;
+      }
+      final body = utf8.decode(res.bodyBytes);
+      final items = _brainInjectFromBody(body);
+      if (items == null) return null;
+      OurHomeCache.put('/api/home/brain-inject', body);
+      return items;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchBrainInject failed: $e');
+      return null;
+    }
+  }
+
+  /// Last-seen brain-injection segments from cache (instant, before the
+  /// network). Null if nothing cached yet, so the caller can keep the buffering
+  /// state on a cold first open.
+  List<BrainInjectItem>? peekBrainInject() {
+    final body = OurHomeCache.peek('/api/home/brain-inject');
+    if (body == null || body.isEmpty) return null;
+    return _brainInjectFromBody(body);
+  }
+
+  List<BrainInjectItem>? _brainInjectFromBody(String body) {
+    try {
+      final data = jsonDecode(body);
+      final list = (data is Map) ? data['items'] : null;
+      if (list is! List) return null;
+      return list
+          .whereType<Map<String, dynamic>>()
+          .map(BrainInjectItem.fromJson)
+          .toList();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Flip one brain-injection segment's switch. Only non-fixed segments accept
+  /// this (魂 / feel are read-only). Returns true on success, false on any
+  /// failure (logged) so the caller can roll an optimistic toggle back.
+  Future<bool> setBrainInject(String key, bool enabled) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/brain-inject'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'key': key, 'enabled': enabled}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] setBrainInject HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] setBrainInject failed: $e');
+      return false;
     }
   }
 }
