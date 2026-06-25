@@ -1,5 +1,6 @@
-import 'dart:convert' show LineSplitter;
+import 'dart:convert' show LineSplitter, base64Encode;
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
@@ -258,7 +259,7 @@ class _LoungePageState extends State<LoungePage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => _PosterSheet(zh: zh, initial: it.poster),
+      builder: (ctx) => _PosterSheet(zh: zh, initial: it.poster, gateway: gateway),
     );
     if (result == null) return; // cancelled
     try {
@@ -676,6 +677,7 @@ class _LoungePageState extends State<LoungePage> {
           children: [
             _Poster(
               poster: it.poster,
+              gateway: _gateway,
               term: it.title,
               media: _mediaFor(it.kind),
               fallbackIcon: _kindIcon(it.kind),
@@ -873,9 +875,16 @@ class _Artwork extends StatelessWidget {
 /// A film/show/game thumbnail. If [poster] (a custom URL) is non-empty, it's
 /// shown first (rounded, with loading/error fallback to the iTunes [_Artwork]
 /// lookup). When empty, behaves exactly like [_Artwork].
+///
+/// Posters come in two flavours: a public `http(s)://` URL the user pasted
+/// (loaded bare), or an auth-protected relative path uploaded from the album
+/// (e.g. `/api/home/album/<file>` from `uploadPoster`). The latter needs the
+/// gateway [base] prepended and the bearer header, so [gateway] is consulted to
+/// resolve the URL/headers. Mirrors the boudoir album's authed loading.
 class _Poster extends StatelessWidget {
   const _Poster({
     required this.poster,
+    required this.gateway,
     required this.term,
     required this.media,
     required this.fallbackIcon,
@@ -885,6 +894,7 @@ class _Poster extends StatelessWidget {
   });
 
   final String poster;
+  final OurHomeGateway? gateway;
   final String term;
   final String media;
   final IconData fallbackIcon;
@@ -902,11 +912,20 @@ class _Poster extends StatelessWidget {
       height: height,
       radius: radius,
     );
-    if (poster.trim().isEmpty) return fallback;
+    final trimmed = poster.trim();
+    if (trimmed.isEmpty) return fallback;
+    // Managed (auth-protected) posters need the gateway to build the full URL
+    // and the bearer header; a public URL loads bare. If a managed poster slips
+    // through without a gateway, fall back rather than load a relative path.
+    final managed = OurHomeGateway.isManagedPoster(trimmed);
+    if (managed && gateway == null) return fallback;
+    final url = managed ? gateway!.posterImageUrl(trimmed) : trimmed;
+    final headers = managed ? gateway!.posterImageHeaders(trimmed) : null;
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: Image.network(
-        poster.trim(),
+        url,
+        headers: headers,
         width: width,
         height: height,
         fit: BoxFit.cover,
@@ -1092,13 +1111,21 @@ class _AddSheetState extends State<_AddSheet> {
   }
 }
 
-/// Single-field sheet to set/修改 a foyer item's poster URL (prefilled with the
-/// current one). Pops the trimmed URL on submit (empty = clear), null on
-/// dismiss. Reuses the shared lounge field/submit styling.
+/// Sheet to set/修改 a foyer item's poster — either by pasting a public URL or
+/// by picking a local image (uploaded to the album, then stored as its
+/// auth-protected `/api/home/album/<file>` path). Pops the resolved poster
+/// string on submit (empty = clear), null on dismiss. The URL field is
+/// prefilled only with a public URL; a managed (uploaded) poster leaves it
+/// empty (it isn't a re-pasteable link). Reuses the shared lounge field/submit.
 class _PosterSheet extends StatefulWidget {
-  const _PosterSheet({required this.zh, required this.initial});
+  const _PosterSheet({
+    required this.zh,
+    required this.initial,
+    required this.gateway,
+  });
   final bool zh;
   final String initial;
+  final OurHomeGateway gateway;
 
   @override
   State<_PosterSheet> createState() => _PosterSheetState();
@@ -1106,13 +1133,68 @@ class _PosterSheet extends StatefulWidget {
 
 class _PosterSheetState extends State<_PosterSheet> {
   late final TextEditingController _url = TextEditingController(
-    text: widget.initial,
+    // Only a pasted public URL is editable text; a managed path isn't a link.
+    text: OurHomeGateway.isManagedPoster(widget.initial) ? '' : widget.initial,
   );
+  bool _uploading = false;
 
   @override
   void dispose() {
     _url.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickAndUpload() async {
+    if (_uploading) return;
+    final zh = widget.zh;
+    FilePickerResult? picked;
+    try {
+      picked = await FilePicker.platform.pickFiles(
+        type: FileType.image,
+        withData: true,
+      );
+    } catch (e) {
+      debugPrint('[Lounge] poster pick failed: $e');
+    }
+    if (!mounted) return;
+    if (picked == null || picked.files.isEmpty) return; // cancelled
+    final file = picked.files.first;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      _toast(zh ? '没读到这张图。' : "Couldn't read that image.");
+      return;
+    }
+    final ext = _imageExt(file.extension, file.name);
+    final dataUrl = 'data:image/$ext;base64,${base64Encode(bytes)}';
+    setState(() => _uploading = true);
+    final url = await widget.gateway.uploadPoster(dataUrl);
+    if (!mounted) return;
+    setState(() => _uploading = false);
+    if (url == null) {
+      _toast(zh ? '上传失败 · 再试一次' : 'Upload failed · try again');
+      return;
+    }
+    Navigator.of(context).pop(url); // store the managed /api/home/album path
+  }
+
+  void _toast(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  /// Pick an image extension for the data URL from the file's [ext]/[name],
+  /// defaulting to jpg. Normalizes jpeg/jpg and only allows known image exts.
+  static String _imageExt(String? ext, String name) {
+    var e = (ext ?? '').toLowerCase().trim();
+    if (e.isEmpty) {
+      final dot = name.lastIndexOf('.');
+      if (dot >= 0 && dot < name.length - 1) {
+        e = name.substring(dot + 1).toLowerCase().trim();
+      }
+    }
+    if (e == 'jpeg') return 'jpeg';
+    const known = {'jpg', 'png', 'gif', 'webp', 'bmp', 'heic', 'heif'};
+    return known.contains(e) ? e : 'jpg';
   }
 
   @override
@@ -1130,18 +1212,56 @@ class _PosterSheetState extends State<_PosterSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Pick from album → upload → store the managed path.
+          SizedBox(
+            width: double.infinity,
+            child: IosCardPress(
+              baseColor: cs.onSurface.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              onTap: _uploading ? null : _pickAndUpload,
+              child: Center(
+                child: _uploading
+                    ? SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: cs.primary,
+                        ),
+                      )
+                    : Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Lucide.Image, size: 18, color: cs.onSurface),
+                          const SizedBox(width: 8),
+                          Text(
+                            zh ? '从相册选图' : 'Pick from album',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: AppFontWeights.semibold,
+                              color: cs.onSurface,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
           _loungeField(
             cs: cs,
             controller: _url,
-            hint: zh ? '海报链接（留空=清除）…' : 'poster URL (empty = clear)…',
-            autofocus: true,
+            hint: zh ? '或填海报链接（留空=清除）…' : 'or a poster URL (empty = clear)…',
           ),
           const SizedBox(height: 14),
           _loungeSubmit(
             context: context,
             cs: cs,
             label: zh ? '保存' : 'Save',
-            onTap: () => Navigator.of(context).pop(_url.text.trim()),
+            onTap: _uploading
+                ? null
+                : () => Navigator.of(context).pop(_url.text.trim()),
           ),
         ],
       ),
@@ -1181,7 +1301,7 @@ Widget _loungeSubmit({
   required BuildContext context,
   required ColorScheme cs,
   required String label,
-  required VoidCallback onTap,
+  required VoidCallback? onTap,
 }) {
   return SizedBox(
     width: double.infinity,
