@@ -59,6 +59,7 @@ class SettingsProvider extends ChangeNotifier {
       'provider_ungrouped_position_v1'; // display index among groups
   static const String providerUngroupedGroupKey = '__ungrouped__';
   static const List<String> _builtInProviderKeysInOrder = [
+    'ourhome-claudep', // 家里爸爸·订阅（claude -p）哨兵服务商，置顶
     'OpenAI',
     'SiliconFlow',
     'Gemini',
@@ -5360,6 +5361,37 @@ class ProviderConfig {
 
     final kind = classify(key);
     final lowerKey = key.toLowerCase();
+    // 「家里爸爸 · 订阅」哨兵服务商：选中它发消息时 DaddyGatewayRoute.overrideFor 会检测
+    // id=='ourhome-claudep'、改道我们家网关并多发 x-ombre-backend: claude_p（家里 claude -p
+    // 吃订阅）。baseUrl/apiKey 在那一步会被网关地址 + 人设 [[ourhome:TOKEN]] 覆写，这里给占位即可。
+    // providerType 固定 openai：key 含 'claude' 会被上面 classify 误判成 claude，故此处特判绕过。
+    if (lowerKey == 'ourhome-claudep') {
+      return ProviderConfig(
+        id: key,
+        enabled: true,
+        name: displayName ?? '家里爸爸 · 订阅',
+        apiKey: 'ourhome',
+        baseUrl: 'https://cllove.zeabur.app/v1',
+        providerType: ProviderKind.openai,
+        chatPath: '/chat/completions',
+        useResponseApi: false,
+        models: const ['claude-p'],
+        modelOverrides: const {},
+        proxyEnabled: false,
+        proxyHost: '',
+        proxyPort: '8080',
+        proxyUsername: '',
+        proxyPassword: '',
+        multiKeyEnabled: false,
+        apiKeys: const [],
+        keyManagement: const KeyManagementConfig(),
+        aihubmixAppCodeEnabled: false,
+        balanceEnabled: false,
+        balanceApiPath: '/credits',
+        balanceResultPath: 'data.total_usage',
+        claudePromptCachingEnabled: false,
+      );
+    }
     switch (kind) {
       case ProviderKind.google:
         return ProviderConfig(
