@@ -2192,5 +2192,15 @@
   "ccBridgeAttachCamera": "拍照",
   "ccBridgeAttachFile": "檔案",
   "ccBridgeUploadDone": "已傳送",
-  "ccBridgeUploadFailed": "上傳失敗"
+  "ccBridgeUploadFailed": "上傳失敗",
+  "settingsPageAppIcon": "應用程式圖示",
+  "appIconPageTitle": "應用程式圖示",
+  "appIconPageSystemPromptHint": "切換圖示時系統會彈出「已變更圖示」提示，這是 iOS 強制行為，屬於正常現象。",
+  "appIconPageUnsupported": "此裝置不支援更換應用程式圖示。",
+  "appIconPageChanged": "已更換應用程式圖示",
+  "appIconPageChangeFailed": "更換應用程式圖示失敗",
+  "appIconNameDefault": "預設",
+  "appIconNameCatMoon": "奶橘貓月",
+  "appIconNameStarCat": "星空貓月",
+  "appIconNameBunnyMoon": "家·兔月牙"
 }

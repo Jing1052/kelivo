@@ -2192,5 +2192,15 @@
   "ccBridgeAttachCamera": "拍照",
   "ccBridgeAttachFile": "文件",
   "ccBridgeUploadDone": "已发送",
-  "ccBridgeUploadFailed": "上传失败"
+  "ccBridgeUploadFailed": "上传失败",
+  "settingsPageAppIcon": "应用图标",
+  "appIconPageTitle": "应用图标",
+  "appIconPageSystemPromptHint": "切换图标时系统会弹出“已更改图标”提示，这是 iOS 强制行为，属于正常现象。",
+  "appIconPageUnsupported": "此设备不支持更换应用图标。",
+  "appIconPageChanged": "已更换应用图标",
+  "appIconPageChangeFailed": "更换应用图标失败",
+  "appIconNameDefault": "默认",
+  "appIconNameCatMoon": "奶橘猫月",
+  "appIconNameStarCat": "星空猫月",
+  "appIconNameBunnyMoon": "家·兔月牙"
 }

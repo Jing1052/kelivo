@@ -2622,5 +2622,15 @@
   "ccBridgeAttachCamera": "Camera",
   "ccBridgeAttachFile": "File",
   "ccBridgeUploadDone": "Sent",
-  "ccBridgeUploadFailed": "Upload failed"
+  "ccBridgeUploadFailed": "Upload failed",
+  "settingsPageAppIcon": "App Icon",
+  "appIconPageTitle": "App Icon",
+  "appIconPageSystemPromptHint": "Switching the icon shows a system \"icon changed\" alert. This is required by iOS and is normal.",
+  "appIconPageUnsupported": "This device does not support changing the app icon.",
+  "appIconPageChanged": "App icon changed",
+  "appIconPageChangeFailed": "Failed to change app icon",
+  "appIconNameDefault": "Default",
+  "appIconNameCatMoon": "Apricot Cat Moon",
+  "appIconNameStarCat": "Starry Cat Moon",
+  "appIconNameBunnyMoon": "Home Bunny Moon"
 }
