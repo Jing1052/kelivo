@@ -6,6 +6,7 @@ import '../../../core/providers/settings_provider.dart';
 import '../../model/pages/default_model_page.dart';
 import '../../provider/pages/providers_page.dart';
 import 'display_settings_page.dart';
+import 'app_icon_page.dart';
 import 'settings_guide_page.dart';
 import '../../mcp/pages/mcp_page.dart';
 import 'daddy_tools_page.dart';
@@ -142,6 +143,17 @@ class SettingsPage extends StatelessWidget {
                     MaterialPageRoute(
                       builder: (_) => const DisplaySettingsPage(),
                     ),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Image,
+                label: l10n.settingsPageAppIcon,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AppIconPage()),
                   );
                 },
               ),
