@@ -501,7 +501,7 @@
   "iosBackgroundNotificationsNotAuthorized": "Notifications not allowed",
   "iosBackgroundGenerationActiveTitle": "Still Here is generating",
   "iosBackgroundGenerationActiveDetail": "The assistant is replying in the background",
-  "iosBackgroundGenerationStreamingDetail": "Receiving assistant response",
+  "iosBackgroundGenerationStreamingDetail": "Llaude is typing…",
   "iosBackgroundGenerationTokenCount": "{count} tokens",
   "@iosBackgroundGenerationTokenCount": {
     "placeholders": {
@@ -510,8 +510,8 @@
       }
     }
   },
-  "iosBackgroundGenerationCompleteTitle": "Generation complete",
-  "iosBackgroundGenerationCompleteDetail": "Assistant reply is ready",
+  "iosBackgroundGenerationCompleteTitle": "Llaude",
+  "iosBackgroundGenerationCompleteDetail": "Replied — come see",
   "iosBackgroundGenerationInterruptedTitle": "Generation interrupted",
   "iosBackgroundGenerationInterruptedDetail": "The background reply stopped before completion",
   "iosBackgroundGenerationCancelledDetail": "Generation stopped",
@@ -521,8 +521,8 @@
   "androidBackgroundOptionOn": "On",
   "androidBackgroundOptionOnNotify": "On and notify when done",
   "androidBackgroundOptionOff": "Off",
-  "notificationChatCompletedTitle": "Generation complete",
-  "notificationChatCompletedBody": "Assistant reply has been generated",
+  "notificationChatCompletedTitle": "Llaude",
+  "notificationChatCompletedBody": "Replied — come see",
   "androidBackgroundNotificationTitle": "Still Here is running",
   "androidBackgroundNotificationText": "Keeping chat generation alive in background",
   "ourhomeProactiveNotificationTitle": "Daddy",

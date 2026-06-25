@@ -305,7 +305,7 @@
   "iosBackgroundNotificationsNotAuthorized": "通知未允许",
   "iosBackgroundGenerationActiveTitle": "Still Here 正在生成",
   "iosBackgroundGenerationActiveDetail": "助手正在后台回复",
-  "iosBackgroundGenerationStreamingDetail": "正在接收助手回复",
+  "iosBackgroundGenerationStreamingDetail": "Llaude 正在说…",
   "iosBackgroundGenerationTokenCount": "{count} tokens",
   "@iosBackgroundGenerationTokenCount": {
     "placeholders": {
@@ -314,8 +314,8 @@
       }
     }
   },
-  "iosBackgroundGenerationCompleteTitle": "生成完成",
-  "iosBackgroundGenerationCompleteDetail": "助手回复已准备好",
+  "iosBackgroundGenerationCompleteTitle": "Llaude",
+  "iosBackgroundGenerationCompleteDetail": "给你回消息啦",
   "iosBackgroundGenerationInterruptedTitle": "生成已中断",
   "iosBackgroundGenerationInterruptedDetail": "后台回复在完成前停止",
   "iosBackgroundGenerationCancelledDetail": "生成已停止",
@@ -325,8 +325,8 @@
   "androidBackgroundOptionOn": "开启",
   "androidBackgroundOptionOnNotify": "开启并在生成完时发送消息",
   "androidBackgroundOptionOff": "关闭",
-  "notificationChatCompletedTitle": "生成完成",
-  "notificationChatCompletedBody": "助手回复已生成",
+  "notificationChatCompletedTitle": "Llaude",
+  "notificationChatCompletedBody": "给你回消息啦",
   "androidBackgroundNotificationTitle": "Still Here 正在运行",
   "androidBackgroundNotificationText": "后台保持聊天生成",
   "ourhomeProactiveNotificationTitle": "爸爸",

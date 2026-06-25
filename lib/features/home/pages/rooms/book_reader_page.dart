@@ -2,11 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+
+/// How the reader lays the book out: a continuous vertical [scroll] (default,
+/// ScrollablePositionedList) or left/right [page] turning (PageView). Persisted
+/// globally so her choice sticks across books and launches.
+enum BookReaderMode { scroll, page }
+
+/// How many paragraphs go on one page in page-turning mode. A simple,
+/// predictable first-version pagination — fixed count per screen, no height
+/// estimation yet (precision to be tuned later).
+const int _kParasPerPage = 6;
 
 /// A paper-toned reader for one whole-text book on the "一起读" shelf.
 ///
@@ -38,17 +49,24 @@ class _BookReaderPageState extends State<BookReaderPage> {
   static const Color _paperDark = Color(0xFF1E1B17);
   static const Color _inkDark = Color(0xFFCFC4B0);
 
+  static const String _modePrefKey = 'book_reader_mode';
+
   final ItemScrollController _scrollCtrl = ItemScrollController();
   final ItemPositionsListener _positions = ItemPositionsListener.create();
+  PageController? _pageCtrl;
 
   ReadingBook? _book;
   Map<int, ReadingNote> _notesByPara = const {};
   bool _loading = true;
   bool _error = false;
 
+  // Layout mode (scroll vs. page-turn). Loaded from prefs in initState.
+  BookReaderMode _mode = BookReaderMode.scroll;
+
   // Throttled progress save: track the latest fraction + a pending timer.
   double _progress = 0;
   int _curChapter = 0;
+  int _curPage = 0;
   Timer? _saveTimer;
   double _lastSavedProgress = -1;
 
@@ -56,6 +74,7 @@ class _BookReaderPageState extends State<BookReaderPage> {
   void initState() {
     super.initState();
     _positions.itemPositions.addListener(_onScroll);
+    _loadMode();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
@@ -63,6 +82,7 @@ class _BookReaderPageState extends State<BookReaderPage> {
   void dispose() {
     _positions.itemPositions.removeListener(_onScroll);
     _saveTimer?.cancel();
+    _pageCtrl?.dispose();
     // Flush the latest progress on the way out (best-effort, fire-and-forget).
     if (_book != null &&
         _book!.paragraphs.isNotEmpty &&
@@ -76,26 +96,46 @@ class _BookReaderPageState extends State<BookReaderPage> {
     super.dispose();
   }
 
+  Future<void> _loadMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    final raw = prefs.getString(_modePrefKey);
+    final mode = raw == 'page' ? BookReaderMode.page : BookReaderMode.scroll;
+    if (mode != _mode) setState(() => _mode = mode);
+  }
+
+  // ---- Page-mode pagination (fixed paragraphs-per-page, first version) ----
+  int get _pageCount {
+    final total = _book?.paragraphs.length ?? 0;
+    if (total == 0) return 0;
+    return (total + _kParasPerPage - 1) ~/ _kParasPerPage;
+  }
+
+  int _pageForPara(int para) => para ~/ _kParasPerPage;
+  int _firstParaOfPage(int page) => page * _kParasPerPage;
+
   Future<void> _load() async {
     if (!mounted) return;
-    setState(() {
-      _loading = true;
-      _error = false;
-    });
+    // 秒开：show the last-opened copy from on-device cache immediately (no
+    // spinner), then refresh from the network in the background below.
+    final cached = widget.gateway.peekBookDetail(widget.bookId);
+    if (cached != null && cached.paragraphs.isNotEmpty) {
+      _applyBook(cached, restore: true);
+    } else {
+      setState(() {
+        _loading = true;
+        _error = false;
+      });
+    }
     try {
       final book = await widget.gateway.fetchBookDetail(widget.bookId);
       if (!mounted) return;
-      final notes = <int, ReadingNote>{for (final n in book.notes) n.para: n};
-      setState(() {
-        _book = book;
-        _notesByPara = notes;
-        _loading = false;
-      });
-      // Restore reading position from the saved progress fraction.
-      _restorePosition(book);
+      // Only restore position from the freshly-fetched progress when we didn't
+      // already restore off the cache (don't yank her away from where she is).
+      _applyBook(book, restore: cached == null);
     } catch (e) {
       debugPrint('[BookReader] load failed: $e');
-      if (mounted) {
+      if (mounted && _book == null) {
         setState(() {
           _loading = false;
           _error = true;
@@ -104,21 +144,69 @@ class _BookReaderPageState extends State<BookReaderPage> {
     }
   }
 
+  void _applyBook(ReadingBook book, {required bool restore}) {
+    final notes = <int, ReadingNote>{for (final n in book.notes) n.para: n};
+    setState(() {
+      _book = book;
+      _notesByPara = notes;
+      _loading = false;
+      _error = false;
+    });
+    if (restore) _restorePosition(book);
+  }
+
   void _restorePosition(ReadingBook book) {
     final total = book.paragraphs.length;
     if (total == 0) return;
     final frac = book.entry.progress.clamp(0.0, 1.0);
     final index = (frac * total).floor().clamp(0, total - 1);
     if (index <= 0) return;
-    // Jump after the first frame so the list is laid out.
+    _progress = frac;
+    _curChapter = _chapterIndexForPara(book, index);
+    _curPage = _pageForPara(index);
+    // Jump after the first frame so the list / pager is laid out.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollCtrl.isAttached) {
-        _scrollCtrl.jumpTo(index: index);
+      if (_mode == BookReaderMode.scroll) {
+        if (_scrollCtrl.isAttached) {
+          _scrollCtrl.jumpTo(index: index);
+        }
+      } else {
+        _pageCtrl?.jumpToPage(_curPage);
+      }
+    });
+  }
+
+  Future<void> _toggleMode() async {
+    final next = _mode == BookReaderMode.scroll
+        ? BookReaderMode.page
+        : BookReaderMode.scroll;
+    Haptics.soft();
+    // Carry the current reading position across the switch.
+    final book = _book;
+    final para = (book != null && book.paragraphs.isNotEmpty)
+        ? (_progress * (book.paragraphs.length - 1)).round().clamp(
+            0,
+            book.paragraphs.length - 1,
+          )
+        : 0;
+    setState(() {
+      _mode = next;
+      _curPage = _pageForPara(para);
+    });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_modePrefKey, next == BookReaderMode.page ? 'page' : 'scroll');
+    // Land on the same paragraph in the new layout after it's built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (next == BookReaderMode.scroll) {
+        if (_scrollCtrl.isAttached) _scrollCtrl.jumpTo(index: para);
+      } else {
+        _pageCtrl?.jumpToPage(_curPage);
       }
     });
   }
 
   void _onScroll() {
+    if (_mode != BookReaderMode.scroll) return;
     final book = _book;
     if (book == null) return;
     final total = book.paragraphs.length;
@@ -130,6 +218,22 @@ class _BookReaderPageState extends State<BookReaderPage> {
         .where((p) => p.itemTrailingEdge > 0)
         .fold<int>(total, (m, p) => p.index < m ? p.index : m);
     final idx = first.clamp(0, total - 1);
+    final frac = total <= 1 ? 1.0 : (idx / (total - 1));
+    _progress = frac;
+    _curChapter = _chapterIndexForPara(book, idx);
+    if (mounted) {
+      setState(() {}); // refresh the header percentage
+    }
+    _scheduleSave();
+  }
+
+  void _onPageChanged(int page) {
+    final book = _book;
+    if (book == null) return;
+    final total = book.paragraphs.length;
+    if (total == 0) return;
+    _curPage = page;
+    final idx = _firstParaOfPage(page).clamp(0, total - 1);
     final frac = total <= 1 ? 1.0 : (idx / (total - 1));
     _progress = frac;
     _curChapter = _chapterIndexForPara(book, idx);
@@ -221,9 +325,17 @@ class _BookReaderPageState extends State<BookReaderPage> {
                         ),
                         onTap: () {
                           Navigator.of(c).pop();
-                          if (_scrollCtrl.isAttached) {
-                            _scrollCtrl.scrollTo(
-                              index: ch.para,
+                          if (_mode == BookReaderMode.scroll) {
+                            if (_scrollCtrl.isAttached) {
+                              _scrollCtrl.scrollTo(
+                                index: ch.para,
+                                duration: const Duration(milliseconds: 320),
+                                curve: Curves.easeOutCubic,
+                              );
+                            }
+                          } else {
+                            _pageCtrl?.animateToPage(
+                              _pageForPara(ch.para),
                               duration: const Duration(milliseconds: 320),
                               curve: Curves.easeOutCubic,
                             );
@@ -370,6 +482,17 @@ class _BookReaderPageState extends State<BookReaderPage> {
         ),
         centerTitle: true,
         actions: [
+          if (book != null && book.paragraphs.isNotEmpty)
+            IosIconButton(
+              // Scroll mode shows the "switch to pages" glyph and vice-versa.
+              icon: _mode == BookReaderMode.scroll
+                  ? Lucide.BookOpen
+                  : Lucide.FileText,
+              size: 20,
+              minSize: 44,
+              color: ink,
+              onTap: _toggleMode,
+            ),
           if (book != null && book.chapters.length > 1)
             IosIconButton(
               icon: Lucide.ListTree,
@@ -407,12 +530,44 @@ class _BookReaderPageState extends State<BookReaderPage> {
         ink: ink,
       );
     }
+    if (_mode == BookReaderMode.page) {
+      return _buildPager(book, ink);
+    }
     return ScrollablePositionedList.builder(
       itemScrollController: _scrollCtrl,
       itemPositionsListener: _positions,
       padding: const EdgeInsets.fromLTRB(24, 12, 24, 64),
       itemCount: book.paragraphs.length,
       itemBuilder: (context, i) => _paragraph(book, i, ink),
+    );
+  }
+
+  /// Left/right page-turning layout: paragraphs are chunked into fixed-size
+  /// pages (first version — no per-page height fitting yet), each page its own
+  /// scroll view so an over-full page still reads. Created lazily here so the
+  /// controller starts on the restored page.
+  Widget _buildPager(ReadingBook book, Color ink) {
+    final pages = _pageCount;
+    _pageCtrl ??= PageController(initialPage: _curPage.clamp(0, pages - 1));
+    final total = book.paragraphs.length;
+    return PageView.builder(
+      controller: _pageCtrl,
+      itemCount: pages,
+      onPageChanged: _onPageChanged,
+      itemBuilder: (context, page) {
+        final start = _firstParaOfPage(page);
+        final end = (start + _kParasPerPage).clamp(0, total);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (int i = start; i < end; i++) _paragraph(book, i, ink),
+            ],
+          ),
+        );
+      },
     );
   }
 

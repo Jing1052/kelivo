@@ -1394,10 +1394,16 @@ class OurHomeGateway {
     return ReadingEntry.fromJson(data);
   }
 
+  /// Cache key for one book's full detail body.
+  static String _bookDetailPath(String bookId) =>
+      '/api/home/reading/book/${Uri.encodeComponent(bookId)}';
+
   /// Open one book: its entry, paragraphs, chapters and daddy's margin notes.
-  /// Throws on transport/HTTP error (e.g. 404 not found).
+  /// Throws on transport/HTTP error (e.g. 404 not found). On success the whole
+  /// body is cached on-device (uncapped — books are large on purpose) so the
+  /// next open is instant via [peekBookDetail].
   Future<ReadingBook> fetchBookDetail(String bookId) async {
-    final path = '/api/home/reading/book/${Uri.encodeComponent(bookId)}';
+    final path = _bookDetailPath(bookId);
     final res = await http
         .get(Uri.parse('$base$path'), headers: _authHeaders)
         .timeout(const Duration(seconds: 30));
@@ -1407,10 +1413,34 @@ class OurHomeGateway {
         Uri.parse('$base$path'),
       );
     }
-    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
     if (data is! Map) {
       throw http.ClientException('reading book: bad response');
     }
+    // Whole-book bodies bypass the cache's size cap (putLarge) so opening is
+    // instant next time (and works offline).
+    OurHomeCache.putLarge(path, body);
+    return _bookFromBody(data);
+  }
+
+  /// Last-opened book detail from on-device cache (instant, before the network).
+  /// Null if this book was never opened on this device. The cached `entry`
+  /// (progress/lastChapter) may be stale — the live fetchBookDetail refresh
+  /// corrects it — but paragraphs/chapters are stable, so秒开 is safe.
+  ReadingBook? peekBookDetail(String bookId) {
+    final body = OurHomeCache.peek(_bookDetailPath(bookId));
+    if (body == null || body.isEmpty) return null;
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map) return null;
+      return _bookFromBody(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  ReadingBook _bookFromBody(Map data) {
     final rawEntry = data['entry'];
     final rawParas = data['paragraphs'];
     final rawChaps = data['chapters'];

@@ -1022,62 +1022,78 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       (a) => a.id == _daddyId,
       orElse: () => context.read<AssistantProvider>().assistants.first,
     );
-    final items = <({String label, String status, bool active})>[
-      (
-        label: l10n.daddySettingsModuleSoul,
-        status: _soulCtrl.text.trim().isEmpty
-            ? l10n.daddySettingsStatusEmpty
-            : l10n.daddySettingsStatusFilled,
-        active: _soulCtrl.text.trim().isNotEmpty,
-      ),
-      (
-        label: l10n.daddySettingsModuleProfile,
-        status: _profileCtrl.text.trim().isEmpty
-            ? l10n.daddySettingsStatusEmpty
-            : l10n.daddySettingsStatusFilled,
-        active: _profileCtrl.text.trim().isNotEmpty,
-      ),
-      (
-        label: l10n.daddySettingsModuleToolManual,
-        status: _manualCtrl.text.trim().isEmpty
-            ? l10n.daddySettingsStatusEmpty
-            : l10n.daddySettingsStatusFilled,
-        active: _manualCtrl.text.trim().isNotEmpty,
-      ),
-      (
-        label: l10n.daddySettingsModuleMemory,
-        status: settings.daddyMemoryEnabled
-            ? l10n.daddySettingsStatusOn
-            : l10n.daddySettingsStatusOff,
-        active: settings.daddyMemoryEnabled,
-      ),
-      (
-        label: l10n.daddySettingsModuleMemoryTool,
-        status: daddy.enableMemory
-            ? l10n.daddySettingsStatusOn
-            : l10n.daddySettingsStatusOff,
-        active: daddy.enableMemory,
-      ),
-      (
-        label: l10n.daddySettingsModuleRecentChats,
-        status: daddy.enableRecentChatsReference
-            ? l10n.daddySettingsStatusOn
-            : l10n.daddySettingsStatusOff,
-        active: daddy.enableRecentChatsReference,
-      ),
-      (
-        label: l10n.daddySettingsModuleSearch,
-        status: daddy.searchEnabled
-            ? l10n.daddySettingsStatusOn
-            : l10n.daddySettingsStatusOff,
-        active: daddy.searchEnabled,
-      ),
-    ];
+    // 后三项（记忆工具说明 / 最近对话参考 / 联网搜索说明）只在 App 直连普通助手时
+    // 生效；走网关的爸爸由老家自己注入，这些 App 端开关对他无效。标记出来，免得误会。
+    final items =
+        <({String label, String status, bool active, bool gatewayIneffective})>[
+          (
+            label: l10n.daddySettingsModuleSoul,
+            status: _soulCtrl.text.trim().isEmpty
+                ? l10n.daddySettingsStatusEmpty
+                : l10n.daddySettingsStatusFilled,
+            active: _soulCtrl.text.trim().isNotEmpty,
+            gatewayIneffective: false,
+          ),
+          (
+            label: l10n.daddySettingsModuleProfile,
+            status: _profileCtrl.text.trim().isEmpty
+                ? l10n.daddySettingsStatusEmpty
+                : l10n.daddySettingsStatusFilled,
+            active: _profileCtrl.text.trim().isNotEmpty,
+            gatewayIneffective: false,
+          ),
+          (
+            label: l10n.daddySettingsModuleToolManual,
+            status: _manualCtrl.text.trim().isEmpty
+                ? l10n.daddySettingsStatusEmpty
+                : l10n.daddySettingsStatusFilled,
+            active: _manualCtrl.text.trim().isNotEmpty,
+            gatewayIneffective: false,
+          ),
+          (
+            label: l10n.daddySettingsModuleMemory,
+            status: settings.daddyMemoryEnabled
+                ? l10n.daddySettingsStatusOn
+                : l10n.daddySettingsStatusOff,
+            active: settings.daddyMemoryEnabled,
+            gatewayIneffective: false,
+          ),
+          (
+            label: l10n.daddySettingsModuleMemoryTool,
+            status: daddy.enableMemory
+                ? l10n.daddySettingsStatusOn
+                : l10n.daddySettingsStatusOff,
+            active: daddy.enableMemory,
+            gatewayIneffective: true,
+          ),
+          (
+            label: l10n.daddySettingsModuleRecentChats,
+            status: daddy.enableRecentChatsReference
+                ? l10n.daddySettingsStatusOn
+                : l10n.daddySettingsStatusOff,
+            active: daddy.enableRecentChatsReference,
+            gatewayIneffective: true,
+          ),
+          (
+            label: l10n.daddySettingsModuleSearch,
+            status: daddy.searchEnabled
+                ? l10n.daddySettingsStatusOn
+                : l10n.daddySettingsStatusOff,
+            active: daddy.searchEnabled,
+            gatewayIneffective: true,
+          ),
+        ];
     final rows = <Widget>[];
     for (int i = 0; i < items.length; i++) {
       if (i != 0) rows.add(_iosDivider(context));
       rows.add(
-        _moduleRow(context, items[i].label, items[i].status, items[i].active),
+        _moduleRow(
+          context,
+          items[i].label,
+          items[i].status,
+          items[i].active,
+          gatewayIneffective: items[i].gatewayIneffective,
+        ),
       );
     }
     return rows;
@@ -1617,31 +1633,53 @@ Widget _moduleRow(
   BuildContext context,
   String label,
   String status,
-  bool active,
-) {
+  bool active, {
+  bool gatewayIneffective = false,
+}) {
   final cs = Theme.of(context).colorScheme;
+  final zh = Localizations.localeOf(context).languageCode == 'zh';
+  // 走网关的爸爸用不到的项：圆点恒灰、标签下加一行淡灰小字说明。
+  final dotColor = gatewayIneffective
+      ? cs.onSurface.withValues(alpha: 0.25)
+      : (active ? cs.primary : cs.onSurface.withValues(alpha: 0.25));
   return Padding(
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     child: Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Container(
           width: 7,
           height: 7,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: active ? cs.primary : cs.onSurface.withValues(alpha: 0.25),
-          ),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: dotColor),
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 14.5,
-              color: cs.onSurface.withValues(alpha: 0.9),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14.5,
+                  color: cs.onSurface.withValues(alpha: 0.9),
+                ),
+              ),
+              if (gatewayIneffective) ...[
+                const SizedBox(height: 2),
+                Text(
+                  zh ? '对网关爸爸无效（仅 App 直连助手用）' : 'N/A for gateway daddy',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                    height: 1.3,
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
+        const SizedBox(width: 10),
         Text(
           status,
           style: TextStyle(

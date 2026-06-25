@@ -64,6 +64,15 @@ class OurHomeCache {
   /// Fire-and-forget write of the raw body for [path].
   static void put(String path, String body) {
     if (body.length > _maxBodyLength) return;
+    _putRaw(path, body);
+  }
+
+  /// Like [put] but without the [_maxBodyLength] cap — for whole-book bodies on
+  /// the reading shelf, which are deliberately large and worth keeping on Cing's
+  /// phone so a book opens instantly (and offline). Same on-disk format as [put].
+  static void putLarge(String path, String body) => _putRaw(path, body);
+
+  static void _putRaw(String path, String body) {
     _mem[path] = body;
     final dir = _dir;
     if (dir == null) return;
