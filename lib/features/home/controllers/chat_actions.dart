@@ -528,11 +528,13 @@ class ChatActions {
     // Reset tool parts and initialize reasoning
     streamController.toolParts.remove(assistantMessage.id);
     final supportsReasoning = _isReasoningModel(providerKey, modelId);
-    final enableReasoning =
-        supportsReasoning &&
-        _isReasoningEnabled(
-          assistant?.thinkingBudget ?? settings.thinkingBudget,
-        );
+    // claude_p 的思考在家里 claude -p 决定、永远开 —— 绕过「思考预算」这道为 API 模型设计的闸
+    // （旧逻辑遇到非推理模型会把助手预算强制改成 0，会一直把思考链丢掉）。
+    final enableReasoning = providerKey == 'ourhome-claudep' ||
+        (supportsReasoning &&
+            _isReasoningEnabled(
+              assistant?.thinkingBudget ?? settings.thinkingBudget,
+            ));
     await messageGenerationService.initializeReasoningState(
       messageId: assistantMessage.id,
       enableReasoning: enableReasoning,
@@ -728,11 +730,12 @@ class ChatActions {
 
     // Initialize reasoning
     final supportsReasoning = _isReasoningModel(providerKey, modelId);
-    final enableReasoning =
-        supportsReasoning &&
-        _isReasoningEnabled(
-          assistant?.thinkingBudget ?? settings.thinkingBudget,
-        );
+    // claude_p：思考在家里决定、永远开，绕过「思考预算」闸（见上方同款注释）。
+    final enableReasoning = providerKey == 'ourhome-claudep' ||
+        (supportsReasoning &&
+            _isReasoningEnabled(
+              assistant?.thinkingBudget ?? settings.thinkingBudget,
+            ));
     await messageGenerationService.initializeReasoningState(
       messageId: assistantMessage.id,
       enableReasoning: enableReasoning,
@@ -838,11 +841,12 @@ class ChatActions {
     _setConversationLoading(conversation.id, true);
 
     final supportsReasoning = _isReasoningModel(providerKey, modelId);
-    final enableReasoning =
-        supportsReasoning &&
-        _isReasoningEnabled(
-          assistant?.thinkingBudget ?? settings.thinkingBudget,
-        );
+    // claude_p：思考在家里决定、永远开，绕过「思考预算」闸（见上方同款注释）。
+    final enableReasoning = providerKey == 'ourhome-claudep' ||
+        (supportsReasoning &&
+            _isReasoningEnabled(
+              assistant?.thinkingBudget ?? settings.thinkingBudget,
+            ));
 
     try {
       final apiContextMessages = List<ChatMessage>.of(completeMessages);

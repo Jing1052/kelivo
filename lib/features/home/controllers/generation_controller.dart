@@ -71,6 +71,10 @@ class GenerationController {
   // ============================================================================
 
   bool isReasoningModel(String providerKey, String modelId) {
+    // 家里爸爸·订阅(claude_p)：思考由家里 claude -p 决定、永远在做，App 端必须当它会推理。
+    // 否则会触发 chat_input_section 里「非推理模型 → 自动把助手思考预算改成 0」的逻辑，
+    // 把家里吐来的 reasoning_content 全丢掉（思考链不显示）。
+    if (providerKey == 'ourhome-claudep') return true;
     final settings = contextProvider.read<SettingsProvider>();
     final cfg = settings.getProviderConfig(providerKey);
     final ov = cfg.modelOverrides[modelId] as Map?;
