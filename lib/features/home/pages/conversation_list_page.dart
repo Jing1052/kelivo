@@ -119,7 +119,20 @@ class ConversationListPage extends StatelessWidget {
           // 初始化未完成时先留白，别闪一下「暂无对话」空状态（init 完成会 notify 刷新）。
           ? const SizedBox.shrink()
           : all.isEmpty
-          ? _EmptyState(onNewChat: () => _startNewConversation(context))
+          // 空列表也保留顶部 CC 入口：CC 是独立通道，不该随对话清零（如重装）而消失。
+          ? Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                  child: _CcEntryTile(onTap: () => _openCc(context)),
+                ),
+                Expanded(
+                  child: _EmptyState(
+                    onNewChat: () => _startNewConversation(context),
+                  ),
+                ),
+              ],
+            )
           : ListView(
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
               children: [
