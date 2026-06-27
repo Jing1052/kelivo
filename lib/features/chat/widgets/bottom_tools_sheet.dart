@@ -253,8 +253,9 @@ class _LearningAndClearSectionState extends State<_LearningAndClearSection> {
           label: l10n.bottomToolsSheetSelectModel,
           onTap: () {
             Haptics.light();
-            widget.onSelectModel?.call();
+            // 先关掉本面板，再开模型选择——反过来会把刚开的选择器立刻 pop 掉（点不开）。
             Navigator.of(context).maybePop();
+            Future.microtask(() => widget.onSelectModel?.call());
           },
           trailing: Icon(
             Lucide.ChevronRight,
@@ -269,8 +270,9 @@ class _LearningAndClearSectionState extends State<_LearningAndClearSection> {
             label: l10n.bottomToolsSheetMcpTools,
             onTap: () {
               Haptics.light();
-              widget.onOpenMcp?.call();
+              // 同上：先关本面板再开 MCP，否则会把刚开的弹层立刻 pop 掉。
               Navigator.of(context).maybePop();
+              Future.microtask(() => widget.onOpenMcp?.call());
             },
             trailing: Icon(
               Lucide.ChevronRight,
