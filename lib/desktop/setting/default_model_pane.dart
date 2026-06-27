@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../icons/lucide_adapter.dart' as lucide;
 import '../../l10n/app_localizations.dart';
 import '../../core/providers/settings_provider.dart';
+import '../../core/services/ourhome/ourhome_gateway.dart';
 import '../../shared/widgets/snackbar.dart';
 import '../../shared/widgets/ios_switch.dart';
 import '../../features/model/widgets/model_select_sheet.dart';
@@ -278,6 +279,8 @@ class DesktopDefaultModelPane extends StatelessWidget {
                     },
                     configAction: () => _showOcrPromptDialog(context),
                   ),
+                  const SizedBox(height: 16),
+                  const _DiaryBriefGatewayCard(),
                 ],
               ),
             ),
@@ -830,6 +833,390 @@ class DesktopDefaultModelPane extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// Desktop counterpart to the mobile _DiaryBriefGatewayCard.
+/// Picks the gateway's 'diary_brief' role route and toggles the diary-draft
+/// feature. Mirrors the mobile card's pattern (fetch on load, pick sheet, snackbar).
+class _DiaryBriefGatewayCard extends StatefulWidget {
+  const _DiaryBriefGatewayCard();
+
+  @override
+  State<_DiaryBriefGatewayCard> createState() =>
+      _DiaryBriefGatewayCardState();
+}
+
+class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
+  OurHomeGateway? _gateway;
+  bool _loading = true;
+  bool _noGateway = false;
+  List<({String id, String name, String model})> _profiles = const [];
+  String _diaryBriefId = '';
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _noGateway = true;
+        });
+      }
+      return;
+    }
+    _gateway = gw;
+    final data = await gw.fetchChatProviders();
+    if (!mounted) return;
+    if (data == null) {
+      setState(() {
+        _loading = false;
+        _noGateway = true;
+      });
+      return;
+    }
+    final diaryBrief = data.roleRoutes['diary_brief'];
+    final did =
+        (diaryBrief is Map ? (diaryBrief['id'] ?? '') : '').toString();
+    setState(() {
+      _loading = false;
+      _noGateway = false;
+      _profiles = data.profiles;
+      _diaryBriefId = did;
+    });
+  }
+
+  String get _currentLabel {
+    if (_diaryBriefId.isEmpty) {
+      return _isZh ? '跟随聊天中转站' : 'Follow chat relay';
+    }
+    for (final p in _profiles) {
+      if (p.id == _diaryBriefId) {
+        return p.name.isNotEmpty ? p.name : p.id;
+      }
+    }
+    return _diaryBriefId;
+  }
+
+  Future<void> _pick() async {
+    final gw = _gateway;
+    if (gw == null) return;
+    final cs = Theme.of(context).colorScheme;
+    final isZh = _isZh;
+    final profiles = _profiles;
+    final currentId = _diaryBriefId;
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        final rowBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+        Widget row({
+          required String label,
+          String? sub,
+          required bool selectedNow,
+          required VoidCallback onTap,
+        }) {
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                margin: const EdgeInsets.only(bottom: 4),
+                decoration: BoxDecoration(
+                  color: selectedNow ? rowBg : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: AppFontWeights.semibold,
+                            ),
+                          ),
+                          if (sub != null && sub.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (selectedNow)
+                      Icon(
+                        lucide.Lucide.Check,
+                        size: 16,
+                        color: cs.primary,
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+
+        return Dialog(
+          backgroundColor: cs.surface,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 40,
+            vertical: 40,
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  row(
+                    label: isZh
+                        ? '跟随聊天中转站（默认）'
+                        : 'Follow chat relay (default)',
+                    selectedNow: currentId.isEmpty,
+                    onTap: () => Navigator.of(ctx).pop(''),
+                  ),
+                  for (final p in profiles)
+                    row(
+                      label: p.name.isNotEmpty ? p.name : p.id,
+                      sub: p.model,
+                      selectedNow: p.id == currentId,
+                      onTap: () => Navigator.of(ctx).pop(p.id),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || !mounted) return;
+    final ok = await gw.setRoleRoute('diary_brief', selected, '');
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _diaryBriefId = selected);
+      showAppSnackBar(
+        context,
+        message: _isZh ? '已保存' : 'Saved',
+        type: NotificationType.success,
+      );
+    } else {
+      showAppSnackBar(
+        context,
+        message: _isZh ? '保存失败，请重试' : 'Save failed, try again',
+        type: NotificationType.error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final settings = context.watch<SettingsProvider>();
+    final l10n = AppLocalizations.of(context)!;
+    final baseBg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+    final borderColor = cs.outlineVariant.withValues(
+      alpha: isDark ? 0.08 : 0.06,
+    );
+    final rowBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+
+    Widget modelBody;
+    if (_loading) {
+      modelBody = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    } else if (_noGateway) {
+      modelBody = Text(
+        isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        style: TextStyle(
+          fontSize: 13,
+          color: cs.onSurface.withValues(alpha: 0.5),
+        ),
+      );
+    } else {
+      modelBody = MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: _pick,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: rowBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                _BrandCircle(name: _currentLabel, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _currentLabel,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 0.6),
+      ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Card header
+            Row(
+              children: [
+                Icon(lucide.Lucide.NotebookTabs, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.defaultModelPageDiaryBriefSectionTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Enable switch row
+            MouseRegion(
+              cursor: SystemMouseCursors.click,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () async {
+                  final newVal = !settings.dailyBriefEnabled;
+                  await settings.setDailyBriefEnabled(newVal);
+                  final gw = OurHomeGateway.fromContext(context);
+                  if (gw == null) return;
+                  final ok = await gw.setDailyBriefEnabled(newVal);
+                  if (!mounted) return;
+                  if (!ok) {
+                    await settings.setDailyBriefEnabled(!newVal);
+                    showAppSnackBar(
+                      context,
+                      message: isZh ? '保存失败，请重试' : 'Save failed, try again',
+                      type: NotificationType.error,
+                    );
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: rowBg,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              l10n.defaultModelPageDiaryBriefEnableTitle,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: AppFontWeights.semibold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              l10n.defaultModelPageDiaryBriefEnableSubtitle,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: cs.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      IosSwitch(
+                        value: settings.dailyBriefEnabled,
+                        onChanged: null,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Model sub-section label
+            Padding(
+              padding: const EdgeInsets.only(left: 2, bottom: 6),
+              child: Text(
+                l10n.defaultModelPageDiaryBriefModelTitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: AppFontWeights.semibold,
+                  color: cs.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+            modelBody,
+          ],
+        ),
+      ),
     );
   }
 }

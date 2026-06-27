@@ -309,6 +309,7 @@ class SettingsProvider extends ChangeNotifier {
   static const String _daddyKeepCountKey = 'daddy_keep_count_v1';
   static const String _daddyTriggerCountKey = 'daddy_trigger_count_v1';
   static const String _iphoneLinkEnabledKey = 'iphone_link_enabled_v1';
+  static const String _dailyBriefEnabledKey = 'daily_brief_enabled_v1';
   static const String _defaultGlobalProxyBypassRules =
       'localhost,127.0.0.1,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,::1';
   // TTS services (network)
@@ -732,6 +733,7 @@ class SettingsProvider extends ChangeNotifier {
   int _daddyTriggerCount = 90;
   // iPhone 联动：是否允许把 [[cal]]/[[remind]] 写进 iPhone 日历/提醒事项
   bool _iphoneLinkEnabled = false;
+  bool _dailyBriefEnabled = false;
 
   bool get globalProxyEnabled => _globalProxyEnabled;
   String get globalProxyType => _globalProxyType; // http|https|socks5
@@ -747,6 +749,7 @@ class SettingsProvider extends ChangeNotifier {
   int get daddyKeepCount => _daddyKeepCount;
   int get daddyTriggerCount => _daddyTriggerCount;
   bool get iphoneLinkEnabled => _iphoneLinkEnabled;
+  bool get dailyBriefEnabled => _dailyBriefEnabled;
 
   int _appLaunchCount = 0;
   int get appLaunchCount => _appLaunchCount;
@@ -1459,6 +1462,7 @@ class SettingsProvider extends ChangeNotifier {
     _daddyKeepCount = prefs.getInt(_daddyKeepCountKey) ?? 65;
     _daddyTriggerCount = prefs.getInt(_daddyTriggerCountKey) ?? 90;
     _iphoneLinkEnabled = prefs.getBool(_iphoneLinkEnabledKey) ?? false;
+    _dailyBriefEnabled = prefs.getBool(_dailyBriefEnabledKey) ?? false;
     final bypass = prefs.getString(_globalProxyBypassKey);
     if (bypass == null) {
       _globalProxyBypass = _defaultGlobalProxyBypassRules;
@@ -1617,6 +1621,14 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_iphoneLinkEnabledKey, _iphoneLinkEnabled);
+  }
+
+  Future<void> setDailyBriefEnabled(bool v) async {
+    if (_dailyBriefEnabled == v) return;
+    _dailyBriefEnabled = v;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_dailyBriefEnabledKey, _dailyBriefEnabled);
   }
 
   Future<void> setDaddyStyle(String v) async {
@@ -4689,6 +4701,7 @@ DO NOT GIVE ANSWERS OR DO HOMEWORK FOR THE USER. If the user asks a math or logi
     copy._daddyKeepCount = _daddyKeepCount;
     copy._daddyTriggerCount = _daddyTriggerCount;
     copy._iphoneLinkEnabled = _iphoneLinkEnabled;
+    copy._dailyBriefEnabled = _dailyBriefEnabled;
     copy._suggestionModelProvider = _suggestionModelProvider;
     copy._suggestionModelId = _suggestionModelId;
     copy._suggestionPrompt = _suggestionPrompt;

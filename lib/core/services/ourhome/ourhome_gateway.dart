@@ -2047,6 +2047,23 @@ class OurHomeGateway {
     }
   }
 
+  /// Toggle daddy's "diary draft" (daily brief) on the server.
+  Future<bool> setDailyBriefEnabled(bool enabled) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/daily_brief'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'enabled': enabled}),
+          )
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] setDailyBriefEnabled failed: $e');
+      return false;
+    }
+  }
+
   /// Update heartbeat config keys (POST action=config). Throws on error.
   Future<void> updateHeartbeatConfig(Map<String, dynamic> changed) async {
     final res = await http
