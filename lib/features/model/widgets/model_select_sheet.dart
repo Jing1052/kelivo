@@ -385,12 +385,55 @@ class _ModelSelectSheetState extends State<_ModelSelectSheet> {
     _itemPositionsListener.itemPositions.addListener(
       _scheduleActiveProviderUpdate,
     );
-    // Delay loading to allow the sheet to open first
-    Future.delayed(const Duration(milliseconds: 50), () {
-      if (mounted) {
-        _loadModelsAsync();
+    // 秒显：常规大小的列表在首帧前就同步处理好，打开即铺满——不再「延迟 50ms +
+    // 开后台 isolate」。那条老路的 isolate 启动+数据拷贝开销，对几十个模型反而比
+    // 直接算更慢，表现为打开时有一段 loading 空档。只有模型特别多(>300)时才退回
+    // 后台 isolate，避免同步处理阻塞开场滑入动画。
+    _initModelsFast();
+  }
+
+  /// 首帧前同步铺好模型列表（小/中列表）；超大列表退回延迟 + isolate。
+  void _initModelsFast() {
+    try {
+      final settings = context.read<SettingsProvider>();
+      final assistantProvider = context.read<AssistantProvider>();
+      final providerConfigs = _buildProviderConfigsPayload(settings);
+      final totalModels = providerConfigs.values.fold<int>(
+        0,
+        (n, v) => n + (((v as Map)['models'] as List?)?.length ?? 0),
+      );
+      if (totalModels > 300) {
+        // 超大列表：保留原异步路径，别卡住开场动画
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) _loadModelsAsync();
+        });
+        return;
       }
-    });
+      final currentKey = _currentModelKey(settings, assistantProvider);
+      final processingData = _ModelProcessingData(
+        providerConfigs: providerConfigs,
+        pinnedModels: settings.pinnedModels,
+        currentModelKey: currentKey,
+        providersOrder: _buildDisplayProvidersOrder(
+          settings,
+          providerConfigs.keys,
+        ),
+        limitProviderKey: widget.limitProviderKey,
+        disableResolverPlatformLogging: true,
+      );
+      final result = _processModelsInBackground(processingData);
+      // 首帧前直接落字段（还没 build，不能也不必 setState）→ 打开即就绪。
+      _groups = result.groups;
+      _orderedKeys = result.orderedKeys;
+      _isLoading = false;
+      _activeProviderKey = null;
+      _scheduleAutoScrollToCurrent();
+    } catch (_) {
+      // 任何意外都退回原异步路径，绝不把页面卡死/空白
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mounted) _loadModelsAsync();
+      });
+    }
   }
 
   Future<void> _loadModelsAsync() async {
