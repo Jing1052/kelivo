@@ -2448,13 +2448,17 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                   _buildAssistantTextBlock(context, block.text!, settings),
                 );
               } else if (block.steps.isNotEmpty) {
-                widgets.add(
-                  _ChainOfThoughtCard(
-                    steps: block.steps,
-                    onRecoveredAnswer: widget.onRecoveredAskUserAnswer,
-                    hideHeader: hasPill,
-                  ),
-                );
+                // 有 pill 时：收起就整张卡都不画（连空壳/月亮白卡都不留）；展开才画，
+                // 由 pill 当唯一开关。没 pill 时照旧（卡自带头部开关）。
+                if (!hasPill || effectiveExpanded) {
+                  widgets.add(
+                    _ChainOfThoughtCard(
+                      steps: block.steps,
+                      onRecoveredAnswer: widget.onRecoveredAskUserAnswer,
+                      hideHeader: hasPill,
+                    ),
+                  );
+                }
               }
               if (i != renderBlocks.length - 1) {
                 widgets.add(const SizedBox(height: 8));
@@ -4367,6 +4371,19 @@ class _ChainOfThoughtReasoningStepState
       );
     } else if (state == _ReasoningStepState.expanded) {
       content = SelectionArea(child: reasoningContent(display));
+    }
+
+    // hideHeader：外部那枚 ✦爸爸想了想✧ pill 已是唯一开关 + 「收起」的表示。
+    // 收起时整块不画（不再留一个只剩月亮的空白白卡）；展开/流式时只画思考内容本身——
+    // 思考链点开照常可见，不会丢。
+    if (widget.hideHeader) {
+      if (state == _ReasoningStepState.collapsed) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(top: 2, bottom: 6),
+        child: content,
+      );
     }
 
     // When hideHeader is true the external _ThinkingPill is the sole toggle;
