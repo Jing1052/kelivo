@@ -2208,5 +2208,9 @@
   "appIconNameCatMoon": "奶橘猫月",
   "appIconNameStarCat": "星空猫月",
   "appIconNameBunnyMoon": "家·兔月牙",
-  "appIconNameFlowerCat": "花瓣猫"
+  "appIconNameFlowerCat": "花瓣猫",
+  "chatThinkingPillLabel": "爸爸想了想",
+  "@chatThinkingPillLabel": {
+    "description": "Label shown on the thinking pill above the assistant message bubble when reasoning is present."
+  }
 }
