@@ -12,6 +12,7 @@ import '../../../utils/brand_assets.dart';
 import '../../../core/services/haptics.dart';
 import '../../../theme/app_font_weights.dart';
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
+import '../../../shared/widgets/ios_switch.dart';
 
 class DefaultModelPage extends StatelessWidget {
   const DefaultModelPage({super.key});
@@ -130,6 +131,8 @@ class DefaultModelPage extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const _DaddyGatewayModelCard(),
+          const SizedBox(height: 16),
+          const _DiaryBriefGatewayCard(),
         ],
       ),
     );
@@ -573,6 +576,408 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
             ),
             const SizedBox(height: 12),
             body,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the old-home gateway's server-side `diary_brief` model and toggles
+/// the daily-brief (日记底稿) feature on/off. Mirrors _DaddyGatewayModelCard
+/// but for role 'diary_brief'. Enable state is persisted locally in
+/// SettingsProvider and pushed to the server via OurHomeGateway.setDailyBriefEnabled.
+class _DiaryBriefGatewayCard extends StatefulWidget {
+  const _DiaryBriefGatewayCard();
+
+  @override
+  State<_DiaryBriefGatewayCard> createState() => _DiaryBriefGatewayCardState();
+}
+
+class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
+  OurHomeGateway? _gateway;
+  bool _loading = true;
+  bool _noGateway = false;
+  List<({String id, String name, String model})> _profiles = const [];
+  // Current diary_brief route. Empty id = follow the chat relay.
+  String _diaryBriefId = '';
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _noGateway = true;
+        });
+      }
+      return;
+    }
+    _gateway = gw;
+    final data = await gw.fetchChatProviders();
+    if (!mounted) return;
+    if (data == null) {
+      setState(() {
+        _loading = false;
+        _noGateway = true;
+      });
+      return;
+    }
+    final diaryBrief = data.roleRoutes['diary_brief'];
+    final did =
+        (diaryBrief is Map ? (diaryBrief['id'] ?? '') : '').toString();
+    setState(() {
+      _loading = false;
+      _noGateway = false;
+      _profiles = data.profiles;
+      _diaryBriefId = did;
+    });
+  }
+
+  String get _currentLabel {
+    if (_diaryBriefId.isEmpty) {
+      return _isZh ? '跟随聊天中转站' : 'Follow chat relay';
+    }
+    for (final p in _profiles) {
+      if (p.id == _diaryBriefId) {
+        return p.name.isNotEmpty ? p.name : p.id;
+      }
+    }
+    return _diaryBriefId;
+  }
+
+  Future<void> _pick() async {
+    final gw = _gateway;
+    if (gw == null) return;
+    final cs = Theme.of(context).colorScheme;
+    final isZh = _isZh;
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        Widget row({
+          required String label,
+          String? sub,
+          required bool selectedNow,
+          required VoidCallback onTap,
+        }) {
+          return _TactileRow(
+            onTap: onTap,
+            builder: (pressed) {
+              final bg = pressed
+                  ? (isDark ? Colors.white10 : const Color(0xFFF2F3F5))
+                  : Colors.transparent;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 120),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: AppFontWeights.semibold,
+                            ),
+                          ),
+                          if (sub != null && sub.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              sub,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: cs.onSurface.withValues(alpha: 0.6),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (selectedNow)
+                      Icon(Lucide.Check, size: 18, color: cs.primary),
+                  ],
+                ),
+              );
+            },
+          );
+        }
+
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                row(
+                  label: isZh
+                      ? '跟随聊天中转站（默认）'
+                      : 'Follow chat relay (default)',
+                  selectedNow: _diaryBriefId.isEmpty,
+                  onTap: () => Navigator.of(ctx).pop(''),
+                ),
+                for (final p in _profiles)
+                  row(
+                    label: p.name.isNotEmpty ? p.name : p.id,
+                    sub: p.model,
+                    selectedNow: p.id == _diaryBriefId,
+                    onTap: () => Navigator.of(ctx).pop(p.id),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (selected == null || !mounted) return;
+    final ok = await gw.setRoleRoute('diary_brief', selected, '');
+    if (!mounted) return;
+    if (ok) {
+      setState(() => _diaryBriefId = selected);
+      showAppSnackBar(
+        context,
+        message: _isZh ? '已保存' : 'Saved',
+        type: NotificationType.success,
+      );
+    } else {
+      showAppSnackBar(
+        context,
+        message: _isZh ? '保存失败，请重试' : 'Save failed, try again',
+        type: NotificationType.error,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final settings = context.watch<SettingsProvider>();
+    final l10n = AppLocalizations.of(context)!;
+    final baseBg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+
+    // Enable switch row
+    final enableRow = _TactileRow(
+      onTap: () async {
+        final newVal = !settings.dailyBriefEnabled;
+        await settings.setDailyBriefEnabled(newVal);
+        final gw = OurHomeGateway.fromContext(context);
+        if (gw == null) return;
+        final ok = await gw.setDailyBriefEnabled(newVal);
+        if (!mounted) return;
+        if (!ok) {
+          // Revert local on server failure
+          await settings.setDailyBriefEnabled(!newVal);
+          showAppSnackBar(
+            context,
+            message: isZh ? '保存失败，请重试' : 'Save failed, try again',
+            type: NotificationType.error,
+          );
+        }
+      },
+      builder: (pressed) {
+        final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+        final overlay = isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.05);
+        final pressedBg = Color.alphaBlend(overlay, bg);
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: pressed ? pressedBg : bg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.defaultModelPageDiaryBriefEnableTitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      l10n.defaultModelPageDiaryBriefEnableSubtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              IosSwitch(
+                value: settings.dailyBriefEnabled,
+                onChanged: null, // tap handled by _TactileRow wrapper
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    Widget modelBody;
+    if (_loading) {
+      modelBody = const Padding(
+        padding: EdgeInsets.symmetric(vertical: 6),
+        child: SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    } else if (_noGateway) {
+      modelBody = Text(
+        isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        style: TextStyle(
+          fontSize: 13,
+          color: cs.onSurface.withValues(alpha: 0.5),
+        ),
+      );
+    } else {
+      modelBody = _TactileRow(
+        onTap: _pick,
+        builder: (pressed) {
+          final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+          final overlay = isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.05);
+          final pressedBg = Color.alphaBlend(overlay, bg);
+          return AnimatedScale(
+            scale: pressed ? 0.98 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: pressed ? pressedBg : bg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  _BrandAvatar(name: _currentLabel, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _currentLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Lucide.NotebookTabs, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    l10n.defaultModelPageDiaryBriefSectionTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            enableRow,
+            const SizedBox(height: 8),
+            // Model picker sub-section header
+            Padding(
+              padding: const EdgeInsets.only(left: 2, bottom: 6),
+              child: Text(
+                l10n.defaultModelPageDiaryBriefModelTitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: AppFontWeights.semibold,
+                  color: cs.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+            modelBody,
           ],
         ),
       ),
