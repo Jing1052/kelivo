@@ -2638,5 +2638,9 @@
   "appIconNameCatMoon": "Apricot Cat Moon",
   "appIconNameStarCat": "Starry Cat Moon",
   "appIconNameBunnyMoon": "Home Bunny Moon",
-  "appIconNameFlowerCat": "Flower Cat"
+  "appIconNameFlowerCat": "Flower Cat",
+  "chatThinkingPillLabel": "Daddy thought it over",
+  "@chatThinkingPillLabel": {
+    "description": "Label shown on the thinking pill above the assistant message bubble when reasoning is present."
+  }
 }

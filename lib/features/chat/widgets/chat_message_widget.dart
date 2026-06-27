@@ -1900,8 +1900,29 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     required BuildContext context,
     required Widget child,
   }) {
-    // Reuse same styles, but flag as non-user for default fallthrough
-    return _buildBubbleContainer(context: context, isUser: false, child: child);
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Assistant bubble: soft cream/off-white in light mode, muted dark surface
+    // in dark mode — distinct from the user bubble which uses primary tint.
+    // Pull from ColorScheme tokens so the color adapts to the user's chosen
+    // seed palette: surfaceContainerLowest is a very pale surface in light mode
+    // and a dark-but-lifted surface in dark mode — exactly the right semantic.
+    final assistantColor = isDark
+        ? cs.surfaceContainerHighest.withValues(alpha: 0.55)
+        : cs.surfaceContainerLowest.withValues(alpha: 0.92);
+    final BorderRadius radius = BorderRadius.circular(
+      context.watch<SettingsProvider>().chatBubbleShape.bubbleRadius,
+    );
+    return _buildSharedChatSurface(
+      context,
+      borderRadius: radius,
+      padding: const EdgeInsets.all(12),
+      // assistantColor is used only in defaultStyle; frosted/solid styles
+      // already render their own background via _buildSharedChatSurface.
+      defaultColor: assistantColor,
+      bareOnDefault: false,
+      child: child,
+    );
   }
 
   _ParsedUserContent _parseUserContent(String raw) {
@@ -2310,6 +2331,69 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
               ];
             }
 
+            // Thinking pill: shown above all content blocks when reasoning is
+            // present. Tapping it drives the same expand/collapse toggle as the
+            // existing chain-of-thought card header.
+            // The pill is the primary toggle entry point; the card's own header
+            // row remains as a secondary touch target when expanded.
+            final hasPill =
+                hasProvidedReasoning ||
+                usingInlineThink ||
+                (widget.reasoningSegments?.isNotEmpty ?? false);
+            // Resolve the toggle callback for the pill. Mirrors the logic used
+            // to build effectiveReasoningSegments above.
+            final VoidCallback? pillToggle = usingInlineThink
+                ? () => setState(() {
+                    _inlineThinkExpanded = !(_inlineThinkExpanded ?? true);
+                    _inlineThinkManuallyToggled = true;
+                  })
+                : widget.onToggleReasoning;
+            final bool pillLoading =
+                widget.reasoningLoading && widget.reasoningFinishedAt == null;
+
+            // TODO(tool-pills): Once the gateway sends a list of tools used in
+            // this message, render a row of additional pills here using the same
+            // `_ThinkingPill` widget style, each formatted as "爸爸<phrase>"
+            // where <phrase> comes from the tool→phrase map below. These pills
+            // are non-tappable (or tap to scroll to the tool card). They appear
+            // in a Wrap row after the thinking pill.
+            //
+            // Intended tool → phrase map (do not add ARB keys yet):
+            //   recall → 翻了翻我们的回忆
+            //   dream → 沉进了回忆里
+            //   hold → 把这一刻收了起来
+            //   push → 戳了戳你
+            //   trace → 顺着来时路找了找
+            //   browse → 翻了翻旧日记
+            //   read_book → 读了会儿书
+            //   annotate → 点了弯月牙
+            //   add_song → 往歌单墙记了首歌
+            //   save_photo → 把你这张收进了相册
+            //   add_todo → 往书房记了一笔
+            //   add_film → 往影单记了部电影
+            //   add_lyric → 把整首词搬进了词廊
+            //   annotate_lyric → 在词上落了笔
+            //   web_search → 上网替你查了查
+            //   web_read → 读了篇网页
+            //   set_alarm → 给你定了个闹钟
+            //   list_alarms → 看了眼闹钟
+            //   delete_alarm → 撤了个闹钟
+            //   add_capsule → 封了颗时间胶囊
+            //   add_quote → 记下了一句话
+            //   edit_profile → 把你又记深了一点
+            //   play_music → 给你放了首歌
+            //   listening_context → 听了听你在放的歌
+            //   next_music → 给你切了首歌
+            //   music_control → 拨了拨播放器
+            //   set_theater → 拉开了小剧场的幕
+            //
+            // App-side prerequisite: ChatMessage model needs a `toolsUsed`
+            // field (List<String>) populated by the gateway. Since ChatMessage
+            // is a Hive model, adding that field requires build_runner. Once
+            // the field exists, pass it down to ChatMessageWidget and check it
+            // here. Gateway-side: include `tools_used: [...]` in the
+            // streaming response alongside reasoning_content.
+
             final renderBlocks = _buildRenderBlocks(
               visualContent,
               reasoningSegments: effectiveReasoningSegments,
@@ -2318,6 +2402,15 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                 widget.message.isStreaming &&
                 visualContent.isEmpty) {
               return <Widget>[
+                if (hasPill) ...[
+                  _ThinkingPill(
+                    label: l10n.chatThinkingPillLabel,
+                    loading: pillLoading,
+                    expanded: effectiveExpanded,
+                    onTap: pillToggle,
+                  ),
+                  const SizedBox(height: 6),
+                ],
                 SizedBox(
                   width: double.infinity,
                   child: _buildAssistantBubbleContainer(
@@ -2337,6 +2430,17 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             }
 
             final widgets = <Widget>[];
+            if (hasPill) {
+              widgets.add(
+                _ThinkingPill(
+                  label: l10n.chatThinkingPillLabel,
+                  loading: pillLoading,
+                  expanded: effectiveExpanded,
+                  onTap: pillToggle,
+                ),
+              );
+              widgets.add(const SizedBox(height: 6));
+            }
             for (int i = 0; i < renderBlocks.length; i++) {
               final block = renderBlocks[i];
               if (block.type == _RenderBlockType.text && block.text != null) {
@@ -3607,6 +3711,91 @@ class _GatewayToolCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Thinking pill rendered ABOVE the assistant bubble when reasoning is present.
+///
+/// Visual: a small rounded pill with sparkle glyphs flanking the label text,
+/// in a low-contrast secondary color. Tapping toggles the reasoning section
+/// (reuses the existing [ReasoningSegment.onToggle] / inline-think expand state).
+/// When [loading] is true (reasoning still streaming) the label shimmers.
+class _ThinkingPill extends StatelessWidget {
+  const _ThinkingPill({
+    required this.label,
+    required this.loading,
+    required this.expanded,
+    this.onTap,
+  });
+
+  final String label;
+  final bool loading;
+  final bool expanded;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Pill color: very faint, low-contrast surface. Use onSurface at very low
+    // alpha so it reads as a ghosted label rather than a button. No Android
+    // ripple — use IosCardPress for press feedback.
+    final pillBg = isDark
+        ? cs.onSurface.withValues(alpha: 0.07)
+        : cs.onSurface.withValues(alpha: 0.05);
+    final textColor = cs.onSurface.withValues(alpha: isDark ? 0.45 : 0.38);
+
+    final pillContent = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Leading sparkle — faint decoration, not translatable
+          Text(
+            '✦',
+            style: TextStyle(fontSize: 10, color: textColor, height: 1),
+          ),
+          const SizedBox(width: 5),
+          _Shimmer(
+            enabled: loading,
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.2,
+                color: textColor,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 5),
+          // Trailing sparkle variant
+          Text(
+            '✧',
+            style: TextStyle(fontSize: 10, color: textColor, height: 1),
+          ),
+          const SizedBox(width: 6),
+          // Chevron indicates expand/collapse affordance
+          Icon(
+            expanded ? Lucide.ChevronUp : Lucide.ChevronDown,
+            size: 12,
+            color: textColor,
+          ),
+        ],
+      ),
+    );
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: IosCardPress(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        baseColor: pillBg,
+        pressedBlendStrength: 0.10,
+        padding: EdgeInsets.zero,
+        child: pillContent,
       ),
     );
   }
