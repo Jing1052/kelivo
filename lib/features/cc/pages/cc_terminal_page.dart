@@ -83,12 +83,19 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
     }
     _refreshing = false;
     if (cap != null) {
+      // 只在用户本来就贴着底部时才自动滚到底——用户往上翻历史时别把他拽回去 (Bug4)。
+      // 容差 40px：差一点点也算"在底部"，但明显往上翻了就停掉 autoscroll。
+      final atBottom = !_termScroll.hasClients ||
+          (_termScroll.position.maxScrollExtent - _termScroll.position.pixels) <=
+              40;
       setState(() => _content = cap.content);
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_termScroll.hasClients) {
-          _termScroll.jumpTo(_termScroll.position.maxScrollExtent);
-        }
-      });
+      if (atBottom) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_termScroll.hasClients) {
+            _termScroll.jumpTo(_termScroll.position.maxScrollExtent);
+          }
+        });
+      }
     }
   }
 
@@ -96,6 +103,14 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
     if (!mounted) return;
     ScaffoldMessenger.of(context)
         .showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  void _jumpToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_termScroll.hasClients) {
+        _termScroll.jumpTo(_termScroll.position.maxScrollExtent);
+      }
+    });
   }
 
   Future<void> _runAction(Future<bool> Function() action) async {
@@ -109,6 +124,8 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
     // Pull a fresh frame after the action lands.
     await Future<void>.delayed(const Duration(milliseconds: 350));
     await _refresh();
+    // 用户主动发了东西 → 强制回到底部看结果（即便他刚才往上翻过；timer 刷新不会这样拽他）。
+    _jumpToBottom();
   }
 
   Future<void> _sendInput() async {
