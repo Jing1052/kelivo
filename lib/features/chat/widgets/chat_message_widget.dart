@@ -2452,6 +2452,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                   _ChainOfThoughtCard(
                     steps: block.steps,
                     onRecoveredAnswer: widget.onRecoveredAskUserAnswer,
+                    hideHeader: hasPill,
                   ),
                 );
               }
@@ -3802,11 +3803,19 @@ class _ThinkingPill extends StatelessWidget {
 }
 
 class _ChainOfThoughtCard extends StatefulWidget {
-  const _ChainOfThoughtCard({required this.steps, this.onRecoveredAnswer});
+  const _ChainOfThoughtCard({
+    required this.steps,
+    this.onRecoveredAnswer,
+    this.hideHeader = false,
+  });
 
   final List<_TimelineStepData> steps;
   final Future<void> Function(ToolUIPart part, AskUserResult result)?
   onRecoveredAnswer;
+
+  /// When true, reasoning steps suppress their own "爸爸想了想" label row and
+  /// chevron indicator — the external [_ThinkingPill] acts as the sole toggle.
+  final bool hideHeader;
 
   @override
   State<_ChainOfThoughtCard> createState() => _ChainOfThoughtCardState();
@@ -3861,6 +3870,7 @@ class _ChainOfThoughtCardState extends State<_ChainOfThoughtCard> {
             step: plan.segment!,
             isFirst: timelineIndex == 0,
             isLast: timelineIndex == timelineCount - 1,
+            hideHeader: widget.hideHeader,
           ),
         );
         timelineIndex++;
@@ -4161,11 +4171,16 @@ class _ChainOfThoughtReasoningStep extends StatefulWidget {
     required this.step,
     required this.isFirst,
     required this.isLast,
+    this.hideHeader = false,
   });
 
   final ReasoningSegment step;
   final bool isFirst;
   final bool isLast;
+
+  /// When true, the label text and chevron indicator are hidden because an
+  /// external [_ThinkingPill] already acts as the sole toggle entry point.
+  final bool hideHeader;
 
   @override
   State<_ChainOfThoughtReasoningStep> createState() =>
@@ -4354,21 +4369,29 @@ class _ChainOfThoughtReasoningStepState
       content = SelectionArea(child: reasoningContent(display));
     }
 
+    // When hideHeader is true the external _ThinkingPill is the sole toggle;
+    // suppress the duplicate label text, onTap, and chevron here.
+    final effectiveLabel =
+        widget.hideHeader ? const SizedBox.shrink() : label;
+    final effectiveOnTap = widget.hideHeader ? null : widget.step.onToggle;
+    final effectiveIndicator =
+        widget.hideHeader || widget.step.onToggle == null
+        ? null
+        : Icon(
+            state == _ReasoningStepState.expanded
+                ? Lucide.ChevronUp
+                : Lucide.ChevronDown,
+            size: 16,
+            color: fg.muted,
+          );
+
     return _TimelineStepShell(
       icon: icon,
-      label: label,
+      label: effectiveLabel,
       isFirst: widget.isFirst,
       isLast: widget.isLast,
-      onTap: widget.step.onToggle,
-      indicator: widget.step.onToggle == null
-          ? null
-          : Icon(
-              state == _ReasoningStepState.expanded
-                  ? Lucide.ChevronUp
-                  : Lucide.ChevronDown,
-              size: 16,
-              color: fg.muted,
-            ),
+      onTap: effectiveOnTap,
+      indicator: effectiveIndicator,
       content: content,
       contentVisible: state != _ReasoningStepState.collapsed,
     );

@@ -205,6 +205,7 @@ class ChatInputSection extends StatelessWidget {
                 .isNotEmpty
           : false,
       showMoreButton: !isTablet,
+      hideModelAndMcpFromBar: !isTablet,
       onClearContext: isTablet ? onClearContext : null,
       onCompressContext: isTablet ? onCompressContext : null,
       backgroundImageActive: backgroundImageActive,

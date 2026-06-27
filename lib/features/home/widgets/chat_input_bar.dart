@@ -84,6 +84,7 @@ class ChatInputBar extends StatefulWidget {
     this.learningModeActive = false,
     this.worldBookActive = false,
     this.showMoreButton = true,
+    this.hideModelAndMcpFromBar = false,
     this.showQuickPhraseButton = false,
     this.onQuickPhrase,
     this.onLongPressQuickPhrase,
@@ -135,6 +136,7 @@ class ChatInputBar extends StatefulWidget {
   final bool learningModeActive;
   final bool worldBookActive;
   final bool showMoreButton;
+  final bool hideModelAndMcpFromBar;
   final bool showQuickPhraseButton;
   final VoidCallback? onQuickPhrase;
   final VoidCallback? onLongPressQuickPhrase;
@@ -952,27 +954,29 @@ class _ChatInputBarState extends State<ChatInputBar>
         final List<_OverflowAction> actions = [];
 
         // Model select (always present; can be hidden if overflow)
-        actions.add(
-          _OverflowAction(
-            width: (widget.modelIcon != null) ? modelButtonW : normalButtonW,
-            builder: () => _CompactIconButton(
-              tooltip: l10n.chatInputBarSelectModelTooltip,
-              icon: Lucide.Boxes,
-              modelIcon: true,
-              onTap: lockTap(widget.onSelectModel),
-              onLongPress: lockTap(widget.onLongPressSelectModel),
-              child: widget.modelIcon,
+        if (!widget.hideModelAndMcpFromBar) {
+          actions.add(
+            _OverflowAction(
+              width: (widget.modelIcon != null) ? modelButtonW : normalButtonW,
+              builder: () => _CompactIconButton(
+                tooltip: l10n.chatInputBarSelectModelTooltip,
+                icon: Lucide.Boxes,
+                modelIcon: true,
+                onTap: lockTap(widget.onSelectModel),
+                onLongPress: lockTap(widget.onLongPressSelectModel),
+                child: widget.modelIcon,
+              ),
+              menu: DesktopContextMenuItem(
+                icon: Lucide.Boxes,
+                label: l10n.chatInputBarSelectModelTooltip,
+                onTap: lockTap(widget.onSelectModel),
+              ),
             ),
-            menu: DesktopContextMenuItem(
-              icon: Lucide.Boxes,
-              label: l10n.chatInputBarSelectModelTooltip,
-              onTap: lockTap(widget.onSelectModel),
-            ),
-          ),
-        );
+          );
+        }
 
         // MCP button
-        if (widget.showMcpButton) {
+        if (!widget.hideModelAndMcpFromBar && widget.showMcpButton) {
           actions.add(
             _OverflowAction(
               width: normalButtonW,
