@@ -29,11 +29,11 @@
 		</dict>
 		<key>CFBundleAlternateIcons</key>
 		<dict>
-			<key>AltCatMoon</key>
+			<key>AltFlowerCat</key>
 			<dict>
 				<key>CFBundleIconFiles</key>
 				<array>
-					<string>AltCatMoon</string>
+					<string>AltFlowerCat</string>
 				</array>
 				<key>UIPrerenderedIcon</key>
 				<false/>

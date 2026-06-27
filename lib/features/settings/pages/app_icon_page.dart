@@ -41,15 +41,11 @@ class _AppIconPageState extends State<AppIconPage> {
   bool _switching = false;
 
   static const List<_AppIconOption> _options = [
+    // Default = 杏子猫月（图二，已设为主图标 AppIcon）。原 Kelivo 圆环原生图标已移除。
     _AppIconOption(
       altName: null,
       preview: 'assets/icon_previews/catmoon.png',
       label: _labelDefault,
-    ),
-    _AppIconOption(
-      altName: 'AltCatMoon',
-      preview: 'assets/icon_previews/catmoon.png',
-      label: _labelCatMoon,
     ),
     _AppIconOption(
       altName: 'AltStarCat',
@@ -61,13 +57,19 @@ class _AppIconPageState extends State<AppIconPage> {
       preview: 'assets/icon_previews/bunnymoon.png',
       label: _labelBunnyMoon,
     ),
+    _AppIconOption(
+      altName: 'AltFlowerCat',
+      preview: 'assets/icon_previews/flowercat.png',
+      label: _labelFlowerCat,
+    ),
   ];
 
   static String _labelDefault(AppLocalizations l10n) => l10n.appIconNameDefault;
-  static String _labelCatMoon(AppLocalizations l10n) => l10n.appIconNameCatMoon;
   static String _labelStarCat(AppLocalizations l10n) => l10n.appIconNameStarCat;
   static String _labelBunnyMoon(AppLocalizations l10n) =>
       l10n.appIconNameBunnyMoon;
+  static String _labelFlowerCat(AppLocalizations l10n) =>
+      l10n.appIconNameFlowerCat;
 
   @override
   void initState() {
