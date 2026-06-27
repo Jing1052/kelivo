@@ -764,10 +764,6 @@ class _TodoRowState extends State<_TodoRow> {
     final cs = Theme.of(context).colorScheme;
     final owner = _ownerLabel();
     final muted = cs.onSurface.withValues(alpha: 0.45);
-    // The full body is only worth expanding when there is more than the
-    // single title line we already show collapsed.
-    final hasMore = todo.text.trim() != _title;
-
     final titleStyle = TextStyle(
       fontSize: 15.5,
       height: 1.35,
@@ -776,6 +772,23 @@ class _TodoRowState extends State<_TodoRow> {
           todo.done ? TextDecoration.lineThrough : TextDecoration.none,
       decorationColor: muted,
     );
+
+    // Collapsed shows the body on a single line; offering "expand" is only
+    // meaningful when the full text can't fit on that line — whether it spans
+    // multiple lines OR is one line too long. The old check (text != firstLine)
+    // missed long single-line todos: they got ellipsized with no way to open
+    // (the 【取自…】 entries). Measure the full text at maxLines:1 — a newline
+    // or a width overflow both trip didExceedMaxLines.
+    final screenW = MediaQuery.of(context).size.width;
+    // Width budget: list hpad(16×2) + card hpad(14×2) + checkbox(21) + gap(12).
+    final textAvail = screenW - 32 - 28 - 21 - 12;
+    final hasMore = (TextPainter(
+      text: TextSpan(text: todo.text.trim(), style: titleStyle),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: textAvail > 0 ? textAvail : screenW))
+        .didExceedMaxLines;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
