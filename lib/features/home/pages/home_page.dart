@@ -20,6 +20,7 @@ import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/quick_phrase_provider.dart';
 import '../../../core/providers/instruction_injection_provider.dart';
 import '../../../core/providers/world_book_provider.dart';
+import '../../../core/providers/mcp_provider.dart';
 import '../../../core/models/quick_phrase.dart';
 import '../../../core/models/chat_input_data.dart';
 import '../../../core/models/chat_message.dart';
@@ -1524,10 +1525,41 @@ class _HomePageState extends State<HomePage>
               _showContextManagementSheet();
             },
             assistantId: assistantId,
+            onSelectModel: () {
+              Navigator.of(ctx).maybePop();
+              showModelSelectSheet(context);
+            },
+            onOpenMcp: () {
+              Navigator.of(ctx).maybePop();
+              final a = context.read<AssistantProvider>().currentAssistant;
+              if (a != null) {
+                if (PlatformUtils.isDesktop) {
+                  showDesktopMcpServersPopover(
+                    context,
+                    anchorKey: _inputBarKey,
+                    assistantId: a.id,
+                  );
+                } else {
+                  showAssistantMcpSheet(context, assistantId: a.id);
+                }
+              }
+            },
+            showMcpOption: _shouldShowMcpInSheet(context),
           ),
         );
       },
     );
+  }
+
+  bool _shouldShowMcpInSheet(BuildContext context) {
+    final settings = context.read<SettingsProvider>();
+    final ap = context.read<AssistantProvider>();
+    final a = ap.currentAssistant;
+    final pk = a?.chatModelProvider ?? settings.currentModelProvider;
+    final mid = a?.chatModelId ?? settings.currentModelId;
+    if (pk == null || mid == null) return false;
+    final hasEnabledMcp = context.read<McpProvider>().hasAnyEnabled;
+    return _controller.isToolModel(pk, mid) && hasEnabledMcp;
   }
 
   void _showContextManagementSheet() async {

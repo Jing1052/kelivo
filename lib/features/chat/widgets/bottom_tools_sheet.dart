@@ -22,6 +22,9 @@ class BottomToolsSheet extends StatelessWidget {
     this.onClear,
     this.clearLabel,
     this.assistantId,
+    this.onSelectModel,
+    this.onOpenMcp,
+    this.showMcpOption = false,
   });
 
   final VoidCallback? onCamera;
@@ -30,6 +33,9 @@ class BottomToolsSheet extends StatelessWidget {
   final VoidCallback? onClear;
   final String? clearLabel;
   final String? assistantId;
+  final VoidCallback? onSelectModel;
+  final VoidCallback? onOpenMcp;
+  final bool showMcpOption;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +146,9 @@ class BottomToolsSheet extends StatelessWidget {
                       clearLabel: clearLabel,
                       onClear: onClear,
                       assistantId: assistantId,
+                      onSelectModel: onSelectModel,
+                      onOpenMcp: onOpenMcp,
+                      showMcpOption: showMcpOption,
                     ),
                   ],
                 ),
@@ -157,10 +166,16 @@ class _LearningAndClearSection extends StatefulWidget {
     this.onClear,
     this.clearLabel,
     this.assistantId,
+    this.onSelectModel,
+    this.onOpenMcp,
+    this.showMcpOption = false,
   });
   final VoidCallback? onClear;
   final String? clearLabel;
   final String? assistantId;
+  final VoidCallback? onSelectModel;
+  final VoidCallback? onOpenMcp;
+  final bool showMcpOption;
 
   @override
   State<_LearningAndClearSection> createState() =>
@@ -233,6 +248,38 @@ class _LearningAndClearSectionState extends State<_LearningAndClearSection> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        _row(
+          icon: Lucide.Boxes,
+          label: l10n.bottomToolsSheetSelectModel,
+          onTap: () {
+            Haptics.light();
+            widget.onSelectModel?.call();
+            Navigator.of(context).maybePop();
+          },
+          trailing: Icon(
+            Lucide.ChevronRight,
+            size: 18,
+            color: cs.onSurface.withValues(alpha: 0.55),
+          ),
+        ),
+        if (widget.showMcpOption) ...[
+          const SizedBox(height: 8),
+          _row(
+            icon: Lucide.Hammer,
+            label: l10n.bottomToolsSheetMcpTools,
+            onTap: () {
+              Haptics.light();
+              widget.onOpenMcp?.call();
+              Navigator.of(context).maybePop();
+            },
+            trailing: Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ],
+        const SizedBox(height: 8),
         _row(
           icon: Lucide.Wand2,
           label: l10n.daddySettingsStyleTitle,
