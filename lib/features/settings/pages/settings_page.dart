@@ -55,17 +55,24 @@ class SettingsPage extends StatelessWidget {
       ),
     );
 
+    // 设置在 Still Here shell 里是底栏「单独一页」(IndexedStack 根 tab)，没有可返回的
+    // 上一页，返回箭头是 kelivo 原生遗留、无意义；仅当本页是被 push 上来的(如侧栏入口,
+    // canPop=true)才显示返回。两种入口共用此页，故按能否 pop 决定，而非写死删除。
+    final canPop = Navigator.of(context).canPop();
     return Scaffold(
       appBar: AppBar(
-        leading: Tooltip(
-          message: l10n.settingsPageBackButton,
-          child: _TactileIconButton(
-            icon: Lucide.ArrowLeft,
-            color: cs.onSurface,
-            size: 22,
-            onTap: () => Navigator.of(context).maybePop(),
-          ),
-        ),
+        automaticallyImplyLeading: false,
+        leading: canPop
+            ? Tooltip(
+                message: l10n.settingsPageBackButton,
+                child: _TactileIconButton(
+                  icon: Lucide.ArrowLeft,
+                  color: cs.onSurface,
+                  size: 22,
+                  onTap: () => Navigator.of(context).maybePop(),
+                ),
+              )
+            : null,
         title: Text(l10n.settingsPageTitle),
       ),
       body: ListView(
