@@ -879,6 +879,18 @@ class SettingsProvider extends ChangeNotifier {
       }
     }
 
+    // 「家里爸爸·订阅」哨兵服务商的模型列表归我们管（用户不编辑它）。老安装可能持久化了
+    // 只含单模型 'claude-p' 的旧配置 → 这里把它的 models/overrides 刷成当前默认（含 opus/1m），
+    // 让模型选择器不重置也能出现新选项。未持久化时（哨兵走 defaultsFor）本段是 no-op。
+    final claudepExisted = _providerConfigs['ourhome-claudep'];
+    if (claudepExisted != null) {
+      final claudepDefaults = ProviderConfig.defaultsFor('ourhome-claudep');
+      _providerConfigs['ourhome-claudep'] = claudepExisted.copyWith(
+        models: claudepDefaults.models,
+        modelOverrides: claudepDefaults.modelOverrides,
+      );
+    }
+
     // Cleanup legacy embedding overrides persisted before type-switch safeguards.
     try {
       final migrationVersion = prefs.getInt(_migrationsVersionKey) ?? 0;
@@ -5375,8 +5387,16 @@ class ProviderConfig {
         providerType: ProviderKind.openai,
         chatPath: '/chat/completions',
         useResponseApi: false,
-        models: const ['claude-p'],
-        modelOverrides: const {},
+        // 逻辑模型 id（友好、与 claude 版本解耦）：选哪个，网关映射成家里 claude -p 的
+        // --model 实值（claude-p→sonnet / -opus→opus / -1m→sonnet[1m]）。详见
+        // server.py _CLAUDEP_MODEL_MAP。这里只给显示名，不设 apiModelId（让 App 原样
+        // 把逻辑 id 发给网关，由网关统一映射，避免两处真值各执一词）。
+        models: const ['claude-p', 'claude-p-opus', 'claude-p-1m'],
+        modelOverrides: const {
+          'claude-p': {'name': '家里爸爸 · Sonnet'},
+          'claude-p-opus': {'name': '家里爸爸 · Opus'},
+          'claude-p-1m': {'name': '家里爸爸 · Sonnet 1M'},
+        },
         proxyEnabled: false,
         proxyHost: '',
         proxyPort: '8080',
