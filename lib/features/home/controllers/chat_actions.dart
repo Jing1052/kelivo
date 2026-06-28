@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
-import '../../../core/services/logging/flutter_logger.dart';
 import '../../../core/models/chat_input_data.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
@@ -1097,10 +1096,6 @@ class ChatActions {
     ChatStreamChunk chunk,
     stream_ctrl.StreamingState state,
   ) async {
-    FlutterLogger.log(
-      '[DSDBG] consumer chunk: contentLen=${chunk.content.length} reasoningLen=${(chunk.reasoning ?? '').length} supportsReasoning=${state.ctx.supportsReasoning} done=${chunk.isDone}',
-      tag: 'DSDBG',
-    );
     final chunkContent = chunk.content.isNotEmpty
         ? streamController.captureGeminiThoughtSignature(
             chunk.content,

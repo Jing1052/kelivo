@@ -791,7 +791,14 @@ class _MessageListViewState extends State<MessageListView> {
           isProcessingFiles ||
           (widget.isPinnedIndicatorActive &&
               (message.id == widget.pinnedStreamingMessageId)),
-      reasoningText: (message.role == 'assistant') ? (r?.text ?? '') : null,
+      // Prefer the live streaming buffer; fall back to the persisted reasoning
+      // on the message so completed/reloaded messages still show their
+      // chain-of-thought (the transient map is empty once streaming ends).
+      reasoningText: (message.role == 'assistant')
+          ? ((r?.text.isNotEmpty == true)
+                ? r!.text
+                : (message.reasoningText ?? ''))
+          : null,
       reasoningExpanded: (message.role == 'assistant')
           ? (r?.expanded ?? false)
           : false,
