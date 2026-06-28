@@ -1066,8 +1066,9 @@ class ChatActions {
           )
         : '';
 
-    // Handle reasoning
-    if ((chunk.reasoning ?? '').isNotEmpty && state.ctx.supportsReasoning) {
+    // Handle reasoning. Surface any reasoning the provider streamed, even if the
+    // model wasn't pre-classified as a reasoning model (stale ability metadata).
+    if ((chunk.reasoning ?? '').isNotEmpty) {
       await _handleReasoningChunk(chunk, state);
     }
 
