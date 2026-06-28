@@ -9,6 +9,7 @@ import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../../core/models/chat_message.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/logging/flutter_logger.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/ios_checkbox.dart';
@@ -130,6 +131,7 @@ class MessageListView extends StatefulWidget {
     this.onLoadMoreBefore,
     this.hasMoreAfter = false,
     this.onLoadMoreAfter,
+    this.deserializeReasoningSegments,
   });
 
   final ScrollController scrollController;
@@ -199,12 +201,21 @@ class MessageListView extends StatefulWidget {
   final bool hasMoreAfter;
   final bool Function()? onLoadMoreAfter;
 
+  /// Deserializes persisted reasoning segments from a message's JSON blob.
+  /// Used as a fallback for completed/reloaded messages whose live streaming
+  /// segment buffer has already been cleared.
+  final List<stream_ctrl.ReasoningSegmentData> Function(String? json)?
+  deserializeReasoningSegments;
+
   @override
   State<MessageListView> createState() => _MessageListViewState();
 }
 
 class _MessageListViewState extends State<MessageListView> {
   static const double _streamingUpdateDeferBottomTolerance = 24.0;
+
+  /// Guards the DSDBG2 render diagnostic so it logs at most once per message id.
+  static final Set<String> _dsdbg2Logged = <String>{};
 
   bool _historyLoadScheduled = false;
   final ValueNotifier<bool> _deferStreamingMessageUpdates = ValueNotifier<bool>(
@@ -871,9 +882,41 @@ class _MessageListViewState extends State<MessageListView> {
           : null,
       reasoningSegments: message.role == 'assistant'
           ? (() {
-              final segments = widget.reasoningSegments[message.id];
-              if (segments == null || segments.isEmpty) return null;
-              return segments
+              bool hasUsableText(
+                List<stream_ctrl.ReasoningSegmentData>? segs,
+              ) =>
+                  segs != null &&
+                  segs.isNotEmpty &&
+                  segs.any((s) => s.text.trim().isNotEmpty);
+
+              // Prefer the live streaming buffer when it still holds content.
+              final live = widget.reasoningSegments[message.id];
+              final liveUsable = hasUsableText(live);
+
+              // Fall back to persisted segments for completed/reloaded messages
+              // whose live buffer was already cleared (mirrors the
+              // reasoningText fallback from 818eae1).
+              List<stream_ctrl.ReasoningSegmentData>? persisted;
+              if (!liveUsable) {
+                persisted = widget.deserializeReasoningSegments?.call(
+                  message.reasoningSegmentsJson,
+                );
+              }
+
+              final useLive = liveUsable;
+              final source = useLive ? live : persisted;
+
+              if (!useLive) {
+                _logRenderDiagnostic(
+                  message: message,
+                  liveCount: live?.length ?? -1,
+                  liveUsable: liveUsable,
+                );
+              }
+
+              if (!hasUsableText(source)) return null;
+
+              return source!
                   .asMap()
                   .entries
                   .map(
@@ -881,6 +924,7 @@ class _MessageListViewState extends State<MessageListView> {
                       text: entry.value.text,
                       expanded: entry.value.expanded,
                       loading:
+                          useLive &&
                           message.isStreaming &&
                           entry.value.finishedAt == null &&
                           entry.value.text.isNotEmpty,
@@ -903,6 +947,24 @@ class _MessageListViewState extends State<MessageListView> {
           ? null
           : (part, result) =>
                 widget.onRecoveredAskUserAnswer!(message, part, result),
+    );
+  }
+
+  /// Temporary DSDBG2 diagnostic: logs once per completed assistant message
+  /// when the live reasoning-segment buffer is not usable, so we can confirm
+  /// the persisted-segment fallback path is firing with real data.
+  void _logRenderDiagnostic({
+    required ChatMessage message,
+    required int liveCount,
+    required bool liveUsable,
+  }) {
+    if (message.role != 'assistant' || message.isStreaming) return;
+    if (!_dsdbg2Logged.add(message.id)) return;
+    FlutterLogger.log(
+      'render msg=${message.id} liveSegs=$liveCount liveUsable=$liveUsable '
+      'persistedSegsJsonLen=${message.reasoningSegmentsJson?.length ?? -1} '
+      'msgReasoningTextLen=${message.reasoningText?.length ?? -1}',
+      tag: 'DSDBG2',
     );
   }
 }

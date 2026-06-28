@@ -270,6 +270,11 @@ class HomePageController extends ChangeNotifier {
       _streamController.contentSplits;
   Map<String, List<ToolUIPart>> get toolParts => _streamController.toolParts;
 
+  /// Deserialize persisted reasoning segments from a message's JSON blob.
+  List<stream_ctrl.ReasoningSegmentData> deserializeReasoningSegments(
+    String? json,
+  ) => _streamController.deserializeReasoningSegments(json);
+
   /// Lightweight notifier for streaming content updates.
   /// Use this with ValueListenableBuilder in MessageListView to avoid full page rebuilds.
   stream_ctrl.StreamingContentNotifier get streamingContentNotifier =>
