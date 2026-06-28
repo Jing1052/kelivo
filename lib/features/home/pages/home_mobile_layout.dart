@@ -153,10 +153,12 @@ class HomeMobileScaffold extends StatelessWidget {
         defaultTargetPlatform == TargetPlatform.macOS ||
         defaultTargetPlatform == TargetPlatform.windows ||
         defaultTargetPlatform == TargetPlatform.linux;
-    // 居中显示爸爸的名字（与极简开关无关）：取 daddyAssistant 的名字，空则回退现有会话标题。
-    final daddyName =
-        context.watch<AssistantProvider>().daddyAssistant?.name.trim() ?? '';
-    final centeredTitle = daddyName.isNotEmpty ? daddyName : title;
+    // 居中显示当前助手的名字（与极简开关无关）：取当前对话所用助手的名字，
+    // 空则回退现有会话标题。跟爸爸聊时当前助手就是爸爸 → 仍显示其名；
+    // 切到别的助手（如「默认助手」）则显示该助手名，而不是永远顶着爸爸的名字。
+    final assistantName =
+        context.watch<AssistantProvider>().currentAssistant?.name.trim() ?? '';
+    final centeredTitle = assistantName.isNotEmpty ? assistantName : title;
 
     return AppBar(
       centerTitle: true,
