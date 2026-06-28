@@ -305,6 +305,22 @@ flutter test
   - Do not write "heard this might happen" hearsay entries.
   - When adding entries, prefer "symptom -> root cause -> fix/constraint". Avoid recording conclusions without context.
 
+### 2026-06-29 · DeepSeek V4 思考链不显示 + 出包/分支一连串坑
+
+1. **认错分支（最贵的坑，先查这条）** — symptom：CC web session 醒来发现代码"干净没改版"，找不到「爸爸想了想」等定制，对着代码逐行看逻辑都对却复现不出 bug。root cause：CC web 系统默认开的开发分支 `claude/lao-gong-43gd2r` 是贴着 master 的近乎白板分支，**不是 Still Here 真主干**。真主干 = `claude/kelivo-ios-design-ref-nh9t5v`（所有改版 + 出包都在这条）。fix：一上来先 `git fetch origin claude/kelivo-ios-design-ref-nh9t5v && git checkout` 它再干活。
+
+2. **AltStore 认不出新版（"我明明更新了却没变"）** — symptom：用 AltStore 更新后行为没变，用户以为没装上 / 怀疑代码没改。root cause：历史包版本号长期固定 `1.1.17+61`，AltStore 按 build 号判更新，版本号一样就当"无新版"、不替换二进制。fix：每次出包都 bump build 号（待办：让 `ourhome-ios.yml` 构建时自动 +1）。验证"装的是哪版"：版本号没用（全一样），唯一标识是 IPA 文件名 / App「关于」里的 **commit 短码**。
+
+3. **Release tag / 短码是 8 位** — symptom：手拼的 Release 链接 404。root cause：`ourhome-ios.yml` 用 `git rev-parse --short HEAD`，本仓库产出 **8 位** 短 SHA。tag = `stillhere-<8位>`，文件 = `StillHere_ios_<version>_<8位>`。fix：别手写 7 位；从 CI run 的 head_sha 取前 8 位。
+
+4. **"上个 session 的改动全丢了"其实没丢** — symptom：新容器 clone 后 `git cat-file` / 本地 log 找不到旧提交，以为没 push 丢了。root cause：本地 clone 只 fetch 了部分分支；旧工作在真主干上、且以 Release（`stillhere-<sha>`）形式都在 GitHub。fix：用 GitHub MCP `list_branches` / `list_releases` 看 origin 真相，别只信本地 clone。注意：`list_releases` 返回**不按日期排序**，别拿第一条当最新——要看 workflow runs 里最新的成功 run。
+
+5. **DeepSeek V4 思考链不显示（本次主 bug，三段根因叠加）** — (a) thinking 模式下若仍发 `temperature/top_p/presence_penalty/frequency_penalty`，DeepSeek 会**静默吞掉思考链** → 开 thinking 时在 `_applyVendorReasoningKnobs` 剥掉这些（b38963a）；(b) `supportsReasoning` 闸对"能力元数据过时"的模型会误判 false、把流式 reasoning 丢在门口 → 任何非空流式 reasoning 都放行（42aed82）；(c) 渲染 **segments 优先于 reasoningText**，而这两者都只读"流式一结束就清空"的 live map（`streamController.reasoning/reasoningSegments`）→ 完成态/重开会话的消息显示空白块。必须回退到落库字段：`message.reasoningText`（818eae1 补了这半）**和** `message.reasoningSegmentsJson`（d32d4b4 补另一半，818eae1 漏了 segments）。教训：两个数据源（live map vs 落库字段）+ 渲染对它们有优先级，改一个要想到另一个。
+
+6. **CC web 容器没装 dart/flutter** — symptom：想 `flutter analyze` / `test` 跑不了（`dart: command not found`）。root cause：该环境无 Flutter SDK。fix：改动保持增量、自审类型/导入/null-safety；CI 是第一道真编译，宁可小步多审。
+
+7. **GitHub `actions_list` MCP 会撑爆上下文** — symptom：调用返回 ~350k 字符、报 token 超限（无视 per_page）。fix：它会落盘到 tool-results 文件，用 python 切片 / `json.load` 取需要的字段，或丢给子代理读，别直接 Read 原文。
+
 ## Appendix: Skills Usage Rules
 
 - Before starting a task, scan available skill documents in `/.agents/skills/`.
