@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../providers/assistant_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -2016,9 +2017,69 @@ class OurHomeGateway {
       final rr = (data['role_routes'] is Map)
           ? Map<String, dynamic>.from(data['role_routes'] as Map)
           : <String, dynamic>{};
+      // Persist last-good response so the default-model cards can render
+      // instantly on next open and refresh silently in the background.
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(
+          _chatProvidersCacheKey,
+          jsonEncode({
+            'profiles': [
+              for (final p in profs)
+                {'id': p.id, 'name': p.name, 'model': p.model},
+            ],
+            'role_routes': rr,
+          }),
+        );
+      } catch (e) {
+        debugPrint('[OurHomeGateway] cache write failed: $e');
+      }
       return (profiles: profs, roleRoutes: rr);
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchChatProviders failed: $e');
+      return null;
+    }
+  }
+
+  static const String _chatProvidersCacheKey =
+      'ourhome_chat_providers_cache_v1';
+
+  /// Last-good [fetchChatProviders] result from local cache, for instant
+  /// display before the network refresh lands. Same record shape as
+  /// [fetchChatProviders] so callers are interchangeable. Null on
+  /// absence/parse error.
+  Future<
+    ({
+      List<({String id, String name, String model})> profiles,
+      Map<String, dynamic> roleRoutes,
+    })?
+  >
+  cachedChatProviders() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_chatProvidersCacheKey);
+      if (raw == null || raw.isEmpty) return null;
+      final data = jsonDecode(raw);
+      if (data is! Map) return null;
+      final profs = <({String id, String name, String model})>[];
+      final pl = data['profiles'];
+      if (pl is List) {
+        for (final p in pl) {
+          if (p is Map) {
+            profs.add((
+              id: (p['id'] ?? '').toString(),
+              name: (p['name'] ?? '').toString(),
+              model: (p['model'] ?? '').toString(),
+            ));
+          }
+        }
+      }
+      final rr = (data['role_routes'] is Map)
+          ? Map<String, dynamic>.from(data['role_routes'] as Map)
+          : <String, dynamic>{};
+      return (profiles: profs, roleRoutes: rr);
+    } catch (e) {
+      debugPrint('[OurHomeGateway] cachedChatProviders failed: $e');
       return null;
     }
   }

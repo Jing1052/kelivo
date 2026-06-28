@@ -280,8 +280,25 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
 
   Future<void> _load() async {
     final gw = OurHomeGateway.fromContext(context);
+    _gateway = gw;
+    // Cache-first: render the last-good response instantly (no spinner).
+    bool shownFromCache = false;
+    if (gw != null) {
+      final cached = await gw.cachedChatProviders();
+      if (cached != null && mounted) {
+        final summary = cached.roleRoutes['summary'];
+        final sid = (summary is Map ? (summary['id'] ?? '') : '').toString();
+        setState(() {
+          _loading = false;
+          _noGateway = false;
+          _profiles = cached.profiles;
+          _summaryId = sid;
+        });
+        shownFromCache = true;
+      }
+    }
     if (gw == null) {
-      if (mounted) {
+      if (mounted && !shownFromCache) {
         setState(() {
           _loading = false;
           _noGateway = true;
@@ -289,14 +306,16 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
       }
       return;
     }
-    _gateway = gw;
+    // Silent background refresh.
     final data = await gw.fetchChatProviders();
     if (!mounted) return;
     if (data == null) {
-      setState(() {
-        _loading = false;
-        _noGateway = true;
-      });
+      if (!shownFromCache) {
+        setState(() {
+          _loading = false;
+          _noGateway = true;
+        });
+      }
       return;
     }
     final summary = data.roleRoutes['summary'];
@@ -612,8 +631,26 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
 
   Future<void> _load() async {
     final gw = OurHomeGateway.fromContext(context);
+    _gateway = gw;
+    // Cache-first: render the last-good response instantly (no spinner).
+    bool shownFromCache = false;
+    if (gw != null) {
+      final cached = await gw.cachedChatProviders();
+      if (cached != null && mounted) {
+        final diaryBrief = cached.roleRoutes['diary_brief'];
+        final did =
+            (diaryBrief is Map ? (diaryBrief['id'] ?? '') : '').toString();
+        setState(() {
+          _loading = false;
+          _noGateway = false;
+          _profiles = cached.profiles;
+          _diaryBriefId = did;
+        });
+        shownFromCache = true;
+      }
+    }
     if (gw == null) {
-      if (mounted) {
+      if (mounted && !shownFromCache) {
         setState(() {
           _loading = false;
           _noGateway = true;
@@ -621,14 +658,16 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
       }
       return;
     }
-    _gateway = gw;
+    // Silent background refresh.
     final data = await gw.fetchChatProviders();
     if (!mounted) return;
     if (data == null) {
-      setState(() {
-        _loading = false;
-        _noGateway = true;
-      });
+      if (!shownFromCache) {
+        setState(() {
+          _loading = false;
+          _noGateway = true;
+        });
+      }
       return;
     }
     final diaryBrief = data.roleRoutes['diary_brief'];
