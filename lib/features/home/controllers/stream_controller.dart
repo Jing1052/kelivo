@@ -750,7 +750,10 @@ class StreamController {
     })
     updateReasoningInDb,
   }) async {
-    if ((chunk.reasoning ?? '').isEmpty || !state.ctx.supportsReasoning) return;
+    // If the provider actually streamed reasoning content, surface it even when
+    // the model wasn't pre-classified as a reasoning model (e.g. DeepSeek V4
+    // whose stored ability metadata is stale). Only an empty payload is skipped.
+    if ((chunk.reasoning ?? '').isEmpty) return;
 
     final messageId = state.messageId;
     final conversationId = state.conversationId;
