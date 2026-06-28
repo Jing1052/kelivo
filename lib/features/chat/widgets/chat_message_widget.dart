@@ -4206,6 +4206,15 @@ class _ChainOfThoughtReasoningStepState
           ? _ReasoningStepState.expanded
           : _ReasoningStepState.preview;
     }
+    // In hideHeader (pill) mode the external ✦爸爸想了想✧ pill is the sole
+    // toggle, and the card is only built when the pill is expanded. The
+    // segment's own `expanded` flag is force-collapsed on finish, so honoring
+    // it here would render an empty card (the "small white block" bug). The
+    // pill being open already means "show me the thinking" — always render
+    // full content.
+    if (widget.hideHeader) {
+      return _ReasoningStepState.expanded;
+    }
     return widget.step.expanded
         ? _ReasoningStepState.expanded
         : _ReasoningStepState.collapsed;
