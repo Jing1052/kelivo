@@ -874,6 +874,10 @@ void _applyVendorReasoningKnobs(
       body.remove('thinking');
       body.remove('reasoning_effort');
     }
+    FlutterLogger.log(
+      '[DSDBG] deepseek body: isReasoning=$isReasoning off=$off thinking=${body['thinking']} reasoning_effort=${body['reasoning_effort']}',
+      tag: 'DSDBG',
+    );
   }
 }
 
