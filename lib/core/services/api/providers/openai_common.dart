@@ -874,6 +874,10 @@ void _applyVendorReasoningKnobs(
       body.remove('thinking');
       body.remove('reasoning_effort');
     }
+    FlutterLogger.log(
+      '[DSDBG] deepseek knobs: isReasoning=$isReasoning off=$off thinking=${body['thinking']} effort=${body['reasoning_effort']} temp=${body['temperature']}',
+      tag: 'DSDBG',
+    );
   }
 }
 
@@ -898,6 +902,10 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
 
   final effectiveInfo = _effectiveModelInfo(config, modelId);
   final isReasoning = effectiveInfo.abilities.contains(ModelAbility.reasoning);
+  FlutterLogger.log(
+    '[DSDBG] _sendOpenAIStream start: model=$upstreamModelId useResponseApi=${config.useResponseApi} isReasoning=$isReasoning host=${Uri.tryParse(config.baseUrl)?.host}',
+    tag: 'DSDBG',
+  );
   final wantsImageOutput = effectiveInfo.output.contains(Modality.image);
   final bool canImageInput = effectiveInfo.input.contains(Modality.image);
 
@@ -2922,6 +2930,10 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
               if (rc != null && rc.isNotEmpty) {
                 reasoning = rc;
                 if (needsReasoningEcho) reasoningBuffer += rc;
+                FlutterLogger.log(
+                  '[DSDBG] parse(main loop) captured reasoning len=${rc.length}',
+                  tag: 'DSDBG',
+                );
               }
               if (preserveReasoningDetails) {
                 final rd = delta['reasoning_details'];
