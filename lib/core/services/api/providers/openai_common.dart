@@ -860,6 +860,16 @@ void _applyVendorReasoningKnobs(
   } else if (info.isDeepSeek) {
     if (isReasoning) {
       body['thinking'] = {'type': off ? 'disabled' : 'enabled'};
+      if (!off) {
+        // DeepSeek V4 thinking mode rejects these sampling params; sending
+        // them alongside thinking silently suppresses the chain-of-thought.
+        // Strip them only when thinking is enabled.
+        // https://api-docs.deepseek.com/guides/thinking_mode
+        body.remove('temperature');
+        body.remove('top_p');
+        body.remove('presence_penalty');
+        body.remove('frequency_penalty');
+      }
     } else {
       body.remove('thinking');
       body.remove('reasoning_effort');
