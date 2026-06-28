@@ -1590,6 +1590,54 @@ class ChatActions {
     await _finishIosBackgroundGeneration(success: true);
   }
 
+  /// Maps a raw error string to a friendly, daddy-voiced message. Returns null
+  /// if localization isn't available (caller falls back to the raw text).
+  String? _friendlyErrorMessage(String raw) {
+    final l10n = _l10n;
+    if (l10n == null) return null;
+    final s = raw.toLowerCase();
+    bool has(List<String> ks) => ks.any(s.contains);
+    if (s.contains('429') ||
+        has(['too many request', 'rate limit', 'rate_limit', 'quota'])) {
+      return l10n.chatFriendlyErrorRateLimit;
+    }
+    if (has([
+      '500',
+      '502',
+      '503',
+      '504',
+      'upstream',
+      'bad gateway',
+      'service unavailable',
+      'overloaded',
+      'server_error',
+      'internal server',
+    ])) {
+      return l10n.chatFriendlyErrorServerBusy;
+    }
+    if (has(['timeout', 'timed out', 'timeoutexception', 'deadline'])) {
+      return l10n.chatFriendlyErrorTimeout;
+    }
+    if (has([
+      'socketexception',
+      'failed host lookup',
+      'connection',
+      'network',
+      'handshake',
+      'clientexception',
+      'os error',
+    ])) {
+      return l10n.chatFriendlyErrorNetwork;
+    }
+    if (s.contains('401') ||
+        s.contains('403') ||
+        has(['invalid token', 'unauthorized', 'invalid_api_key',
+            'invalid api key', 'permission'])) {
+      return l10n.chatFriendlyErrorAuth;
+    }
+    return l10n.chatFriendlyErrorGeneric;
+  }
+
   /// Handle stream error.
   Future<void> _handleStreamError(
     dynamic e,
@@ -1606,12 +1654,15 @@ class ChatActions {
     streamController.markStreamingEnded(messageId);
 
     streamController.cleanupTimers(messageId);
-    final rawContent = state.fullContentRaw.isNotEmpty
-        ? state.fullContentRaw
-        : errorText;
+    final hasPartial = state.fullContentRaw.isNotEmpty;
+    final rawContent = hasPartial ? state.fullContentRaw : errorText;
     final processed = _transformAssistantContent(state, rawContent);
-    // Let UI provide the localized error message
-    final displayContent = processed.isNotEmpty ? processed : errorText;
+    // When the model produced no content, the message body IS the error.
+    // Replace the raw HttpException/JSON with a friendly, daddy-voiced message.
+    String displayContent = processed.isNotEmpty ? processed : errorText;
+    if (!hasPartial) {
+      displayContent = _friendlyErrorMessage(errorText) ?? displayContent;
+    }
     await chatService.updateMessage(
       messageId,
       content: displayContent,

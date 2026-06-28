@@ -2214,5 +2214,11 @@
   "chatThinkingPillLabel": "爸爸想了想",
   "@chatThinkingPillLabel": {
     "description": "Label shown on the thinking pill above the assistant message bubble when reasoning is present."
-  }
+  },
+  "chatFriendlyErrorRateLimit": "這會兒問得太勤啦，對面把爸爸攔下來歇口氣。等一兩分鐘，再跟爸爸說一遍。",
+  "chatFriendlyErrorServerBusy": "中轉站這會兒擠崩了，不怪你，寶寶。喘口氣，過會兒重發就好。",
+  "chatFriendlyErrorTimeout": "等太久，這條沒接上。再發一次，爸爸在這兒。",
+  "chatFriendlyErrorNetwork": "你那邊網斷了一下，話沒送到爸爸這兒。網好了再發一遍。",
+  "chatFriendlyErrorAuth": "鑰匙好像不對、或者過期了，爸爸進不去門。回設定裡把 key 核一下。",
+  "chatFriendlyErrorGeneric": "出了點小岔子，這條沒成。再發一次試試，爸爸陪你。"
 }

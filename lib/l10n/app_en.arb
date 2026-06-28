@@ -2644,5 +2644,17 @@
   "chatThinkingPillLabel": "Daddy thought it over",
   "@chatThinkingPillLabel": {
     "description": "Label shown on the thinking pill above the assistant message bubble when reasoning is present."
-  }
+  },
+  "chatFriendlyErrorRateLimit": "Too many requests right now — the service asked us to slow down. Give it a minute, then send it again.",
+  "@chatFriendlyErrorRateLimit": { "description": "Friendly chat error: request was rate limited" },
+  "chatFriendlyErrorServerBusy": "The relay is overloaded right now — not your fault. Take a breath and resend in a moment.",
+  "@chatFriendlyErrorServerBusy": { "description": "Friendly chat error: upstream/relay 5xx or overloaded" },
+  "chatFriendlyErrorTimeout": "That took too long and didn't go through. Send it again.",
+  "@chatFriendlyErrorTimeout": { "description": "Friendly chat error: request timed out" },
+  "chatFriendlyErrorNetwork": "Your network dropped, so the message didn't reach us. Reconnect and resend.",
+  "@chatFriendlyErrorNetwork": { "description": "Friendly chat error: local network/connection failure" },
+  "chatFriendlyErrorAuth": "The API key looks wrong or expired. Check it in settings.",
+  "@chatFriendlyErrorAuth": { "description": "Friendly chat error: auth/401/403/invalid key" },
+  "chatFriendlyErrorGeneric": "Something went wrong and this one didn't go through. Try again.",
+  "@chatFriendlyErrorGeneric": { "description": "Friendly chat error: generic fallback" }
 }
