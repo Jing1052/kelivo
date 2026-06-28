@@ -9,7 +9,6 @@ import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../../core/models/chat_message.dart';
 import '../../../core/providers/settings_provider.dart';
-import '../../../core/services/logging/flutter_logger.dart';
 import '../../../core/providers/assistant_provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/ios_checkbox.dart';
@@ -213,9 +212,6 @@ class MessageListView extends StatefulWidget {
 
 class _MessageListViewState extends State<MessageListView> {
   static const double _streamingUpdateDeferBottomTolerance = 24.0;
-
-  /// Guards the DSDBG2 render diagnostic so it logs at most once per message id.
-  static final Set<String> _dsdbg2Logged = <String>{};
 
   bool _historyLoadScheduled = false;
   final ValueNotifier<bool> _deferStreamingMessageUpdates = ValueNotifier<bool>(
@@ -906,14 +902,6 @@ class _MessageListViewState extends State<MessageListView> {
               final useLive = liveUsable;
               final source = useLive ? live : persisted;
 
-              if (!useLive) {
-                _logRenderDiagnostic(
-                  message: message,
-                  liveCount: live?.length ?? -1,
-                  liveUsable: liveUsable,
-                );
-              }
-
               if (!hasUsableText(source)) return null;
 
               return source!
@@ -947,24 +935,6 @@ class _MessageListViewState extends State<MessageListView> {
           ? null
           : (part, result) =>
                 widget.onRecoveredAskUserAnswer!(message, part, result),
-    );
-  }
-
-  /// Temporary DSDBG2 diagnostic: logs once per completed assistant message
-  /// when the live reasoning-segment buffer is not usable, so we can confirm
-  /// the persisted-segment fallback path is firing with real data.
-  void _logRenderDiagnostic({
-    required ChatMessage message,
-    required int liveCount,
-    required bool liveUsable,
-  }) {
-    if (message.role != 'assistant' || message.isStreaming) return;
-    if (!_dsdbg2Logged.add(message.id)) return;
-    FlutterLogger.log(
-      'render msg=${message.id} liveSegs=$liveCount liveUsable=$liveUsable '
-      'persistedSegsJsonLen=${message.reasoningSegmentsJson?.length ?? -1} '
-      'msgReasoningTextLen=${message.reasoningText?.length ?? -1}',
-      tag: 'DSDBG2',
     );
   }
 }

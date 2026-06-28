@@ -11,7 +11,6 @@ import '../../../core/services/api/chat_api_service.dart';
 import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../core/services/chat/chat_service.dart';
 import '../../../core/services/ios_background_generation.dart';
-import '../../../core/services/logging/flutter_logger.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../utils/assistant_regex.dart';
 import '../../../core/models/assistant_regex.dart';
@@ -1456,13 +1455,6 @@ class ChatActions {
         reasoningFinishedAt: r.finishedAt,
       );
     }
-
-    FlutterLogger.log(
-      'finish msg=$messageId '
-      'liveReasoningLen=${streamController.reasoning[messageId]?.text.length ?? -1} '
-      'liveSegs=${streamController.reasoningSegments[messageId]?.length ?? -1}',
-      tag: 'DSDBG2',
-    );
   }
 
   /// Finish streaming and persist final state.
