@@ -2441,12 +2441,28 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
               );
               widgets.add(const SizedBox(height: 6));
             }
+            // Daddy can split one reply into several bubbles with `|||`
+            // (matches the CC page and the gateway's _tg_send_multi convention).
+            // Split each assistant text block on ||| into separate bubbles
+            // (max 8); when there's no |||, render exactly one bubble unchanged.
+            final bubbleSplitRe = RegExp(r'\s*\|\|\|\s*');
             for (int i = 0; i < renderBlocks.length; i++) {
               final block = renderBlocks[i];
               if (block.type == _RenderBlockType.text && block.text != null) {
-                widgets.add(
-                  _buildAssistantTextBlock(context, block.text!, settings),
-                );
+                final segs = block.text!
+                    .split(bubbleSplitRe)
+                    .map((s) => s.trim())
+                    .where((s) => s.isNotEmpty)
+                    .toList();
+                final parts = segs.length <= 1
+                    ? <String>[block.text!]
+                    : segs.take(8).toList();
+                for (int j = 0; j < parts.length; j++) {
+                  if (j > 0) widgets.add(const SizedBox(height: 6));
+                  widgets.add(
+                    _buildAssistantTextBlock(context, parts[j], settings),
+                  );
+                }
               } else if (block.steps.isNotEmpty) {
                 // 有 pill 时：收起就整张卡都不画（连空壳/月亮白卡都不留）；展开才画，
                 // 由 pill 当唯一开关。没 pill 时照旧（卡自带头部开关）。
