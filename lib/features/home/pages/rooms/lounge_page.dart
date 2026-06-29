@@ -46,9 +46,10 @@ class _LoungePageState extends State<LoungePage> {
   Set<String> _liked = <String>{};
   bool _showLikedOnly = false;
   static const String _likedPrefsKey = 'lounge_liked_songs_v1';
-  // 小猫的网易云账号 id（截图里「云村村民 178119047454653」）——主页列着
-  // 我喜欢的音乐 / 我们的歌 · L&C / 爸比的歌 · for Cing 三个歌单。
-  static const String _neteaseUid = '178119047454653';
+  // 小猫的网易云 UID（neteasecli 实测 UID=17638034544；截图里「云村村民
+  // 178119047454653」那串是昵称号、不是 uid）。主页列着我喜欢的音乐 /
+  // 我们的歌 · L&C / 爸比的歌 · for Cing 三个歌单。
+  static const String _neteaseUid = '17638034544';
 
   String _likeKey(OurHomeSong s) => '${s.title}|${s.artist}';
 
