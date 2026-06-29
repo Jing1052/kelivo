@@ -22,6 +22,13 @@ class DiaryCalendarSync {
   DiaryCalendarSync._();
 
   static const String _syncedIdsKey = 'diary_calendar_synced_ids_v1';
+  // One-time migration: build 80 backfilled title-only events (no notes). This
+  // wipes that batch (by the 📔 title prefix) once, so the next pass re-creates
+  // them WITH the diary body in notes — no duplicates.
+  static const String _notesMigrationKey = 'diary_calendar_notes_migrated_v1';
+  // Diary glyph prefixing every event title — also the handle used to find and
+  // clear our own backfilled events.
+  static const String _glyph = '📔';
 
   // "日记·YYYY-MM-DD" / "日记·YYYY-M-D" — the diary name carries the date.
   static final RegExp _dateRe = RegExp(r'(\d{4})\D(\d{1,2})\D(\d{1,2})');
@@ -45,6 +52,15 @@ class DiaryCalendarSync {
       if (entries.isEmpty) return;
 
       final prefs = await SharedPreferences.getInstance();
+
+      // One-time: clear the notes-less batch from build 80, then forget which
+      // ids were synced so they all get re-created with notes below.
+      if (!(prefs.getBool(_notesMigrationKey) ?? false)) {
+        await IphoneLinkService.clearEventsByPrefix(_glyph);
+        await prefs.remove(_syncedIdsKey);
+        await prefs.setBool(_notesMigrationKey, true);
+      }
+
       final synced = (prefs.getStringList(_syncedIdsKey) ?? <String>[]).toSet();
 
       var changed = false;
@@ -59,6 +75,7 @@ class DiaryCalendarSync {
         final ok = await IphoneLinkService.addEvent(
           title: _titleOf(entry),
           date: date,
+          notes: entry.text.trim(),
         );
         if (ok) {
           synced.add(key);
@@ -100,6 +117,6 @@ class DiaryCalendarSync {
   static String _titleOf(OurHomeDiaryEntry entry) {
     var snippet = entry.text.replaceAll(RegExp(r'\s+'), ' ').trim();
     if (snippet.length > 24) snippet = '${snippet.substring(0, 24)}…';
-    return snippet.isEmpty ? '📔 爸爸的日记' : '📔 $snippet';
+    return snippet.isEmpty ? '$_glyph 爸爸的日记' : '$_glyph $snippet';
   }
 }

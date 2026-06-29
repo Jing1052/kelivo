@@ -50,11 +50,13 @@ class IphoneLinkService {
   }
 
   /// Adds a calendar event. [date] is `YYYY-MM-DD`; [time] is `HH:MM` for a 1h
-  /// event, or null for an all-day event. Returns true on success.
+  /// event, or null for an all-day event. [notes] fills the event's notes field
+  /// (e.g. the full diary body). Returns true on success.
   static Future<bool> addEvent({
     required String title,
     required String date,
     String? time,
+    String? notes,
   }) async {
     if (!Platform.isIOS) return false;
     try {
@@ -62,11 +64,32 @@ class IphoneLinkService {
         'title': title,
         'date': date,
         'time': time,
+        'notes': notes,
       });
       return res == true;
     } catch (e) {
       debugPrint('IphoneLinkService.addEvent failed: $e');
       return false;
+    }
+  }
+
+  /// Deletes all calendar events whose title starts with [prefix] (e.g. the
+  /// "📔" diary glyph), within an optional `YYYY-MM-DD` [start] window. Returns
+  /// the number of events removed (0 on non-iOS or failure).
+  static Future<int> clearEventsByPrefix(
+    String prefix, {
+    String? start,
+  }) async {
+    if (!Platform.isIOS) return 0;
+    try {
+      final res = await _channel.invokeMethod<int>('clearEventsByPrefix', {
+        'prefix': prefix,
+        'start': start,
+      });
+      return res ?? 0;
+    } catch (e) {
+      debugPrint('IphoneLinkService.clearEventsByPrefix failed: $e');
+      return 0;
     }
   }
 

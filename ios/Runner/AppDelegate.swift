@@ -90,6 +90,8 @@ private final class IosCalendarHandler {
       addEvent(args: call.arguments as? [String: Any] ?? [:], result: result)
     case "addReminder":
       addReminder(args: call.arguments as? [String: Any] ?? [:], result: result)
+    case "clearEventsByPrefix":
+      clearEventsByPrefix(args: call.arguments as? [String: Any] ?? [:], result: result)
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -151,11 +153,13 @@ private final class IosCalendarHandler {
     let title = (args["title"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let dateStr = (args["date"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     let timeStr = (args["time"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
+    let notes = (args["notes"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !title.isEmpty, var comps = dayComponents(dateStr) else { result(false); return }
 
     let cal = Calendar.current
     let event = EKEvent(eventStore: store)
     event.title = title
+    if let notes = notes, !notes.isEmpty { event.notes = notes }
     event.calendar = store.defaultCalendarForNewEvents
 
     if let timeStr = timeStr, !timeStr.isEmpty, let (h, m) = hourMinute(timeStr) {
@@ -180,6 +184,35 @@ private final class IosCalendarHandler {
     } catch {
       result(false)
     }
+  }
+
+  // Deletes all events whose title starts with [prefix] within an optional date
+  // window (defaults to 2024-01-01 .. now+1d). Used to clear the diary backfill
+  // batch (titles prefixed "📔") before re-syncing them with notes. Returns the
+  // number of events removed.
+  private func clearEventsByPrefix(args: [String: Any], result: @escaping FlutterResult) {
+    let prefix = (args["prefix"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !prefix.isEmpty else { result(0); return }
+
+    let cal = Calendar.current
+    let start = (dayComponents(args["start"] as? String ?? "").flatMap { cal.date(from: $0) })
+      ?? cal.date(from: DateComponents(year: 2024, month: 1, day: 1))!
+    let end = Date().addingTimeInterval(86400)
+
+    let calendars = store.calendars(for: .event)
+    let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
+    let events = store.events(matching: predicate)
+
+    var removed = 0
+    for ev in events where (ev.title ?? "").hasPrefix(prefix) {
+      do {
+        try store.remove(ev, span: .thisEvent)
+        removed += 1
+      } catch {
+        // best-effort; keep going
+      }
+    }
+    result(removed)
   }
 
   private func addReminder(args: [String: Any], result: @escaping FlutterResult) {

@@ -18,6 +18,8 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 日记→日历事件补「备注」正文：原生 `addEvent` 之前只设 title，回填的事件只有标题、看不到正文。现 `addEvent` 接 `notes` 参数（→`EKEvent.notes`），`DiaryCalendarSync` 把整篇日记 `entry.text` 写进备注。**一次性迁移**：build 80 已建的「只标题」批，靠新原生 `clearEventsByPrefix('📔')` 按标题前缀清掉一次（`diary_calendar_notes_migrated_v1` 标记 + 清空 `synced_ids`），下一轮带备注重建，不留重复。`clearEventsByPrefix` 扫 2024-01-01→今 全部事件日历、只删标题以 `📔` 开头的（我们自己的唯一句柄，不碰她真日程）。build 80→81。
+
 - **2026-06-29** · 日记→iOS 日历自动补齐：新 `diary_calendar_sync.dart`（`DiaryCalendarSync.syncOnce`）拉 `gateway.fetchDiary()`，按日记名「日记·YYYY-MM-DD」（取不到退回 `time` 时间戳）解析日期，逐条建**全天日历事件**（标题＝📔＋正文前 24 字），用 `SharedPreferences` `diary_calendar_synced_ids_v1` 去重、永不重复写。**门禁**：仅 iOS + iPhone 联动开 + 日历已授权，全程 best-effort 吞错。触发两处：① 启动时 `home_page_controller.initChat()`（开关开才跑）；② `daddy_settings_page` 开「iPhone 联动」并授权后立刻补齐历史。澄清：写日记（记忆库 `hold`）和进日历（`[[cal]]` 标记）本是两条独立通道，过去只在爸爸写日记时顺手 `[[cal]]` 才同步；这次把日记源本身拉进日历，历史也补上。build 78→79。
 
 - **2026-06-29** · 点歌·跳转优先唤起网易云 App：`netease_link.openSongInNetease` 先试 `orpheus://`（有 id→`orpheus://song/<id>` 精确；无 id→`orpheus://search?keyword=`），唤不起再退回网页。iOS `Info.plist` 的 `LSApplicationQueriesSchemes` 登记 `orpheus`（否则系统拦自定义协议）。歌单/主页/歌卡跳转都受益。build 77→78。
