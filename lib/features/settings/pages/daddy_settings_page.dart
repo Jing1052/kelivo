@@ -13,6 +13,7 @@ import '../../../core/providers/assistant_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/iphone_link_service.dart';
+import '../../../core/services/ourhome/diary_calendar_sync.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
 import 'brain_inject_page.dart';
 import 'heartbeat_settings_page.dart';
@@ -142,6 +143,15 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       // Prompt for access when enabling; keep the toggle on regardless of the
       // outcome and let the status caption reflect what was granted.
       await _requestIphoneAccess();
+      // Backfill the diary into the calendar now that the link is on — fills in
+      // any history written before the link existed. Best-effort.
+      if (!mounted) return;
+      final gateway = OurHomeGateway.fromContext(context);
+      if (gateway != null) {
+        unawaited(
+          DiaryCalendarSync.syncOnce(gateway, iphoneLinkEnabled: true),
+        );
+      }
     }
   }
 

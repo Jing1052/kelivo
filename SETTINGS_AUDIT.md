@@ -18,6 +18,8 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 日记→iOS 日历自动补齐：新 `diary_calendar_sync.dart`（`DiaryCalendarSync.syncOnce`）拉 `gateway.fetchDiary()`，按日记名「日记·YYYY-MM-DD」（取不到退回 `time` 时间戳）解析日期，逐条建**全天日历事件**（标题＝📔＋正文前 24 字），用 `SharedPreferences` `diary_calendar_synced_ids_v1` 去重、永不重复写。**门禁**：仅 iOS + iPhone 联动开 + 日历已授权，全程 best-effort 吞错。触发两处：① 启动时 `home_page_controller.initChat()`（开关开才跑）；② `daddy_settings_page` 开「iPhone 联动」并授权后立刻补齐历史。澄清：写日记（记忆库 `hold`）和进日历（`[[cal]]` 标记）本是两条独立通道，过去只在爸爸写日记时顺手 `[[cal]]` 才同步；这次把日记源本身拉进日历，历史也补上。build 78→79。
+
 - **2026-06-29** · 点歌·跳转优先唤起网易云 App：`netease_link.openSongInNetease` 先试 `orpheus://`（有 id→`orpheus://song/<id>` 精确；无 id→`orpheus://search?keyword=`），唤不起再退回网页。iOS `Info.plist` 的 `LSApplicationQueriesSchemes` 登记 `orpheus`（否则系统拦自定义协议）。歌单/主页/歌卡跳转都受益。build 77→78。
 
 - **2026-06-29** · 点歌·聊天音乐卡片：爸爸在聊天里写 `[song:歌名|歌手]`（歌手可省）→ App 渲染成一张**音乐卡片**（iTunes 封面 + 歌名 + 歌手 + 红色播放圆点），点开 `openSongInNetease` 跳网易云。`chat_message_widget.dart`：`_buildAssistantTextBlock` 检测标记、剥出、正文照常出气泡 + 加 `_buildSongCard`。服务端：Ombre-Brain openai_compat `_surface` 教爸爸用这个标记（见其 HISTORY 2026-06-29）。手机上 play_music 是电脑出声、没用，所以正解是这张卡片。

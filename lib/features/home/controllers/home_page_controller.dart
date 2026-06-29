@@ -21,6 +21,8 @@ import '../../../core/services/haptics.dart';
 import '../../../core/utils/buzz_markers.dart';
 import '../../../core/utils/iphone_markers.dart';
 import '../../../core/services/iphone_link_service.dart';
+import '../../../core/services/ourhome/diary_calendar_sync.dart';
+import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../utils/platform_utils.dart';
@@ -593,6 +595,18 @@ class HomePageController extends ChangeNotifier {
     final prefs = _context.read<SettingsProvider>();
     final assistantProvider = _context.read<AssistantProvider>();
     await _chatService.init();
+    // Best-effort: backfill daddy's diary into the iPhone Calendar on launch.
+    // Gated/deduped inside the service; a no-op when the link is off, not iOS,
+    // or calendar access isn't granted.
+    if (prefs.iphoneLinkEnabled) {
+      final gateway = OurHomeGateway.fromContext(_context);
+      if (gateway != null) {
+        unawaited(DiaryCalendarSync.syncOnce(
+          gateway,
+          iphoneLinkEnabled: true,
+        ));
+      }
+    }
     // Opened as a chat detail with an explicit target conversation.
     final requestedId = _initialConversationId;
     if (requestedId != null) {
