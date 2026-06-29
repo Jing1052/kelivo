@@ -2087,17 +2087,31 @@ class OurHomeGateway {
   /// Set daddy's server-side role route. [role] is 'summary' or 'wake';
   /// [providerId] '' = follow the chat relay; [model] '' = use the profile's
   /// own model. Returns true on success.
-  Future<bool> setRoleRoute(String role, String providerId, String model) async {
+  ///
+  /// Optional inline relay override: when [base]/[key]/[proto] are non-empty
+  /// the server runs this role against that relay directly (no need for a
+  /// gateway-side profile). Omitting them keeps the legacy behavior.
+  Future<bool> setRoleRoute(
+    String role,
+    String providerId,
+    String model, {
+    String? base,
+    String? key,
+    String? proto,
+  }) async {
     try {
       final res = await http
           .post(
-            Uri.parse('$base/api/home/chat-providers'),
+            Uri.parse('${this.base}/api/home/chat-providers'),
             headers: {..._authHeaders, 'Content-Type': 'application/json'},
             body: jsonEncode({
               'action': 'set_role_route',
               'role': role,
               'id': providerId,
               'model': model,
+              if (base != null && base.isNotEmpty) 'base': base,
+              if (key != null && key.isNotEmpty) 'key': key,
+              if (proto != null && proto.isNotEmpty) 'proto': proto,
             }),
           )
           .timeout(const Duration(seconds: 20));

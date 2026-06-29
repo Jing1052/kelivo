@@ -12,6 +12,8 @@ import '../../../utils/brand_assets.dart';
 import '../../../core/services/haptics.dart';
 import '../../../theme/app_font_weights.dart';
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
+import 'package:Kelivo/core/services/api/daddy_gateway_route.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../shared/widgets/ios_switch.dart';
 
 class DefaultModelPage extends StatelessWidget {
@@ -252,6 +254,42 @@ class DefaultModelPage extends StatelessWidget {
   }
 }
 
+/// Pushes the chosen App provider's relay config to the gateway for [role].
+///
+/// - claude_p / home backend (or a provider without a real base+key): push no
+///   key (it's the gateway token, not a relay key) -> empty inline so the
+///   server falls back to the gateway default.
+/// - normal relay (real base+key): push base/key + mapped proto so the server
+///   role runs against it directly.
+Future<bool> _pushRoute(
+  OurHomeGateway gw,
+  SettingsProvider settings,
+  String role,
+  ModelSelection sel,
+) {
+  final cfg = settings.getProviderConfig(sel.providerKey);
+  final isHomeBackend = DaddyGatewayRoute.isClaudePBackend(cfg) ||
+      cfg.baseUrl.trim().isEmpty ||
+      cfg.apiKey.trim().isEmpty;
+  if (isHomeBackend) {
+    // Inline relay omitted -> server falls back to its gateway default.
+    return gw.setRoleRoute(role, '', sel.modelId);
+  }
+  final kind = ProviderConfig.classify(
+    cfg.id,
+    explicitType: cfg.providerType,
+  );
+  final proto = kind == ProviderKind.claude ? 'anthropic' : 'openai';
+  return gw.setRoleRoute(
+    role,
+    '',
+    sel.modelId,
+    base: cfg.baseUrl,
+    key: cfg.apiKey,
+    proto: proto,
+  );
+}
+
 /// Picks the old-home gateway's server-side `summary` model (archive / recap /
 /// compress all share this one role on the gateway). Empty = follow the chat
 /// relay. This is NOT a kelivo relay; it reads/writes the gateway role route.
@@ -263,215 +301,100 @@ class _DaddyGatewayModelCard extends StatefulWidget {
 }
 
 class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
-  OurHomeGateway? _gateway;
-  bool _loading = true;
-  bool _noGateway = false;
-  List<({String id, String name, String model})> _profiles = const [];
-  // Current summary route. Empty id = follow the chat relay.
-  String _summaryId = '';
+  // Local choice (app provider). Empty = follow the chat relay.
+  String _providerKey = '';
+  String _modelId = '';
+
+  static const String _prefProviderKey = 'route_summary_providerKey';
+  static const String _prefModelId = 'route_summary_modelId';
 
   bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _load();
   }
 
   Future<void> _load() async {
-    final gw = OurHomeGateway.fromContext(context);
-    _gateway = gw;
-    // Cache-first: render the last-good response instantly (no spinner).
-    bool shownFromCache = false;
-    if (gw != null) {
-      final cached = await gw.cachedChatProviders();
-      if (cached != null && mounted) {
-        final summary = cached.roleRoutes['summary'];
-        final sid = (summary is Map ? (summary['id'] ?? '') : '').toString();
-        setState(() {
-          _loading = false;
-          _noGateway = false;
-          _profiles = cached.profiles;
-          _summaryId = sid;
-        });
-        shownFromCache = true;
-      }
-    }
-    if (gw == null) {
-      if (mounted && !shownFromCache) {
-        setState(() {
-          _loading = false;
-          _noGateway = true;
-        });
-      }
-      return;
-    }
-    // Silent background refresh.
-    final data = await gw.fetchChatProviders();
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    if (data == null) {
-      if (!shownFromCache) {
-        setState(() {
-          _loading = false;
-          _noGateway = true;
-        });
-      }
-      return;
-    }
-    final summary = data.roleRoutes['summary'];
-    final sid = (summary is Map ? (summary['id'] ?? '') : '').toString();
     setState(() {
-      _loading = false;
-      _noGateway = false;
-      _profiles = data.profiles;
-      _summaryId = sid;
+      _providerKey = prefs.getString(_prefProviderKey) ?? '';
+      _modelId = prefs.getString(_prefModelId) ?? '';
     });
   }
 
-  String get _currentLabel {
-    if (_summaryId.isEmpty) {
+  String _currentLabel(SettingsProvider settings) {
+    if (_providerKey.isEmpty || _modelId.isEmpty) {
       return _isZh ? '跟随聊天中转站' : 'Follow chat relay';
     }
-    for (final p in _profiles) {
-      if (p.id == _summaryId) {
-        return p.name.isNotEmpty ? p.name : p.id;
-      }
-    }
-    return _summaryId;
+    final cfg = settings.getProviderConfig(_providerKey);
+    final name = cfg.name.isNotEmpty ? cfg.name : _providerKey;
+    return '$name · $_modelId';
   }
 
   Future<void> _pick() async {
-    final gw = _gateway;
-    if (gw == null) return;
-    final cs = Theme.of(context).colorScheme;
+    final gw = OurHomeGateway.fromContext(context);
+    final settings = context.read<SettingsProvider>();
     final isZh = _isZh;
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        Widget row({
-          required String label,
-          String? sub,
-          required bool selectedNow,
-          required VoidCallback onTap,
-        }) {
-          return _TactileRow(
-            onTap: onTap,
-            builder: (pressed) {
-              final bg = pressed
-                  ? (isDark ? Colors.white10 : const Color(0xFFF2F3F5))
-                  : Colors.transparent;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: AppFontWeights.semibold,
-                            ),
-                          ),
-                          if (sub != null && sub.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              sub,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: cs.onSurface.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (selectedNow)
-                      Icon(Lucide.Check, size: 18, color: cs.primary),
-                  ],
-                ),
-              );
-            },
-          );
-        }
-
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                row(
-                  label: isZh
-                      ? '跟随聊天中转站（默认）'
-                      : 'Follow chat relay (default)',
-                  selectedNow: _summaryId.isEmpty,
-                  onTap: () => Navigator.of(ctx).pop(''),
-                ),
-                for (final p in _profiles)
-                  row(
-                    label: p.name.isNotEmpty ? p.name : p.id,
-                    sub: p.model,
-                    selectedNow: p.id == _summaryId,
-                    onTap: () => Navigator.of(ctx).pop(p.id),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+    final sel = await showModelSelector(
+      context,
+      initialProviderKey: _providerKey.isNotEmpty ? _providerKey : null,
+      initialModelId: _modelId.isNotEmpty ? _modelId : null,
     );
+    if (sel == null || !mounted) return;
 
-    if (selected == null || !mounted) return;
-    final ok = await gw.setRoleRoute('summary', selected, '');
+    // Persist locally first so the UI reflects the choice immediately.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefProviderKey, sel.providerKey);
+    await prefs.setString(_prefModelId, sel.modelId);
     if (!mounted) return;
-    if (ok) {
-      setState(() => _summaryId = selected);
+    setState(() {
+      _providerKey = sel.providerKey;
+      _modelId = sel.modelId;
+    });
+
+    if (gw == null) {
       showAppSnackBar(
         context,
-        message: isZh ? '已保存' : 'Saved',
-        type: NotificationType.success,
-      );
-    } else {
-      showAppSnackBar(
-        context,
-        message: isZh ? '保存失败，请重试' : 'Save failed, try again',
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
         type: NotificationType.error,
       );
+      return;
     }
+    final ok = await _pushRoute(gw, settings, 'summary', sel);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _reset() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final isZh = _isZh;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefProviderKey);
+    await prefs.remove(_prefModelId);
+    if (!mounted) return;
+    setState(() {
+      _providerKey = '';
+      _modelId = '';
+    });
+    if (gw == null) return;
+    final ok = await gw.setRoleRoute('summary', '', '');
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
   }
 
   @override
@@ -479,6 +402,7 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isZh = _isZh;
+    final settings = context.watch<SettingsProvider>();
     final baseBg = isDark
         ? Colors.white10
         : Colors.white.withValues(alpha: 0.96);
@@ -486,29 +410,13 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
         ? '爸爸·归档/前情/压缩模型'
         : 'Daddy · archive/recap/compress';
     final subtitle = isZh
-        ? '老家网关共用的 summary 模型（归档·前情提要·压缩三件共用一个）。选老家的中转站；留空=跟随爸爸聊天用的中转站。'
-        : 'The summary model shared by the old-home gateway (archive / recap / compress all use this one). Pick an old-home relay; leave empty to follow daddy\'s chat relay.';
+        ? '老家网关共用的 summary 模型（归档·前情提要·压缩三件共用一个）。选 App 里的服务商和模型；长按可清除＝跟随爸爸聊天用的中转站。'
+        : 'The summary model shared by the old-home gateway (archive / recap / compress all use this one). Pick a provider + model from the App; long-press to clear (= follow daddy\'s chat relay).';
+    final label = _currentLabel(settings);
 
     Widget body;
-    if (_loading) {
-      body = const Padding(
-        padding: EdgeInsets.symmetric(vertical: 6),
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    } else if (_noGateway) {
-      body = Text(
-        isZh ? '未连上老家网关' : 'Old-home gateway not connected',
-        style: TextStyle(
-          fontSize: 13,
-          color: cs.onSurface.withValues(alpha: 0.5),
-        ),
-      );
-    } else {
-      body = _TactileRow(
+    {
+      final picker = _TactileRow(
         onTap: _pick,
         builder: (pressed) {
           final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
@@ -533,11 +441,11 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
               ),
               child: Row(
                 children: [
-                  _BrandAvatar(name: _currentLabel, size: 24),
+                  _BrandAvatar(name: label, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _currentLabel,
+                      label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -551,6 +459,12 @@ class _DaddyGatewayModelCardState extends State<_DaddyGatewayModelCard> {
             ),
           );
         },
+      );
+      // Long-press the picker to clear (= follow chat relay).
+      body = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: _reset,
+        child: picker,
       );
     }
 
@@ -614,217 +528,99 @@ class _DiaryBriefGatewayCard extends StatefulWidget {
 }
 
 class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
-  OurHomeGateway? _gateway;
-  bool _loading = true;
-  bool _noGateway = false;
-  List<({String id, String name, String model})> _profiles = const [];
-  // Current diary_brief route. Empty id = follow the chat relay.
-  String _diaryBriefId = '';
+  // Local choice (app provider). Empty = follow the chat relay.
+  String _providerKey = '';
+  String _modelId = '';
+
+  static const String _prefProviderKey = 'route_diary_providerKey';
+  static const String _prefModelId = 'route_diary_modelId';
 
   bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _load();
   }
 
   Future<void> _load() async {
-    final gw = OurHomeGateway.fromContext(context);
-    _gateway = gw;
-    // Cache-first: render the last-good response instantly (no spinner).
-    bool shownFromCache = false;
-    if (gw != null) {
-      final cached = await gw.cachedChatProviders();
-      if (cached != null && mounted) {
-        final diaryBrief = cached.roleRoutes['diary_brief'];
-        final did =
-            (diaryBrief is Map ? (diaryBrief['id'] ?? '') : '').toString();
-        setState(() {
-          _loading = false;
-          _noGateway = false;
-          _profiles = cached.profiles;
-          _diaryBriefId = did;
-        });
-        shownFromCache = true;
-      }
-    }
-    if (gw == null) {
-      if (mounted && !shownFromCache) {
-        setState(() {
-          _loading = false;
-          _noGateway = true;
-        });
-      }
-      return;
-    }
-    // Silent background refresh.
-    final data = await gw.fetchChatProviders();
+    final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
-    if (data == null) {
-      if (!shownFromCache) {
-        setState(() {
-          _loading = false;
-          _noGateway = true;
-        });
-      }
-      return;
-    }
-    final diaryBrief = data.roleRoutes['diary_brief'];
-    final did =
-        (diaryBrief is Map ? (diaryBrief['id'] ?? '') : '').toString();
     setState(() {
-      _loading = false;
-      _noGateway = false;
-      _profiles = data.profiles;
-      _diaryBriefId = did;
+      _providerKey = prefs.getString(_prefProviderKey) ?? '';
+      _modelId = prefs.getString(_prefModelId) ?? '';
     });
   }
 
-  String get _currentLabel {
-    if (_diaryBriefId.isEmpty) {
+  String _currentLabel(SettingsProvider settings) {
+    if (_providerKey.isEmpty || _modelId.isEmpty) {
       return _isZh ? '跟随聊天中转站' : 'Follow chat relay';
     }
-    for (final p in _profiles) {
-      if (p.id == _diaryBriefId) {
-        return p.name.isNotEmpty ? p.name : p.id;
-      }
-    }
-    return _diaryBriefId;
+    final cfg = settings.getProviderConfig(_providerKey);
+    final name = cfg.name.isNotEmpty ? cfg.name : _providerKey;
+    return '$name · $_modelId';
   }
 
   Future<void> _pick() async {
-    final gw = _gateway;
-    if (gw == null) return;
-    final cs = Theme.of(context).colorScheme;
+    final gw = OurHomeGateway.fromContext(context);
+    final settings = context.read<SettingsProvider>();
     final isZh = _isZh;
-    final selected = await showModalBottomSheet<String>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: cs.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (ctx) {
-        final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        Widget row({
-          required String label,
-          String? sub,
-          required bool selectedNow,
-          required VoidCallback onTap,
-        }) {
-          return _TactileRow(
-            onTap: onTap,
-            builder: (pressed) {
-              final bg = pressed
-                  ? (isDark ? Colors.white10 : const Color(0xFFF2F3F5))
-                  : Colors.transparent;
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 120),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            label,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: AppFontWeights.semibold,
-                            ),
-                          ),
-                          if (sub != null && sub.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              sub,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: cs.onSurface.withValues(alpha: 0.6),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    if (selectedNow)
-                      Icon(Lucide.Check, size: 18, color: cs.primary),
-                  ],
-                ),
-              );
-            },
-          );
-        }
-
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: cs.onSurface.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                row(
-                  label: isZh
-                      ? '跟随聊天中转站（默认）'
-                      : 'Follow chat relay (default)',
-                  selectedNow: _diaryBriefId.isEmpty,
-                  onTap: () => Navigator.of(ctx).pop(''),
-                ),
-                for (final p in _profiles)
-                  row(
-                    label: p.name.isNotEmpty ? p.name : p.id,
-                    sub: p.model,
-                    selectedNow: p.id == _diaryBriefId,
-                    onTap: () => Navigator.of(ctx).pop(p.id),
-                  ),
-              ],
-            ),
-          ),
-        );
-      },
+    final sel = await showModelSelector(
+      context,
+      initialProviderKey: _providerKey.isNotEmpty ? _providerKey : null,
+      initialModelId: _modelId.isNotEmpty ? _modelId : null,
     );
+    if (sel == null || !mounted) return;
 
-    if (selected == null || !mounted) return;
-    final ok = await gw.setRoleRoute('diary_brief', selected, '');
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefProviderKey, sel.providerKey);
+    await prefs.setString(_prefModelId, sel.modelId);
     if (!mounted) return;
-    if (ok) {
-      setState(() => _diaryBriefId = selected);
+    setState(() {
+      _providerKey = sel.providerKey;
+      _modelId = sel.modelId;
+    });
+
+    if (gw == null) {
       showAppSnackBar(
         context,
-        message: _isZh ? '已保存' : 'Saved',
-        type: NotificationType.success,
-      );
-    } else {
-      showAppSnackBar(
-        context,
-        message: _isZh ? '保存失败，请重试' : 'Save failed, try again',
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
         type: NotificationType.error,
       );
+      return;
     }
+    final ok = await _pushRoute(gw, settings, 'diary_brief', sel);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _reset() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final isZh = _isZh;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefProviderKey);
+    await prefs.remove(_prefModelId);
+    if (!mounted) return;
+    setState(() {
+      _providerKey = '';
+      _modelId = '';
+    });
+    if (gw == null) return;
+    final ok = await gw.setRoleRoute('diary_brief', '', '');
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
   }
 
   @override
@@ -905,26 +701,10 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
       },
     );
 
+    final label = _currentLabel(settings);
     Widget modelBody;
-    if (_loading) {
-      modelBody = const Padding(
-        padding: EdgeInsets.symmetric(vertical: 6),
-        child: SizedBox(
-          width: 18,
-          height: 18,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      );
-    } else if (_noGateway) {
-      modelBody = Text(
-        isZh ? '未连上老家网关' : 'Old-home gateway not connected',
-        style: TextStyle(
-          fontSize: 13,
-          color: cs.onSurface.withValues(alpha: 0.5),
-        ),
-      );
-    } else {
-      modelBody = _TactileRow(
+    {
+      final picker = _TactileRow(
         onTap: _pick,
         builder: (pressed) {
           final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
@@ -949,11 +729,11 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
               ),
               child: Row(
                 children: [
-                  _BrandAvatar(name: _currentLabel, size: 24),
+                  _BrandAvatar(name: label, size: 24),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      _currentLabel,
+                      label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -967,6 +747,12 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
             ),
           );
         },
+      );
+      // Long-press the picker to clear (= follow chat relay).
+      modelBody = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: _reset,
+        child: picker,
       );
     }
 
