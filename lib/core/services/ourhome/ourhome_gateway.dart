@@ -2122,6 +2122,51 @@ class OurHomeGateway {
     }
   }
 
+  /// Fetch daddy's Telegram-specific profile (system prompt) from the gateway.
+  /// Returns the stored text ('' when unset), or null on failure.
+  Future<String?> fetchTgProfile() async {
+    try {
+      final res = await http
+          .get(
+            Uri.parse('$base/api/home/chat-providers'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchTgProfile HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (data['tg_profile'] ?? '').toString();
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchTgProfile failed: $e');
+      return null;
+    }
+  }
+
+  /// Save daddy's Telegram-specific profile (system prompt) to the gateway.
+  /// It is appended after the soul, only for the TG surface. Returns true on
+  /// success.
+  Future<bool> saveTgProfile(String text) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/chat-providers'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'action': 'save_tg_profile',
+              'tg_profile': text,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveTgProfile failed: $e');
+      return false;
+    }
+  }
+
   /// Toggle daddy's "diary draft" (daily brief) on the server.
   Future<bool> setDailyBriefEnabled(bool enabled) async {
     try {

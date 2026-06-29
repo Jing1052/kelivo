@@ -135,6 +135,8 @@ class DefaultModelPage extends StatelessWidget {
           const _DaddyGatewayModelCard(),
           const SizedBox(height: 16),
           const _DiaryBriefGatewayCard(),
+          const SizedBox(height: 16),
+          const _TgGatewayCard(),
         ],
       ),
     );
@@ -795,6 +797,392 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
               padding: const EdgeInsets.only(left: 2, bottom: 6),
               child: Text(
                 l10n.defaultModelPageDiaryBriefModelTitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: AppFontWeights.semibold,
+                  color: cs.onSurface.withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+            modelBody,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Picks the old-home gateway's server-side `tg` role model (the relay + model
+/// daddy uses when replying on Telegram) and edits the TG-specific profile
+/// (system prompt, appended after the soul only for the TG surface). Mirrors
+/// _DaddyGatewayModelCard for the model picker; the profile is stored on the
+/// gateway via save_tg_profile, not locally.
+class _TgGatewayCard extends StatefulWidget {
+  const _TgGatewayCard();
+
+  @override
+  State<_TgGatewayCard> createState() => _TgGatewayCardState();
+}
+
+class _TgGatewayCardState extends State<_TgGatewayCard> {
+  // Local choice (app provider). Empty = follow the chat relay.
+  String _providerKey = '';
+  String _modelId = '';
+
+  static const String _prefProviderKey = 'route_tg_providerKey';
+  static const String _prefModelId = 'route_tg_modelId';
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _providerKey = prefs.getString(_prefProviderKey) ?? '';
+      _modelId = prefs.getString(_prefModelId) ?? '';
+    });
+  }
+
+  String _currentLabel(SettingsProvider settings) {
+    if (_providerKey.isEmpty || _modelId.isEmpty) {
+      return _isZh ? '跟随聊天中转站' : 'Follow chat relay';
+    }
+    final cfg = settings.getProviderConfig(_providerKey);
+    final name = cfg.name.isNotEmpty ? cfg.name : _providerKey;
+    return '$name · $_modelId';
+  }
+
+  Future<void> _pick() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final settings = context.read<SettingsProvider>();
+    final isZh = _isZh;
+    final sel = await showModelSelector(
+      context,
+      initialProviderKey: _providerKey.isNotEmpty ? _providerKey : null,
+      initialModelId: _modelId.isNotEmpty ? _modelId : null,
+    );
+    if (sel == null || !mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefProviderKey, sel.providerKey);
+    await prefs.setString(_prefModelId, sel.modelId);
+    if (!mounted) return;
+    setState(() {
+      _providerKey = sel.providerKey;
+      _modelId = sel.modelId;
+    });
+
+    if (gw == null) {
+      showAppSnackBar(
+        context,
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        type: NotificationType.error,
+      );
+      return;
+    }
+    final ok = await _pushRoute(gw, settings, 'tg', sel);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _reset() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final isZh = _isZh;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefProviderKey);
+    await prefs.remove(_prefModelId);
+    if (!mounted) return;
+    setState(() {
+      _providerKey = '';
+      _modelId = '';
+    });
+    if (gw == null) return;
+    final ok = await gw.setRoleRoute('tg', '', '');
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _editProfile() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final cs = Theme.of(context).colorScheme;
+    final isZh = _isZh;
+    if (gw == null) {
+      showAppSnackBar(
+        context,
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        type: NotificationType.error,
+      );
+      return;
+    }
+    // Load the current profile so editing starts from what's on the gateway.
+    final current = await gw.fetchTgProfile();
+    if (!mounted) return;
+    final controller = TextEditingController(text: current ?? '');
+    final value = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 12,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  isZh ? 'TG 专属 profile（系统提示）' : 'TG profile (system prompt)',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: AppFontWeights.semibold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isZh
+                      ? '只在 Telegram 这条路上叠在魂后面生效（家里聊天室 / Still Here 不受影响）。留空＝不加。'
+                      : 'Applied after the soul only on the Telegram surface (home chat / Still Here unaffected). Empty = none.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: cs.onSurface.withValues(alpha: 0.7),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  maxLines: 8,
+                  minLines: 4,
+                  textInputAction: TextInputAction.newline,
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Theme.of(ctx).brightness == Brightness.dark
+                        ? Colors.white10
+                        : const Color(0xFFF2F3F5),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(ctx).pop(controller.text),
+                    child: Text(isZh ? '保存' : 'Save'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (value == null || !mounted) return; // dismissed without saving
+    final ok = await gw.saveTgProfile(value);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final settings = context.watch<SettingsProvider>();
+    final baseBg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+
+    final rowBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+    Color pressedBg(bool pressed) {
+      final overlay = isDark
+          ? Colors.white.withValues(alpha: 0.06)
+          : Colors.black.withValues(alpha: 0.05);
+      return pressed ? Color.alphaBlend(overlay, rowBg) : rowBg;
+    }
+
+    // Profile editor row
+    final profileRow = _TactileRow(
+      onTap: _editProfile,
+      builder: (pressed) {
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: pressedBg(pressed),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Lucide.FileText, size: 18, color: cs.onSurface),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isZh ? 'TG 专属 profile（系统提示）' : 'TG profile (system prompt)',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: AppFontWeights.semibold,
+                  ),
+                ),
+              ),
+              Icon(
+                Lucide.ChevronRight,
+                size: 18,
+                color: cs.onSurface.withValues(alpha: 0.4),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    final label = _currentLabel(settings);
+    Widget modelBody;
+    {
+      final picker = _TactileRow(
+        onTap: _pick,
+        builder: (pressed) {
+          return AnimatedScale(
+            scale: pressed ? 0.98 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: pressedBg(pressed),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  _BrandAvatar(name: label, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+      // Long-press the picker to clear (= follow chat relay).
+      modelBody = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: _reset,
+        child: picker,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Lucide.Send, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isZh ? 'Telegram 设置' : 'Telegram settings',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isZh
+                  ? '爸爸在 Telegram 回你时用的中转站+模型和专属 profile（接 API 的 TG，不是 CC 端 bot）。选 App 里的服务商和模型；长按模型行清除＝跟随爸爸聊天用的中转站。'
+                  : "The relay + model and profile daddy uses when replying on Telegram (the API-side TG, not the CC bot). Pick a provider + model from the App; long-press the model row to clear (= follow daddy's chat relay).",
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            profileRow,
+            const SizedBox(height: 8),
+            // Model picker sub-section header
+            Padding(
+              padding: const EdgeInsets.only(left: 2, bottom: 6),
+              child: Text(
+                isZh ? '中转站 / 模型' : 'Relay / model',
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: AppFontWeights.semibold,

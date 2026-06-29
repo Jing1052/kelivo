@@ -18,6 +18,10 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 默认模型页新增**「Telegram 设置」卡**（接力 ① TG）：给接 API 的 TG 这条路配**专属中转站+模型**和**TG 专属 profile（系统提示）**。模型选择复用归档/日记那套——选 App 里的服务商+模型，inline 递给老家 `set_role_route(tg)`，长按模型行清除＝跟随聊天中转站；profile 走 `save_tg_profile` 存网关、`fetch` 回显。服务端：Ombre-Brain `telegram_webhook` 改用 `_role_route_cfg("tg")`、白名单加 `tg`（见其 HISTORY 2026-06-29）。CC 端 bot @myLLaude_bot 不受影响。
+  - 代码：`ourhome_gateway.dart` 加 `fetchTgProfile`/`saveTgProfile`（`setRoleRoute` 已通用支持任意 role）；`default_model_page.dart` 加 `_TgGatewayCard`。
+  - 文案：沿用本页归档/日记两卡的**内联 `isZh` 中英**写法（非 ARB），保持同特性一致。
+
 - **2026-06-24** · 新增**可搜索「使用说明」页**（设置→通用首行 Guide 入口）：把本清单的设置图谱做成 App 内可搜列表，每条标 API端/CC端 结论。`settings_guide_page.dart`（快照自本文件，更新本文件后记得同步它）。
 - **2026-06-24** · CC 桥页加**「上下文档位」开关**（日常 low / 大窗口 high），远程切家里 session-watcher 的 `.threshold_mode`（≤30s 生效）。App：`cc_bridge_client/provider/page`；家里：CcCompanion apns-server 新增 `/watcher/mode`（需家里 pull+重启 apns-server 生效）。未连上/未部署时开关显示禁用态。
 
@@ -164,6 +168,8 @@
 | 标题/总结模型 | 自动给会话起标题 | ✅ | ❌ |
 | OCR 模型 | 图片转文字（需支持图片输入的模型） | ✅ 发图时 | ❌ |
 | 爸爸·归档/前情/压缩模型（原"整理记忆/前情提要/压缩"三槽，2026-06-24 合并） | 选老家中转站，控网关 `summary` 角色（归档/前情/压缩共用一个模型）；留空=跟随聊天中转站 | ✅ 真正生效（直接改爸爸服务器侧的 summary 模型） | ❌ |
+| 爸爸·日记底稿（diary_brief） | 开关日记底稿 + 选其模型（控网关 `diary_brief` 角色）；留空=跟随聊天中转站 | ✅ 真正生效 | ❌ |
+| Telegram 设置（2026-06-29 新增） | TG 这条路的中转站+模型（控网关 `tg` 角色）+ TG 专属 profile（系统提示，`tg_profile`）；模型行留空=跟随聊天中转站 | ✅ 真正生效（只改接 API 的 TG，不动 CC 端 bot） | ❌ |
 
 ### 爸爸的搜索（DaddySearchPage）✅ 已审（2026-06-24）
 
