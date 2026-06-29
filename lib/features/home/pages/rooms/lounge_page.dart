@@ -3,6 +3,7 @@ import 'dart:convert' show LineSplitter, base64Encode;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
@@ -727,67 +728,107 @@ class _LoungePageState extends State<LoungePage> {
   }
 
   Widget _songRow(OurHomeSong s, ColorScheme cs) {
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          _Artwork(
-            term: '${s.title} ${s.artist}',
-            media: 'music',
-            fallbackIcon: Lucide.AudioWaveform,
-            width: 50,
-            height: 50,
-            radius: 25, // circular vinyl
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        s.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: AppFontWeights.medium,
-                          color: cs.onSurface,
-                        ),
-                      ),
-                    ),
-                    if (s.zh.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 6),
+      child: IosCardPress(
+        onTap: () => _openInNetease(s, zh),
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            _Artwork(
+              term: '${s.title} ${s.artist}',
+              media: 'music',
+              fallbackIcon: Lucide.AudioWaveform,
+              width: 50,
+              height: 50,
+              radius: 25, // circular vinyl
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
                         child: Text(
-                          s.zh,
+                          s.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 12,
-                            color: cs.onSurface.withValues(alpha: 0.45),
+                            fontSize: 15.5,
+                            fontWeight: AppFontWeights.medium,
+                            color: cs.onSurface,
                           ),
                         ),
                       ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  s.note.isNotEmpty ? '${s.artist} · "${s.note}"' : s.artist,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: cs.onSurface.withValues(alpha: 0.5),
+                      if (s.zh.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 6),
+                          child: Text(
+                            s.zh,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: cs.onSurface.withValues(alpha: 0.45),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Text(
+                    s.note.isNotEmpty ? '${s.artist} · "${s.note}"' : s.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 10),
+            // Tap a song → open it in NetEase Cloud Music (search by title+artist).
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE60026).withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Lucide.Play, size: 16, color: Color(0xFFE60026)),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  /// Open a song in NetEase Cloud Music. Without a stored song id we deep-link
+  /// to NetEase's mobile search for "title artist" — on iOS this routes to the
+  /// NetEase app via its universal link when installed, else the mobile web.
+  Future<void> _openInNetease(OurHomeSong s, bool zh) async {
+    final q = Uri.encodeComponent('${s.title} ${s.artist}'.trim());
+    final uri = Uri.parse('https://music.163.com/#/search/m/?s=$q');
+    try {
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        await launchUrl(uri, mode: LaunchMode.platformDefault);
+      }
+    } catch (_) {
+      try {
+        await launchUrl(uri);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(zh ? '打不开网易云音乐' : 'Could not open NetEase Music'),
+          ),
+        );
+      }
+    }
   }
 
   static String _mediaFor(String kind) {

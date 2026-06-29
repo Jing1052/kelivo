@@ -18,6 +18,9 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·第一期：起居室「歌单」里每首歌**可点 → 跳转网易云音乐**（按「歌名 歌手」搜，iOS 装了网易云会经 universal link 跳 App，否则移动网页）。歌曲行包进 `IosCardPress`、右侧加红色播放圆点。爸爸聊天点歌（server.py `add_song` 工具）本就有。`lounge_page.dart`。
+  - 待续（已和小猫定方向）：主页随机歌卡、App 内搜网易云（需定 API 方案）、歌词页/黑胶滚动歌词、我喜欢的音乐、歌单管理。
+
 - **2026-06-29** · 图画盘（外观快捷调节 sheet）新增**气泡透明度滑杆 + 气泡颜色自定义**；顶栏**精简为只留图画盘**：
   - 透明度：复用既有全局 `chatBubbleOpacity`（我和爸爸**共用一个**，保持一致）。
   - 颜色：新增持久字段 `userBubbleColor` / `assistantBubbleColor`（ARGB int，null=跟随主题），**各选各的**。点开自建的 HSV 自由调色盘 `bubble_color_picker_sheet.dart`（色相/饱和度/明度三条渐变滑杆+预览+「恢复默认」，纯 Flutter 无第三方包）。`_buildSharedChatSurface` 加 `customColor` 参数，三种背景风格（默认/模糊/纯色）都应用，透明度叠在其上。
