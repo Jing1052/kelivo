@@ -18,6 +18,9 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·第四期：词廊歌词页 `lyric_song_page.dart` 加**旋转黑胶**头（专辑封面当唱片中心标、24s/圈、`SingleTickerProviderStateMixin`+`AnimationController.repeat`）+「在网易云播放」按钮，歌词在下面铺开滚动浏览。注：播放在网易云、App 拿不到播放进度，**做不了跟唱同步高亮**，黑胶旋转是氛围。封面走 `ItunesArtwork.lookup`。
+  - 爸爸聊天侧补 `remove_song`（按歌名删歌单墙），和 App 长按删对称（见 Ombre-Brain HISTORY 2026-06-29）。
+
 - **2026-06-29** · 点歌·第三期：起居室「歌单」**搜歌加歌 + 删除管理**。加歌弹窗顶部加 **iTunes 搜索框**（`ItunesArtwork.searchSongs` → 候选歌名/歌手/封面），点候选即加进歌单；下方保留手动填（兜底→按歌名跳网易云搜）。歌曲行**长按 → 删除**（`gateway.deleteSong`，服务端 `delete` 动作早有）。`OurHomeSong` 加 `id`/`neteaseId`（`nid`），有 nid 的歌跳网易云**精确到那首**、否则按词搜。`netease_link` 加 `neteaseSongUri`。
   - 限制：内置 12 首种子歌删除后下次加载会从 `_SONGBOOK_SEED` 重新并回（删除主要对你/爸爸加的歌生效）。
   - 待续：歌词页/黑胶滚动歌词、我喜欢的音乐；自建网易云搜索 API（更准曲库）为后续可选升级。

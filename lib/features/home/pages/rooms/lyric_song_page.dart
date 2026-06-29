@@ -7,6 +7,8 @@ import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
+import '../../../../core/services/ourhome/itunes_artwork.dart';
+import '../../../../core/services/ourhome/netease_link.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 
@@ -29,13 +31,27 @@ class LyricSongPage extends StatefulWidget {
   State<LyricSongPage> createState() => _LyricSongPageState();
 }
 
-class _LyricSongPageState extends State<LyricSongPage> {
+class _LyricSongPageState extends State<LyricSongPage>
+    with SingleTickerProviderStateMixin {
   late Map<String, List<OurHomeLyricComment>> _comments;
+  late final AnimationController _spin;
 
   @override
   void initState() {
     super.initState();
     _comments = widget.comments;
+    // Vinyl record spins slowly and forever — pure ambience (playback is on
+    // NetEase, so we can't sync rotation to real audio position).
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 24),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _spin.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshComments() async {
@@ -172,11 +188,15 @@ class _LyricSongPageState extends State<LyricSongPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
         children: [
-          Text(
-            l.artist,
-            style: TextStyle(
-              fontSize: 13,
-              color: cs.onSurface.withValues(alpha: 0.5),
+          _vinylHeader(l, cs, zh),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              l.artist,
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
             ),
           ),
           if (l.intro.trim().isNotEmpty) ...[
@@ -201,6 +221,107 @@ class _LyricSongPageState extends State<LyricSongPage> {
       ),
     ),
       ],
+    );
+  }
+
+  /// Spinning vinyl record (album art as the centre label) + a "play on
+  /// NetEase" button. The spin is ambience only — not synced to audio.
+  Widget _vinylHeader(OurHomeLyric l, ColorScheme cs, bool zh) {
+    const disc = 200.0;
+    final term = '${l.title} ${l.artist}'.trim();
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        SizedBox(
+          width: disc,
+          height: disc,
+          child: RotationTransition(
+            turns: _spin,
+            child: _vinylDisc(term, disc, cs),
+          ),
+        ),
+        const SizedBox(height: 18),
+        IosCardPress(
+          onTap: () =>
+              openSongInNetease(context, title: l.title, artist: l.artist),
+          borderRadius: BorderRadius.circular(24),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE60026).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Lucide.Play, size: 16, color: Color(0xFFE60026)),
+                const SizedBox(width: 8),
+                Text(
+                  zh ? '在网易云播放' : 'Play on NetEase',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFFE60026),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _vinylDisc(String term, double size, ColorScheme cs) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: const RadialGradient(
+          colors: [Color(0xFF2B2B30), Color(0xFF0E0E11)],
+          stops: [0.55, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Center(
+        child: ClipOval(
+          child: SizedBox(
+            width: size * 0.52,
+            height: size * 0.52,
+            child: _discArtwork(term, cs),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _discArtwork(String term, ColorScheme cs) {
+    Widget fallback() => Container(
+          color: cs.primary.withValues(alpha: 0.15),
+          child: Icon(
+            Lucide.AudioWaveform,
+            color: cs.primary.withValues(alpha: 0.8),
+          ),
+        );
+    if (term.isEmpty) return fallback();
+    return FutureBuilder<String?>(
+      future: ItunesArtwork.lookup(term, media: 'music'),
+      builder: (c, snap) {
+        final url = snap.data;
+        if (url == null || url.isEmpty) return fallback();
+        return Image.network(
+          url,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => fallback(),
+        );
+      },
     );
   }
 
