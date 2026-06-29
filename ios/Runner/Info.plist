@@ -133,5 +133,10 @@
 	</array>
 	<key>io.flutter.embedded_views_preview</key>
 	<true/>
+	<!-- 允许唤起网易云音乐 App（orpheus:// 协议）：歌曲卡片/歌单"在网易云打开"优先开 App -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>orpheus</string>
+	</array>
 </dict>
 </plist>

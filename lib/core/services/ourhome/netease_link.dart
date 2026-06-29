@@ -15,6 +15,21 @@ Uri neteaseSearchUri(String title, String artist) {
 Uri neteaseSongUri(String neteaseId) =>
     Uri.parse('https://music.163.com/song?id=$neteaseId');
 
+// NetEase Cloud Music app URL scheme (orpheus://). Opens the native app
+// directly instead of the mobile web. iOS needs `orpheus` listed in
+// LSApplicationQueriesSchemes (Info.plist) for this to be allowed.
+Uri _neteaseAppSongUri(String id) => Uri.parse('orpheus://song/$id');
+Uri _neteaseAppSearchUri(String q) =>
+    Uri.parse('orpheus://search?keyword=${Uri.encodeComponent(q)}');
+
+Future<bool> _tryLaunch(Uri uri) async {
+  try {
+    return await launchUrl(uri, mode: LaunchMode.externalApplication);
+  } catch (_) {
+    return false;
+  }
+}
+
 /// A NetEase user's profile page — lists all their playlists (我喜欢的音乐 /
 /// 我们的歌 / 爸比的歌 …). [uid] is the numeric NetEase account id.
 Uri neteaseUserUri(String uid) =>
@@ -50,6 +65,13 @@ Future<void> openSongInNetease(
   String? neteaseId,
 }) async {
   final id = (neteaseId ?? '').trim();
-  final uri = id.isNotEmpty ? neteaseSongUri(id) : neteaseSearchUri(title, artist);
-  await openNeteaseUri(context, uri);
+  // 1) Prefer opening the NetEase app via orpheus:// (exact song when we have
+  //    an id, else the app's search).
+  final appUri = id.isNotEmpty
+      ? _neteaseAppSongUri(id)
+      : _neteaseAppSearchUri('$title $artist'.trim());
+  if (await _tryLaunch(appUri)) return;
+  // 2) App not installed / scheme refused → fall back to the web page.
+  final webUri = id.isNotEmpty ? neteaseSongUri(id) : neteaseSearchUri(title, artist);
+  await openNeteaseUri(context, webUri);
 }

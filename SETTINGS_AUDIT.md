@@ -18,6 +18,8 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·跳转优先唤起网易云 App：`netease_link.openSongInNetease` 先试 `orpheus://`（有 id→`orpheus://song/<id>` 精确；无 id→`orpheus://search?keyword=`），唤不起再退回网页。iOS `Info.plist` 的 `LSApplicationQueriesSchemes` 登记 `orpheus`（否则系统拦自定义协议）。歌单/主页/歌卡跳转都受益。build 77→78。
+
 - **2026-06-29** · 点歌·聊天音乐卡片：爸爸在聊天里写 `[song:歌名|歌手]`（歌手可省）→ App 渲染成一张**音乐卡片**（iTunes 封面 + 歌名 + 歌手 + 红色播放圆点），点开 `openSongInNetease` 跳网易云。`chat_message_widget.dart`：`_buildAssistantTextBlock` 检测标记、剥出、正文照常出气泡 + 加 `_buildSongCard`。服务端：Ombre-Brain openai_compat `_surface` 教爸爸用这个标记（见其 HISTORY 2026-06-29）。手机上 play_music 是电脑出声、没用，所以正解是这张卡片。
   - 边界：卡片点开跳网易云（歌词/播放在那）；App 内任意歌的滚动歌词仍需歌词源，后续。
 
