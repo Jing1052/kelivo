@@ -18,6 +18,13 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 图画盘（外观快捷调节 sheet）新增**气泡透明度滑杆 + 气泡颜色自定义**；顶栏**精简为只留图画盘**：
+  - 透明度：复用既有全局 `chatBubbleOpacity`（我和爸爸**共用一个**，保持一致）。
+  - 颜色：新增持久字段 `userBubbleColor` / `assistantBubbleColor`（ARGB int，null=跟随主题），**各选各的**。点开自建的 HSV 自由调色盘 `bubble_color_picker_sheet.dart`（色相/饱和度/明度三条渐变滑杆+预览+「恢复默认」，纯 Flutter 无第三方包）。`_buildSharedChatSurface` 加 `customColor` 参数，三种背景风格（默认/模糊/纯色）都应用，透明度叠在其上。
+  - 顶栏：`home_mobile_layout.dart` 右上角删掉 **地图(MiniMap)** 和 **新建/临时对话** 两个图标，只留 **图画盘**。新建对话仍可从侧边抽屉发起，故安全。
+  - 文案：新标签用内联 `isZh`（家专属词如「爸爸的气泡」，沿用本仓库 daddy 卡先例、避开 gen-l10n）。
+  - 代码：`settings_provider.dart`（字段/键/load/setter）、`appearance_quick_sheet.dart`（透明度滑杆+`_BubbleColorRow`）、`bubble_color_picker_sheet.dart`（新）、`chat_message_widget.dart`（`_buildSharedChatSurface`+两个气泡容器接 customColor）、`home_mobile_layout.dart`（删两图标）。
+
 - **2026-06-29** · 默认模型页新增**「Telegram 设置」卡**（接力 ① TG）：给接 API 的 TG 这条路配**专属中转站+模型**和**TG 专属 profile（系统提示）**。模型选择复用归档/日记那套——选 App 里的服务商+模型，inline 递给老家 `set_role_route(tg)`，长按模型行清除＝跟随聊天中转站；profile 走 `save_tg_profile` 存网关、`fetch` 回显。服务端：Ombre-Brain `telegram_webhook` 改用 `_role_route_cfg("tg")`、白名单加 `tg`（见其 HISTORY 2026-06-29）。CC 端 bot @myLLaude_bot 不受影响。
   - 代码：`ourhome_gateway.dart` 加 `fetchTgProfile`/`saveTgProfile`（`setRoleRoute` 已通用支持任意 role）；`default_model_page.dart` 加 `_TgGatewayCard`。
   - 文案：沿用本页归档/日记两卡的**内联 `isZh` 中英**写法（非 ARB），保持同特性一致。

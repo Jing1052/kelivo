@@ -219,42 +219,11 @@ class HomeMobileScaffold extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      actions: [
-        const AppearanceQuickButton(),
-        IosIconButton(
-          size: 20,
-          minSize: 44,
-          onTap: onOpenMiniMap,
-          semanticLabel: AppLocalizations.of(context)!.miniMapTooltip,
-          icon: Lucide.Map,
-        ),
-        IosIconButton(
-          size: 22,
-          minSize: 44,
-          onTap: () async {
-            if (canToggleTemporaryConversation) {
-              await onToggleTemporaryConversation();
-            } else {
-              await onCreateNewConversation();
-            }
-          },
-          semanticLabel: canToggleTemporaryConversation
-              ? AppLocalizations.of(context)!.temporaryChatToggleTooltip
-              : AppLocalizations.of(context)!.titleForLocale,
-          icon: canToggleTemporaryConversation && !temporaryConversationEnabled
-              ? Lucide.MessageCircleDashed
-              : Lucide.MessageCirclePlus,
-          builder:
-              canToggleTemporaryConversation && temporaryConversationEnabled
-              ? (color) => SvgPicture.asset(
-                  'assets/icons/temporary_chat_checked.svg',
-                  width: 22,
-                  height: 22,
-                  colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                )
-              : null,
-        ),
-        const SizedBox(width: 4),
+      actions: const [
+        // 小猫只留图画盘在右上角；地图(MiniMap)和新建/临时对话两个图标已撤
+        // （新建对话仍可从侧边抽屉发起）。
+        AppearanceQuickButton(),
+        SizedBox(width: 4),
       ],
     );
   }

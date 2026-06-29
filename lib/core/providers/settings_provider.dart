@@ -230,6 +230,10 @@ class SettingsProvider extends ChangeNotifier {
   static const String _displayButtonShapeKey = 'display_button_shape_v1';
   static const String _displayChatBubbleOpacityKey =
       'display_chat_bubble_opacity_v1';
+  static const String _displayUserBubbleColorKey =
+      'display_user_bubble_color_v1';
+  static const String _displayAssistantBubbleColorKey =
+      'display_assistant_bubble_color_v1';
   static const String _displayBackgroundDimKey = 'display_background_dim_v1';
   static const String _mobileAssistantEditTabOrderKey =
       'mobile_assistant_edit_tab_order_v1';
@@ -1369,6 +1373,8 @@ class SettingsProvider extends ChangeNotifier {
     }
     _chatBubbleOpacity =
         (prefs.getDouble(_displayChatBubbleOpacityKey) ?? 1.0).clamp(0.3, 1.0);
+    _userBubbleColor = prefs.getInt(_displayUserBubbleColorKey);
+    _assistantBubbleColor = prefs.getInt(_displayAssistantBubbleColorKey);
     _backgroundDim =
         (prefs.getDouble(_displayBackgroundDimKey) ?? 0.0).clamp(0.0, 1.0);
     _mobileAssistantEditTabOrder = List.unmodifiable(
@@ -2687,6 +2693,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   // Chat bubble background opacity multiplier (0.3..1.0, default 1.0 = current).
+  // Shared by both sides (user + assistant) so the two bubbles stay consistent.
   double _chatBubbleOpacity = 1.0;
   double get chatBubbleOpacity => _chatBubbleOpacity;
   Future<void> setChatBubbleOpacity(double value) async {
@@ -2696,6 +2703,37 @@ class SettingsProvider extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble(_displayChatBubbleOpacityKey, v);
+  }
+
+  // Custom bubble fill colors (ARGB int; null = follow theme default). Opacity
+  // above is applied on top, so store these fully opaque. Each side picks its
+  // own color (user vs assistant); opacity stays shared.
+  int? _userBubbleColor;
+  int? _assistantBubbleColor;
+  Color? get userBubbleColor =>
+      _userBubbleColor == null ? null : Color(_userBubbleColor!);
+  Color? get assistantBubbleColor =>
+      _assistantBubbleColor == null ? null : Color(_assistantBubbleColor!);
+  Future<void> setUserBubbleColor(Color? c) async {
+    _userBubbleColor = c?.toARGB32();
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (_userBubbleColor == null) {
+      await prefs.remove(_displayUserBubbleColorKey);
+    } else {
+      await prefs.setInt(_displayUserBubbleColorKey, _userBubbleColor!);
+    }
+  }
+
+  Future<void> setAssistantBubbleColor(Color? c) async {
+    _assistantBubbleColor = c?.toARGB32();
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    if (_assistantBubbleColor == null) {
+      await prefs.remove(_displayAssistantBubbleColorKey);
+    } else {
+      await prefs.setInt(_displayAssistantBubbleColorKey, _assistantBubbleColor!);
+    }
   }
 
   // Global background dim strength (0.0..1.0, default 0). Painted as a neutral

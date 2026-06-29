@@ -1882,6 +1882,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     BorderRadius radius = BorderRadius.circular(
       context.watch<SettingsProvider>().chatBubbleShape.bubbleRadius,
     );
+    final settings = context.watch<SettingsProvider>();
     return _buildSharedChatSurface(
       context,
       borderRadius: radius,
@@ -1892,6 +1893,8 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                 : cs.primary.withValues(alpha: 0.08))
           : null,
       bareOnDefault: !isUser,
+      customColor:
+          isUser ? settings.userBubbleColor : settings.assistantBubbleColor,
       child: child,
     );
   }
@@ -1921,6 +1924,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       // already render their own background via _buildSharedChatSurface.
       defaultColor: assistantColor,
       bareOnDefault: false,
+      customColor: context.watch<SettingsProvider>().assistantBubbleColor,
       child: child,
     );
   }
@@ -3198,6 +3202,10 @@ Widget _buildSharedChatSurface(
   required EdgeInsetsGeometry padding,
   Color? defaultColor,
   bool bareOnDefault = false,
+  // User-picked bubble fill (per side). When set it overrides the style's base
+  // color in every style; the shared opacity below still applies on top, so
+  // pass a fully-opaque color here.
+  Color? customColor,
 }) {
   final theme = Theme.of(context);
   final cs = theme.colorScheme;
@@ -3210,15 +3218,15 @@ Widget _buildSharedChatSurface(
 
   switch (style) {
     case ChatMessageBackgroundStyle.frosted:
+      final base = customColor ??
+          (isDark ? const Color(0xFF1C1C1E) : Colors.white);
       return ClipRRect(
         borderRadius: borderRadius,
         child: BackdropFilter.grouped(
           filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
           child: DecoratedBox(
             decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1C1C1E).withValues(alpha: 0.66 * op)
-                  : Colors.white.withValues(alpha: 0.66 * op),
+              color: base.withValues(alpha: 0.66 * op),
               borderRadius: borderRadius,
               border: Border.all(
                 color: cs.outlineVariant.withValues(alpha: 0.14),
@@ -3230,10 +3238,11 @@ Widget _buildSharedChatSurface(
         ),
       );
     case ChatMessageBackgroundStyle.solid:
+      final base = customColor ??
+          (isDark ? const Color(0xFF1C1C1E) : Colors.white);
       return DecoratedBox(
         decoration: BoxDecoration(
-          color: (isDark ? const Color(0xFF1C1C1E) : Colors.white)
-              .withValues(alpha: op),
+          color: base.withValues(alpha: op),
           borderRadius: borderRadius,
           border: Border.all(
             color: cs.outlineVariant.withValues(alpha: 0.16),
@@ -3243,6 +3252,15 @@ Widget _buildSharedChatSurface(
         child: paddedChild,
       );
     case ChatMessageBackgroundStyle.defaultStyle:
+      if (customColor != null) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: customColor.withValues(alpha: op),
+            borderRadius: borderRadius,
+          ),
+          child: paddedChild,
+        );
+      }
       if (bareOnDefault) {
         return child;
       }

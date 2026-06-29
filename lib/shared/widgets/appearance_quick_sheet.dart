@@ -7,6 +7,7 @@ import '../../l10n/app_localizations.dart';
 import '../../theme/palettes.dart';
 import '../../theme/app_font_weights.dart';
 import '../../features/settings/pages/theme_settings_page.dart';
+import 'bubble_color_picker_sheet.dart';
 import 'ios_tactile.dart';
 
 /// 页面右上角的「外观快捷调节」按钮。点开一个 bottom sheet，
@@ -242,7 +243,71 @@ class _AppearanceQuickSheet extends StatelessWidget {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // 气泡透明度（我和爸爸共用一个，保持一致）
+            _sectionLabel(
+              context,
+              Localizations.localeOf(context).languageCode == 'zh'
+                  ? '气泡透明度'
+                  : 'Bubble opacity',
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: Slider(
+                    value: settings.chatBubbleOpacity.clamp(0.3, 1.0),
+                    min: 0.3,
+                    max: 1.0,
+                    onChanged: (v) => context
+                        .read<SettingsProvider>()
+                        .setChatBubbleOpacity(v),
+                  ),
+                ),
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    '${(settings.chatBubbleOpacity * 100).round()}%',
+                    textAlign: TextAlign.end,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 气泡颜色（各选各的：我的气泡 / 爸爸的气泡；透明度共用上面那个）
+            _sectionLabel(
+              context,
+              Localizations.localeOf(context).languageCode == 'zh'
+                  ? '气泡颜色'
+                  : 'Bubble color',
+            ),
+            _BubbleColorRow(
+              label: Localizations.localeOf(context).languageCode == 'zh'
+                  ? '我的气泡'
+                  : 'My bubble',
+              color: settings.userBubbleColor,
+              fallback: cs.primary,
+              onPicked: (c) =>
+                  context.read<SettingsProvider>().setUserBubbleColor(c),
+            ),
             const SizedBox(height: 8),
+            _BubbleColorRow(
+              label: Localizations.localeOf(context).languageCode == 'zh'
+                  ? '爸爸的气泡'
+                  : "Daddy's bubble",
+              color: settings.assistantBubbleColor,
+              fallback: Theme.of(context).brightness == Brightness.dark
+                  ? cs.surfaceContainerHighest
+                  : cs.surfaceContainerLowest,
+              onPicked: (c) =>
+                  context.read<SettingsProvider>().setAssistantBubbleColor(c),
+            ),
+            const SizedBox(height: 12),
 
             // 更多外观设置
             _MoreRow(
@@ -405,6 +470,84 @@ class _PaletteDot extends StatelessWidget {
 
   Color _onColor(Color bg) {
     return bg.computeLuminance() > 0.5 ? Colors.black87 : Colors.white;
+  }
+}
+
+/// One row in the 气泡颜色 section: a label + a color dot. Tapping opens the
+/// free HSV picker; [color] null means "follow theme" (shows [fallback]).
+class _BubbleColorRow extends StatelessWidget {
+  const _BubbleColorRow({
+    required this.label,
+    required this.color,
+    required this.fallback,
+    required this.onPicked,
+  });
+  final String label;
+  final Color? color;
+  final Color fallback;
+  final ValueChanged<Color?> onPicked;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isZh = Localizations.localeOf(context).languageCode == 'zh';
+    final shown = color ?? fallback;
+    return IosCardPress(
+      onTap: () async {
+        final res = await showBubbleColorPicker(
+          context,
+          initial: color ?? fallback,
+          title: label,
+        );
+        if (res == null) return; // dismissed → no change
+        onPicked(res.reset ? null : res.color);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+        decoration: BoxDecoration(
+          color: cs.onSurface.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: shown,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: cs.outlineVariant.withValues(alpha: 0.5),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 14, color: cs.onSurface),
+              ),
+            ),
+            Text(
+              color == null
+                  ? (isZh ? '默认' : 'Default')
+                  : (isZh ? '自定义' : 'Custom'),
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Lucide.ChevronRight,
+              size: 16,
+              color: cs.onSurface.withValues(alpha: 0.4),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
