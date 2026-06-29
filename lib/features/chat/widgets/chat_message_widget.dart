@@ -6,6 +6,8 @@ import 'dart:ui' as ui;
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
 import '../../../core/services/haptics.dart';
+import '../../../core/services/ourhome/netease_link.dart';
+import '../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../core/utils/buzz_markers.dart';
 import '../../../core/utils/iphone_markers.dart';
 import 'package:flutter/scheduler.dart';
@@ -2014,15 +2016,53 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     );
   }
 
+  // Daddy can drop a music card in chat by writing `[song:歌名|歌手]` (歌手 can
+  // be omitted). We render it as a tappable card (cover + title + artist) that
+  // opens the song in NetEase, and strip the marker from the visible text.
+  static final RegExp _songMarkerRe = RegExp(
+    r'\[song:\s*([^|\]]+?)\s*(?:\|\s*([^\]]*?))?\s*\]',
+    caseSensitive: false,
+  );
+
   Widget _buildAssistantTextBlock(
     BuildContext context,
     String visualContent,
     SettingsProvider settings,
   ) {
-    // Bubble hugs its content (QQ/WeChat feel): a short line gets a short
-    // bubble, long text wraps at maxWidth — instead of always spanning the full
-    // row. Left-aligned. maxWidth is finite so any width:infinity child inside
-    // the markdown (e.g. code blocks) clamps to it rather than overflowing.
+    final matches = _songMarkerRe.allMatches(visualContent).toList();
+    if (matches.isEmpty) {
+      return _assistantTextBubble(context, visualContent, settings);
+    }
+    final stripped = visualContent.replaceAll(_songMarkerRe, '').trim();
+    final children = <Widget>[];
+    if (stripped.isNotEmpty) {
+      children.add(_assistantTextBubble(context, stripped, settings));
+    }
+    for (final m in matches) {
+      final title = (m.group(1) ?? '').trim();
+      if (title.isEmpty) continue;
+      final artist = (m.group(2) ?? '').trim();
+      if (children.isNotEmpty) children.add(const SizedBox(height: 8));
+      children.add(_buildSongCard(context, title, artist));
+    }
+    if (children.isEmpty) {
+      return _assistantTextBubble(context, visualContent, settings);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: children,
+    );
+  }
+
+  // Bubble hugs its content (QQ/WeChat feel): a short line gets a short bubble,
+  // long text wraps at maxWidth. Left-aligned. maxWidth is finite so any
+  // width:infinity child inside the markdown (e.g. code blocks) clamps to it.
+  Widget _assistantTextBubble(
+    BuildContext context,
+    String visualContent,
+    SettingsProvider settings,
+  ) {
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -2032,6 +2072,109 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         child: _buildAssistantBubbleContainer(
           context: context,
           child: _buildAssistantTextContent(context, visualContent, settings),
+        ),
+      ),
+    );
+  }
+
+  // A chat music card: cover (iTunes) + title + artist, tap → open in NetEase.
+  Widget _buildSongCard(BuildContext context, String title, String artist) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final term = '$title $artist'.trim();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+        ),
+        child: IosCardPress(
+          onTap: () =>
+              openSongInNetease(context, title: title, artist: artist),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? cs.surfaceContainerHighest.withValues(alpha: 0.55)
+                  : cs.surfaceContainerLowest.withValues(alpha: 0.92),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.25),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    width: 46,
+                    height: 46,
+                    child: FutureBuilder<String?>(
+                      future: ItunesArtwork.lookup(term, media: 'music'),
+                      builder: (c, snap) {
+                        final url = snap.data;
+                        Widget ph() => Container(
+                              color: cs.primary.withValues(alpha: 0.12),
+                              child: Icon(Lucide.AudioWaveform,
+                                  size: 20,
+                                  color: cs.primary.withValues(alpha: 0.8)),
+                            );
+                        if (url == null || url.isEmpty) return ph();
+                        return Image.network(url,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => ph());
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: AppFontWeights.semibold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        artist.isEmpty
+                            ? (zh ? '点击在网易云打开' : 'Open in NetEase')
+                            : artist,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: cs.onSurface.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE60026).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Lucide.Play,
+                      size: 16, color: Color(0xFFE60026)),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

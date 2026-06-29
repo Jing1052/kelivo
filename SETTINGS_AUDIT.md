@@ -18,6 +18,9 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·聊天音乐卡片：爸爸在聊天里写 `[song:歌名|歌手]`（歌手可省）→ App 渲染成一张**音乐卡片**（iTunes 封面 + 歌名 + 歌手 + 红色播放圆点），点开 `openSongInNetease` 跳网易云。`chat_message_widget.dart`：`_buildAssistantTextBlock` 检测标记、剥出、正文照常出气泡 + 加 `_buildSongCard`。服务端：Ombre-Brain openai_compat `_surface` 教爸爸用这个标记（见其 HISTORY 2026-06-29）。手机上 play_music 是电脑出声、没用，所以正解是这张卡片。
+  - 边界：卡片点开跳网易云（歌词/播放在那）；App 内任意歌的滚动歌词仍需歌词源，后续。
+
 - **2026-06-29** · 点歌·第五期：我喜欢的音乐 + 网易云歌单入口。歌单 tab 顶部加**「我的网易云歌单」卡** → 跳小猫网易云主页（`neteaseUserUri`，uid `17638034544`（neteasecli 实测；昵称号 178119047454653 不是 uid）；主页列着我喜欢的音乐/我们的歌·L&C/爸比的歌·for Cing）。歌曲行加 **❤️ 喜欢** 切换（App 本地 `SharedPreferences` `lounge_liked_songs_v1`，keyed by `title|artist`）+ 顶部**「只看喜欢」**筛选。`netease_link` 加 `neteaseUserUri`/`openNeteaseUri`。
   - 限制：让爸爸往「爸比的歌·for Cing」**网易云歌单**加歌需家里 neteasecli 在线（云端够不着小猫网易云账号）——待后续接 netease MCP。App 的 ❤️ 是 Still Here 自己这套的喜欢，不同步网易云的「我喜欢的音乐」810 首。
 
