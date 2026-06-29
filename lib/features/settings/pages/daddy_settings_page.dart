@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform, File;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
