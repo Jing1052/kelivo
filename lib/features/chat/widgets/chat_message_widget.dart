@@ -2015,11 +2015,20 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     String visualContent,
     SettingsProvider settings,
   ) {
-    return SizedBox(
-      width: double.infinity,
-      child: _buildAssistantBubbleContainer(
-        context: context,
-        child: _buildAssistantTextContent(context, visualContent, settings),
+    // Bubble hugs its content (QQ/WeChat feel): a short line gets a short
+    // bubble, long text wraps at maxWidth — instead of always spanning the full
+    // row. Left-aligned. maxWidth is finite so any width:infinity child inside
+    // the markdown (e.g. code blocks) clamps to it rather than overflowing.
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.sizeOf(context).width * 0.82,
+        ),
+        child: _buildAssistantBubbleContainer(
+          context: context,
+          child: _buildAssistantTextContent(context, visualContent, settings),
+        ),
       ),
     );
   }
@@ -2454,7 +2463,11 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                     .map((s) => s.trim())
                     .where((s) => s.isNotEmpty)
                     .toList();
-                final parts = segs.length <= 1
+                // segs.isEmpty (block was only ||| / whitespace) → keep raw.
+                // Otherwise use the cleaned segments: a single seg means there
+                // was no real split (or a trailing/leading |||) — render that
+                // one cleaned piece so a dangling ||| never leaks as literal text.
+                final parts = segs.isEmpty
                     ? <String>[block.text!]
                     : segs.take(8).toList();
                 for (int j = 0; j < parts.length; j++) {
