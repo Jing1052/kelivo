@@ -59,4 +59,59 @@ class ItunesArtwork {
       _inflight.remove(key);
     }
   }
+
+  /// Search songs by free-text [query] via the same iTunes Search API. Returns
+  /// up to [limit] candidates (title / artist / artwork). Empty list on no
+  /// match or transient error — callers should offer a free-text fallback so a
+  /// NetEase-only song can still be added.
+  static Future<List<ItunesSong>> searchSongs(
+    String query, {
+    int limit = 20,
+  }) async {
+    final q = query.trim();
+    if (q.isEmpty) return const [];
+    try {
+      final uri = Uri.https('itunes.apple.com', '/search', {
+        'term': q,
+        'media': 'music',
+        'entity': 'song',
+        'limit': '$limit',
+        'country': 'CN',
+      });
+      final res = await http.get(uri).timeout(const Duration(seconds: 12));
+      if (res.statusCode != 200) return const [];
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final results = (data is Map) ? data['results'] : null;
+      if (results is! List) return const [];
+      final out = <ItunesSong>[];
+      for (final r in results) {
+        if (r is! Map) continue;
+        final title = (r['trackName'] ?? '').toString().trim();
+        final artist = (r['artistName'] ?? '').toString().trim();
+        if (title.isEmpty) continue;
+        final art = (r['artworkUrl100'] ?? '').toString();
+        out.add(ItunesSong(
+          title: title,
+          artist: artist,
+          artworkUrl: art.isEmpty ? '' : art.replaceAll('100x100', '300x300'),
+        ));
+      }
+      return out;
+    } catch (e) {
+      debugPrint('[ItunesArtwork] searchSongs failed for "$q": $e');
+      return const [];
+    }
+  }
+}
+
+/// One song candidate from [ItunesArtwork.searchSongs].
+class ItunesSong {
+  const ItunesSong({
+    required this.title,
+    required this.artist,
+    required this.artworkUrl,
+  });
+  final String title;
+  final String artist;
+  final String artworkUrl;
 }

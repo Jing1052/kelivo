@@ -1,3 +1,4 @@
+import 'dart:async' show Timer;
 import 'dart:convert' show LineSplitter, base64Encode;
 
 import 'package:file_picker/file_picker.dart';
@@ -733,6 +734,7 @@ class _LoungePageState extends State<LoungePage> {
       padding: const EdgeInsets.only(bottom: 10),
       child: IosCardPress(
         onTap: () => _openInNetease(s, zh),
+        onLongPress: () => _confirmDeleteSong(s, zh),
         borderRadius: BorderRadius.circular(14),
         child: Row(
           children: [
@@ -807,9 +809,46 @@ class _LoungePageState extends State<LoungePage> {
     );
   }
 
-  /// Open a song in NetEase Cloud Music (shared helper; deep-links to search).
-  Future<void> _openInNetease(OurHomeSong s, bool zh) =>
-      openSongInNetease(context, title: s.title, artist: s.artist);
+  /// Long-press a song → confirm removal from the wall, then delete server-side.
+  Future<void> _confirmDeleteSong(OurHomeSong s, bool zh) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        backgroundColor: Theme.of(dctx).colorScheme.surface,
+        title: Text(zh ? '从歌单移除' : 'Remove from songs'),
+        content: Text(
+          zh ? '把《${s.title}》从歌单墙移除？' : 'Remove "${s.title}" from the wall?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(false),
+            child: Text(zh ? '取消' : 'Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(true),
+            child: Text(zh ? '移除' : 'Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await gateway.deleteSong(id: s.id, title: s.title);
+      await _load();
+    } catch (e) {
+      debugPrint('[Lounge] deleteSong failed: $e');
+    }
+  }
+
+  /// Open a song in NetEase Cloud Music (shared helper; exact by id else search).
+  Future<void> _openInNetease(OurHomeSong s, bool zh) => openSongInNetease(
+        context,
+        title: s.title,
+        artist: s.artist,
+        neteaseId: s.neteaseId,
+      );
 
   static String _mediaFor(String kind) {
     switch (kind) {
@@ -1299,12 +1338,14 @@ Widget _loungeField({
   bool autofocus = false,
   int maxLines = 1,
   int? minLines,
+  ValueChanged<String>? onChanged,
 }) {
   return TextField(
     controller: controller,
     autofocus: autofocus,
     maxLines: maxLines,
     minLines: minLines,
+    onChanged: onChanged,
     style: TextStyle(fontSize: maxLines > 1 ? 14.5 : 15.5),
     decoration: InputDecoration(
       hintText: hint,
@@ -1362,18 +1403,46 @@ class _AddSongSheet extends StatefulWidget {
 }
 
 class _AddSongSheetState extends State<_AddSongSheet> {
+  final _search = TextEditingController();
   final _title = TextEditingController();
   final _artist = TextEditingController();
   final _note = TextEditingController();
   final _zh = TextEditingController();
 
+  Timer? _debounce;
+  List<ItunesSong> _results = const [];
+  bool _searching = false;
+
   @override
   void dispose() {
+    _debounce?.cancel();
+    _search.dispose();
     _title.dispose();
     _artist.dispose();
     _note.dispose();
     _zh.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String q) {
+    _debounce?.cancel();
+    final term = q.trim();
+    if (term.isEmpty) {
+      setState(() {
+        _results = const [];
+        _searching = false;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    _debounce = Timer(const Duration(milliseconds: 350), () async {
+      final found = await ItunesArtwork.searchSongs(term);
+      if (!mounted) return;
+      setState(() {
+        _results = found;
+        _searching = false;
+      });
+    });
   }
 
   @override
@@ -1387,15 +1456,62 @@ class _AddSongSheetState extends State<_AddSongSheet> {
         20,
         16 + MediaQuery.viewInsetsOf(context).bottom,
       ),
-      child: Column(
+      child: SingleChildScrollView(
+        child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Search box (iTunes catalog) — tap a result to add it instantly.
+          _loungeField(
+            cs: cs,
+            controller: _search,
+            hint: zh ? '搜歌名 / 歌手…' : 'search song / artist…',
+            autofocus: true,
+            onChanged: _onSearchChanged,
+          ),
+          if (_searching || _results.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: _searching && _results.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Center(
+                        child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.primary,
+                          ),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _results.length,
+                      itemBuilder: (c, i) {
+                        final r = _results[i];
+                        return _searchResultRow(cs, zh, r);
+                      },
+                    ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Text(
+            zh
+                ? '搜不到？下面手动填（会按歌名去网易云搜）'
+                : "Not found? Add manually (opens NetEase search)",
+            style: TextStyle(
+              fontSize: 12,
+              color: cs.onSurface.withValues(alpha: 0.5),
+            ),
+          ),
+          const SizedBox(height: 8),
           _loungeField(
             cs: cs,
             controller: _title,
             hint: zh ? '歌名…' : 'song…',
-            autofocus: true,
           ),
           const SizedBox(height: 10),
           _loungeField(
@@ -1434,6 +1550,75 @@ class _AddSongSheetState extends State<_AddSongSheet> {
             },
           ),
         ],
+        ),
+      ),
+    );
+  }
+
+  Widget _searchResultRow(ColorScheme cs, bool zh, ItunesSong r) {
+    return IosCardPress(
+      onTap: () => Navigator.of(context).pop(_NewSong(r.title, r.artist, '', '')),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: r.artworkUrl.isEmpty
+                  ? Container(
+                      width: 40,
+                      height: 40,
+                      color: cs.primary.withValues(alpha: 0.10),
+                      child: Icon(Lucide.AudioWaveform,
+                          size: 18, color: cs.primary.withValues(alpha: 0.7)),
+                    )
+                  : Image.network(
+                      r.artworkUrl,
+                      width: 40,
+                      height: 40,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 40,
+                        height: 40,
+                        color: cs.primary.withValues(alpha: 0.10),
+                        child: Icon(Lucide.AudioWaveform,
+                            size: 18, color: cs.primary.withValues(alpha: 0.7)),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    r.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: AppFontWeights.medium,
+                      color: cs.onSurface,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    r.artist,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Lucide.Plus, size: 18, color: cs.primary),
+          ],
+        ),
       ),
     );
   }

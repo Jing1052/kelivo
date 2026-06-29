@@ -773,6 +773,7 @@ class _MusicSquareState extends State<_MusicSquare> {
                 context,
                 title: pick.title,
                 artist: pick.artist,
+                neteaseId: pick.neteaseId,
               ),
       onLongPress: _songs.length < 2 ? null : _shuffle,
       padding: const EdgeInsets.all(13),

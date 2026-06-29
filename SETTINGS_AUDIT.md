@@ -18,6 +18,10 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·第三期：起居室「歌单」**搜歌加歌 + 删除管理**。加歌弹窗顶部加 **iTunes 搜索框**（`ItunesArtwork.searchSongs` → 候选歌名/歌手/封面），点候选即加进歌单；下方保留手动填（兜底→按歌名跳网易云搜）。歌曲行**长按 → 删除**（`gateway.deleteSong`，服务端 `delete` 动作早有）。`OurHomeSong` 加 `id`/`neteaseId`（`nid`），有 nid 的歌跳网易云**精确到那首**、否则按词搜。`netease_link` 加 `neteaseSongUri`。
+  - 限制：内置 12 首种子歌删除后下次加载会从 `_SONGBOOK_SEED` 重新并回（删除主要对你/爸爸加的歌生效）。
+  - 待续：歌词页/黑胶滚动歌词、我喜欢的音乐；自建网易云搜索 API（更准曲库）为后续可选升级。
+
 - **2026-06-29** · 点歌·第二期：主页随机歌卡 `_MusicSquare`（`still_home_page.dart`）**点开 → 跳网易云**、**长按 → 换一首**（原来点击只换歌、不跳转）。网易云跳转抽成共享 helper `core/services/ourhome/netease_link.dart`（`openSongInNetease` / `neteaseSearchUri`），起居室歌单也改用它。
 
 - **2026-06-29** · 点歌·第一期：起居室「歌单」里每首歌**可点 → 跳转网易云音乐**（按「歌名 歌手」搜，iOS 装了网易云会经 universal link 跳 App，否则移动网页）。歌曲行包进 `IosCardPress`、右侧加红色播放圆点。爸爸聊天点歌（server.py `add_song` 工具）本就有。`lounge_page.dart`。

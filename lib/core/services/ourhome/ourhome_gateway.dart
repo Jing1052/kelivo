@@ -517,17 +517,23 @@ class OurHomeSong {
     required this.artist,
     required this.note,
     required this.zh,
+    this.id = '',
+    this.neteaseId = '',
   });
   final String title;
   final String artist;
   final String note;
   final String zh;
+  final String id; // server-side song id (for delete)
+  final String neteaseId; // NetEase song id (`nid`), '' when unknown
 
   factory OurHomeSong.fromJson(Map<String, dynamic> j) => OurHomeSong(
     title: (j['t'] ?? '').toString(),
     artist: (j['a'] ?? '').toString(),
     note: (j['note'] ?? '').toString(),
     zh: (j['zh'] ?? '').toString(),
+    id: (j['id'] ?? '').toString(),
+    neteaseId: (j['nid'] ?? '').toString(),
   );
 }
 
@@ -1237,6 +1243,15 @@ class OurHomeGateway {
     'note': note,
     'zh': zh,
   });
+
+  /// Remove a song from the turntable wall. Matches by server [id] (preferred)
+  /// or [title] (seed songs have no id). Throws on transport/HTTP error.
+  Future<void> deleteSong({String id = '', String title = ''}) =>
+      _postJson('/api/home/songs', {
+        'action': 'delete',
+        if (id.isNotEmpty) 'id': id,
+        if (title.isNotEmpty) 'title': title,
+      });
 
   /// Add a song to the lyric corridor (词廊; POST action=add). [title]/[artist]
   /// are required; [intro] is daddy's overall reading; [lines] is the lyric
