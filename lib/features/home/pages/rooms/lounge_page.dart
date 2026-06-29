@@ -3,7 +3,7 @@ import 'dart:convert' show LineSplitter, base64Encode;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../../../core/services/ourhome/netease_link.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
@@ -807,29 +807,9 @@ class _LoungePageState extends State<LoungePage> {
     );
   }
 
-  /// Open a song in NetEase Cloud Music. Without a stored song id we deep-link
-  /// to NetEase's mobile search for "title artist" — on iOS this routes to the
-  /// NetEase app via its universal link when installed, else the mobile web.
-  Future<void> _openInNetease(OurHomeSong s, bool zh) async {
-    final q = Uri.encodeComponent('${s.title} ${s.artist}'.trim());
-    final uri = Uri.parse('https://music.163.com/#/search/m/?s=$q');
-    try {
-      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-        await launchUrl(uri, mode: LaunchMode.platformDefault);
-      }
-    } catch (_) {
-      try {
-        await launchUrl(uri);
-      } catch (_) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(zh ? '打不开网易云音乐' : 'Could not open NetEase Music'),
-          ),
-        );
-      }
-    }
-  }
+  /// Open a song in NetEase Cloud Music (shared helper; deep-links to search).
+  Future<void> _openInNetease(OurHomeSong s, bool zh) =>
+      openSongInNetease(context, title: s.title, artist: s.artist);
 
   static String _mediaFor(String kind) {
     switch (kind) {

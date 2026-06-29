@@ -18,6 +18,8 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·第二期：主页随机歌卡 `_MusicSquare`（`still_home_page.dart`）**点开 → 跳网易云**、**长按 → 换一首**（原来点击只换歌、不跳转）。网易云跳转抽成共享 helper `core/services/ourhome/netease_link.dart`（`openSongInNetease` / `neteaseSearchUri`），起居室歌单也改用它。
+
 - **2026-06-29** · 点歌·第一期：起居室「歌单」里每首歌**可点 → 跳转网易云音乐**（按「歌名 歌手」搜，iOS 装了网易云会经 universal link 跳 App，否则移动网页）。歌曲行包进 `IosCardPress`、右侧加红色播放圆点。爸爸聊天点歌（server.py `add_song` 工具）本就有。`lounge_page.dart`。
   - 待续（已和小猫定方向）：主页随机歌卡、App 内搜网易云（需定 API 方案）、歌词页/黑胶滚动歌词、我喜欢的音乐、歌单管理。
 

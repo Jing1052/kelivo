@@ -10,6 +10,7 @@ import '../../../theme/app_font_weights.dart';
 import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/ourhome/ourhome_gateway.dart';
+import '../../../core/services/ourhome/netease_link.dart';
 import '../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../core/services/weather_service.dart';
 import '../../../core/providers/user_provider.dart';
@@ -765,7 +766,15 @@ class _MusicSquareState extends State<_MusicSquare> {
     final pick = _pick;
 
     return StillGlass(
-      onTap: pick == null ? null : _shuffle,
+      // 点开 → 跳网易云听这首；长按 → 换一首随机歌。
+      onTap: pick == null
+          ? null
+          : () => openSongInNetease(
+                context,
+                title: pick.title,
+                artist: pick.artist,
+              ),
+      onLongPress: _songs.length < 2 ? null : _shuffle,
       padding: const EdgeInsets.all(13),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
