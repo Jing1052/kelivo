@@ -15,17 +15,14 @@ Uri neteaseSearchUri(String title, String artist) {
 Uri neteaseSongUri(String neteaseId) =>
     Uri.parse('https://music.163.com/song?id=$neteaseId');
 
-/// Open a song in NetEase Cloud Music. Pass [neteaseId] for an exact match;
-/// otherwise it searches by "title artist". Shows a SnackBar if nothing can
-/// handle the link. Safe to call from any widget with a [BuildContext].
-Future<void> openSongInNetease(
-  BuildContext context, {
-  required String title,
-  required String artist,
-  String? neteaseId,
-}) async {
-  final id = (neteaseId ?? '').trim();
-  final uri = id.isNotEmpty ? neteaseSongUri(id) : neteaseSearchUri(title, artist);
+/// A NetEase user's profile page — lists all their playlists (我喜欢的音乐 /
+/// 我们的歌 / 爸比的歌 …). [uid] is the numeric NetEase account id.
+Uri neteaseUserUri(String uid) =>
+    Uri.parse('https://music.163.com/user/home?id=$uid');
+
+/// Open an arbitrary NetEase URL (profile / playlist). Falls back through
+/// launch modes and shows a SnackBar if nothing handles it.
+Future<void> openNeteaseUri(BuildContext context, Uri uri) async {
   final messenger = ScaffoldMessenger.maybeOf(context);
   final zh = Localizations.localeOf(context).languageCode == 'zh';
   try {
@@ -41,4 +38,18 @@ Future<void> openSongInNetease(
       content: Text(zh ? '打不开网易云音乐' : 'Could not open NetEase Music'),
     ),
   );
+}
+
+/// Open a song in NetEase Cloud Music. Pass [neteaseId] for an exact match;
+/// otherwise it searches by "title artist". Shows a SnackBar if nothing can
+/// handle the link. Safe to call from any widget with a [BuildContext].
+Future<void> openSongInNetease(
+  BuildContext context, {
+  required String title,
+  required String artist,
+  String? neteaseId,
+}) async {
+  final id = (neteaseId ?? '').trim();
+  final uri = id.isNotEmpty ? neteaseSongUri(id) : neteaseSearchUri(title, artist);
+  await openNeteaseUri(context, uri);
 }

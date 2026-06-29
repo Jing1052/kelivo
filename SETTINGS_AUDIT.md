@@ -18,6 +18,9 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-06-29** · 点歌·第五期：我喜欢的音乐 + 网易云歌单入口。歌单 tab 顶部加**「我的网易云歌单」卡** → 跳小猫网易云主页（`neteaseUserUri`，uid `178119047454653`，截图里「云村村民」号；主页列着我喜欢的音乐/我们的歌·L&C/爸比的歌·for Cing）。歌曲行加 **❤️ 喜欢** 切换（App 本地 `SharedPreferences` `lounge_liked_songs_v1`，keyed by `title|artist`）+ 顶部**「只看喜欢」**筛选。`netease_link` 加 `neteaseUserUri`/`openNeteaseUri`。
+  - 限制：让爸爸往「爸比的歌·for Cing」**网易云歌单**加歌需家里 neteasecli 在线（云端够不着小猫网易云账号）——待后续接 netease MCP。App 的 ❤️ 是 Still Here 自己这套的喜欢，不同步网易云的「我喜欢的音乐」810 首。
+
 - **2026-06-29** · 点歌·第四期：词廊歌词页 `lyric_song_page.dart` 加**旋转黑胶**头（专辑封面当唱片中心标、24s/圈、`SingleTickerProviderStateMixin`+`AnimationController.repeat`）+「在网易云播放」按钮，歌词在下面铺开滚动浏览。注：播放在网易云、App 拿不到播放进度，**做不了跟唱同步高亮**，黑胶旋转是氛围。封面走 `ItunesArtwork.lookup`。
   - 爸爸聊天侧补 `remove_song`（按歌名删歌单墙），和 App 长按删对称（见 Ombre-Brain HISTORY 2026-06-29）。
 

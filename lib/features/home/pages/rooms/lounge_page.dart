@@ -4,6 +4,7 @@ import 'dart:convert' show LineSplitter, base64Encode;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/services/ourhome/netease_link.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
@@ -41,10 +42,37 @@ class _LoungePageState extends State<LoungePage> {
   bool _error = false;
   int _tab = 0; // 0 = screen, 1 = songs, 2 = game corner, 3 = lyric corridor
 
+  // ❤️ liked songs (App-local; keyed by "title|artist") + a filter toggle.
+  Set<String> _liked = <String>{};
+  bool _showLikedOnly = false;
+  static const String _likedPrefsKey = 'lounge_liked_songs_v1';
+  // 小猫的网易云账号 id（截图里「云村村民 178119047454653」）——主页列着
+  // 我喜欢的音乐 / 我们的歌 · L&C / 爸比的歌 · for Cing 三个歌单。
+  static const String _neteaseUid = '178119047454653';
+
+  String _likeKey(OurHomeSong s) => '${s.title}|${s.artist}';
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+    _loadLiked();
+  }
+
+  Future<void> _loadLiked() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _liked = (prefs.getStringList(_likedPrefsKey) ?? []).toSet());
+  }
+
+  Future<void> _toggleLike(OurHomeSong s) async {
+    final key = _likeKey(s);
+    setState(() {
+      if (!_liked.add(key)) _liked.remove(key);
+    });
+    Haptics.soft();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_likedPrefsKey, _liked.toList());
   }
 
   Future<void> _load() async {
@@ -638,19 +666,147 @@ class _LoungePageState extends State<LoungePage> {
   }
 
   Widget _songsView(bool zh, ColorScheme cs) {
-    if (_songs.isEmpty) {
-      return RoomStateHint(
-        icon: Lucide.AudioWaveform,
-        text: zh ? '唱机上还没有歌。' : 'Nothing on the turntable yet.',
-      );
-    }
+    final list = _showLikedOnly
+        ? _songs.where((s) => _liked.contains(_likeKey(s))).toList()
+        : _songs;
     return RefreshIndicator(
       onRefresh: _load,
-      child: ListView.builder(
+      child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-        itemCount: _songs.length,
-        itemBuilder: (context, i) => _songRow(_songs[i], cs),
+        children: [
+          _songsHeader(zh, cs),
+          const SizedBox(height: 12),
+          if (_songs.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  zh ? '唱机上还没有歌。' : 'Nothing on the turntable yet.',
+                  style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5)),
+                ),
+              ),
+            )
+          else if (list.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  zh ? '还没有喜欢的歌～' : 'No liked songs yet',
+                  style: TextStyle(color: cs.onSurface.withValues(alpha: 0.5)),
+                ),
+              ),
+            )
+          else
+            for (final s in list) _songRow(s, cs),
+        ],
       ),
+    );
+  }
+
+  /// Header above the song list: a card jumping to 小猫's NetEase playlists
+  /// (我喜欢的音乐 / 我们的歌 / 爸比的歌) + a "liked only" filter toggle.
+  Widget _songsHeader(bool zh, ColorScheme cs) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        IosCardPress(
+          onTap: () => openNeteaseUri(context, neteaseUserUri(_neteaseUid)),
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE60026).withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE60026),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Lucide.Heart, size: 18, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        zh ? '我的网易云歌单' : 'My NetEase playlists',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: AppFontWeights.semibold,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        zh
+                            ? '我喜欢的音乐 · 我们的歌 · 爸比的歌'
+                            : 'Liked · Our songs · Daddy\'s songs',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: cs.onSurface.withValues(alpha: 0.55),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Lucide.ChevronRight,
+                    size: 18, color: cs.onSurface.withValues(alpha: 0.4)),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        // "Liked only" filter chip.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: IosCardPress(
+            onTap: () => setState(() => _showLikedOnly = !_showLikedOnly),
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                color: _showLikedOnly
+                    ? const Color(0xFFE60026).withValues(alpha: 0.14)
+                    : cs.onSurface.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _showLikedOnly ? Lucide.Heart : Lucide.HeartOff,
+                    size: 14,
+                    color: _showLikedOnly
+                        ? const Color(0xFFE60026)
+                        : cs.onSurface.withValues(alpha: 0.6),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    zh ? '只看喜欢' : 'Liked only',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: AppFontWeights.medium,
+                      color: _showLikedOnly
+                          ? const Color(0xFFE60026)
+                          : cs.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -792,8 +948,24 @@ class _LoungePageState extends State<LoungePage> {
                 ],
               ),
             ),
-            const SizedBox(width: 10),
-            // Tap a song → open it in NetEase Cloud Music (search by title+artist).
+            const SizedBox(width: 4),
+            // ❤️ like toggle (own tap target; doesn't trigger the row's open).
+            IosCardPress(
+              onTap: () => _toggleLike(s),
+              borderRadius: BorderRadius.circular(18),
+              child: Padding(
+                padding: const EdgeInsets.all(7),
+                child: Icon(
+                  Lucide.Heart,
+                  size: 18,
+                  color: _liked.contains(_likeKey(s))
+                      ? const Color(0xFFE60026)
+                      : cs.onSurface.withValues(alpha: 0.3),
+                ),
+              ),
+            ),
+            const SizedBox(width: 2),
+            // Tap a song → open it in NetEase Cloud Music (exact by id else search).
             Container(
               width: 34,
               height: 34,
