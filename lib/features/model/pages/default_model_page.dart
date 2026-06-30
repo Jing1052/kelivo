@@ -1681,7 +1681,7 @@ class _ImageModelEditorSheetState extends State<_ImageModelEditorSheet> {
               const SizedBox(height: 12),
               Text(
                 isZh ? '生图模型' : 'Image model',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: AppFontWeights.semibold,
                 ),
