@@ -1513,10 +1513,18 @@ class ChatActions {
       durationMs: finalDurationMs,
     );
 
-    final sanitizedContent =
+    var sanitizedContent =
         await MarkdownMediaSanitizer.replaceInlineBase64Images(
           processedContent,
         );
+    // 远程出图（/api/gen）下载存本地、消息链接改本地路径：永久留手机、不再缓冲，
+    // 服务器删旧也不怕（图已在本地）。失败保留原远程链接、不丢；只在消息定稿时跑一次。
+    try {
+      sanitizedContent =
+          await MarkdownMediaSanitizer.localizeRemoteImages(sanitizedContent);
+    } catch (_) {
+      // 下载/落盘异常不影响定稿，远程链接照旧显示
+    }
     await chatService.updateMessage(
       messageId,
       content: sanitizedContent,

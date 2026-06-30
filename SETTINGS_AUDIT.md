@@ -246,3 +246,10 @@
 - 含「测试出图」按钮：调 `/api/gen-selftest`，把原始 result（成功 `![..](url)` / 失败「（画不出来：…）」）弹窗显示，便于定位 key/模型问题。
 - 文案沿用本页同类网关卡的 `isZh ? 中:英` 内联写法（非 ARB key）——与 `_DaddyGatewayModelCard`/`_TgGatewayCard` 一致，且避开本环境无 Flutter SDK、`gen-l10n` 跑不了的坑。
 - ⚠️ 本环境无 Flutter SDK，未跑 analyze/format/build；CI 的 `flutter build ios` 是第一道真编译。
+
+## 2026-06-30 · 远程出图自动存本地（配合服务器限额删旧）
+
+- `MarkdownMediaSanitizer.localizeRemoteImages()`：消息定稿时（`chat_actions.dart` `_finishStreaming`，紧跟 `replaceInlineBase64Images` 之后）把消息里**我们 `/api/gen` 的远程图**下载到本地图片目录、链接改本地路径——永久留手机、不再每次缓冲，服务器删旧也不怕。
+- 只搬 `/api/gen/` 自家图（正则 `_remoteGenImgRe` 限定 host 路径），不动外部 http 图，避免误下载任意网图。同 URL 同本地文件（hash 命名），下载失败保留原远程链接、不丢。本地路径渲染走 `markdown_with_highlight` 的 `FileImage`。
+- 配套：网关 `OMBRE_GEN_KEEP`（默认 30）只留最近 N 张。**先装这版（图存本地）再让服务器删旧才安全。**
+- ⚠️ 无 Flutter SDK，未跑 analyze/build；CI flutter build ios 是第一道真编译。
