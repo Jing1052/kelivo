@@ -253,3 +253,9 @@
 - 只搬 `/api/gen/` 自家图（正则 `_remoteGenImgRe` 限定 host 路径），不动外部 http 图，避免误下载任意网图。同 URL 同本地文件（hash 命名），下载失败保留原远程链接、不丢。本地路径渲染走 `markdown_with_highlight` 的 `FileImage`。
 - 配套：网关 `OMBRE_GEN_KEEP`（默认 30）只留最近 N 张。**先装这版（图存本地）再让服务器删旧才安全。**
 - ⚠️ 无 Flutter SDK，未跑 analyze/build；CI flutter build ios 是第一道真编译。
+
+## 2026-06-30 · 撤回「远程图存本地」(+83 的 localizeRemoteImages)
+- 症状：+83 上线后，画的图有时显示成原文 `![..](/var/mobile/.../img_xxx.png)`、不渲染。
+- 根因：localize 在消息定稿(_finishStreaming)时把远程图链改成**本地长路径**，长度变了，但气泡分条用的 contentSplitOffsets 是按定稿前(远程短链)算的→偏移失配→把 URL 从中间切到两个气泡→markdown 失效成原文。base64 那条没事是因为它在流式期就跑、offset 按本地化后内容算。
+- 处置：**revert** localizeRemoteImages（删方法/正则/http import + 去掉 chat_actions 调用），图回到远程链接渲染（稳）。本地存储以后重做：要么放流式期跑(随 base64)，要么 localize 后重算 offset。先求稳。
+- 无 Flutter SDK，未跑 analyze/build；CI 是第一道真编译。

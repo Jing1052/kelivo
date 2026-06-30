@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 import './app_directories.dart';
 
@@ -9,14 +8,6 @@ class MarkdownMediaSanitizer {
   static final Uuid _uuid = const Uuid();
   static final RegExp _imgRe = RegExp(
     r'!\[[^\]]*\]\((data:image\/[a-zA-Z0-9.+-]+;base64,[a-zA-Z0-9+/=\r\n]+)\)',
-    multiLine: true,
-  );
-  // Remote images we host ourselves (the gateway's /api/gen): downloaded to
-  // local storage so they persist on-device and never need re-fetching, letting
-  // the server prune its copies. Scoped to our own /api/gen path so we never
-  // pull arbitrary external web images.
-  static final RegExp _remoteGenImgRe = RegExp(
-    r'!\[[^\]]*\]\((https?:\/\/[^)\s]*\/api\/gen\/[^)\s]+)\)',
     multiLine: true,
   );
 
@@ -85,71 +76,6 @@ class MarkdownMediaSanitizer {
           .replaceFirst(dataUrl, file.path);
       sb.write(replaced);
       last = m.end;
-    }
-    sb.write(markdown.substring(last));
-    return sb.toString();
-  }
-
-  // Download remote /api/gen images and rewrite them to local file paths, so
-  // they persist on-device (no re-buffering) and the server can delete its
-  // copies safely. Mirrors [replaceInlineBase64Images] but for our remote URLs.
-  // Same URL -> same local file (hash-named); download failure keeps the
-  // original remote URL so nothing is ever lost.
-  static Future<String> localizeRemoteImages(String markdown) async {
-    if (!(markdown.contains('![') && markdown.contains('/api/gen/'))) {
-      return markdown;
-    }
-    final matches = _remoteGenImgRe.allMatches(markdown).toList();
-    if (matches.isEmpty) return markdown;
-
-    final dir = await AppDirectories.getImagesDirectory();
-    if (!await dir.exists()) {
-      await dir.create(recursive: true);
-    }
-
-    final sb = StringBuffer();
-    int last = 0;
-    for (final m in matches) {
-      sb.write(markdown.substring(last, m.start));
-      final segment = markdown.substring(m.start, m.end);
-      last = m.end;
-      final url = (m.group(1) ?? '').trim();
-      // Deterministic filename by URL hash: same image -> same local file.
-      final digest = _uuid.v5(Namespace.url.value, url);
-      try {
-        // Reuse an already-downloaded copy if present (any known ext).
-        File? existing;
-        for (final e in const ['png', 'jpg', 'webp', 'gif']) {
-          final f = File('${dir.path}/img_$digest.$e');
-          if (await f.exists()) {
-            existing = f;
-            break;
-          }
-        }
-        if (existing != null) {
-          sb.write(segment.replaceFirst(url, existing.path));
-          continue;
-        }
-        final resp = await http
-            .get(Uri.parse(url))
-            .timeout(const Duration(seconds: 30));
-        if (resp.statusCode == 200 && resp.bodyBytes.isNotEmpty) {
-          final ct = (resp.headers['content-type'] ?? '')
-              .split(';')
-              .first
-              .trim()
-              .toLowerCase();
-          final ext =
-              AppDirectories.extFromMime(ct.startsWith('image/') ? ct : 'image/png');
-          final file = File('${dir.path}/img_$digest.$ext');
-          await file.writeAsBytes(resp.bodyBytes, flush: true);
-          sb.write(segment.replaceFirst(url, file.path));
-          continue;
-        }
-      } catch (_) {
-        // fall through -> keep original remote url
-      }
-      sb.write(segment);
     }
     sb.write(markdown.substring(last));
     return sb.toString();
