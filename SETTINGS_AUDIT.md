@@ -238,3 +238,11 @@
 > 给小猫：日常就爸爸(网关)+CC 两条路，都不吃 App 的 MCP，所以这页对你**死的**——只有新建"直连普通助手"才有意义。
 
 ### 其余顶层页 ❓ 待审
+
+## 2026-06-30 · 默认模型页新增「生图模型」卡片（服务器配置卡）
+
+- 位置：`默认模型` 页（`lib/features/model/pages/default_model_page.dart`），排在 TG 卡之后，与归档/日记底稿/TG 三张网关卡同类。
+- 作用：配置网关 `draw` 工具的出图后端（protocol gemini/openai + base + model + key + size）。**数据存网关** `chat_store["image_model"]`（连 `/api/home/image-model`），不是本地 SettingsProvider；改完即时生效、网关聊天 + CC 端共用。
+- 含「测试出图」按钮：调 `/api/gen-selftest`，把原始 result（成功 `![..](url)` / 失败「（画不出来：…）」）弹窗显示，便于定位 key/模型问题。
+- 文案沿用本页同类网关卡的 `isZh ? 中:英` 内联写法（非 ARB key）——与 `_DaddyGatewayModelCard`/`_TgGatewayCard` 一致，且避开本环境无 Flutter SDK、`gen-l10n` 跑不了的坑。
+- ⚠️ 本环境无 Flutter SDK，未跑 analyze/format/build；CI 的 `flutter build ios` 是第一道真编译。

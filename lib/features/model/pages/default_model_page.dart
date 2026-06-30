@@ -137,6 +137,8 @@ class DefaultModelPage extends StatelessWidget {
           const _DiaryBriefGatewayCard(),
           const SizedBox(height: 16),
           const _TgGatewayCard(),
+          const SizedBox(height: 16),
+          const _ImageModelGatewayCard(),
         ],
       ),
     );
@@ -1192,6 +1194,564 @@ class _TgGatewayCardState extends State<_TgGatewayCard> {
             ),
             modelBody,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Edits the old-home gateway's shared image-generation model (the `draw` tool
+/// paints with it). Server-backed via OurHomeGateway.fetch/saveImageModel, plus
+/// a one-tap self-test that surfaces the raw error when painting fails. Placed
+/// here next to the other model pickers so it's easy to find.
+class _ImageModelGatewayCard extends StatefulWidget {
+  const _ImageModelGatewayCard();
+
+  @override
+  State<_ImageModelGatewayCard> createState() => _ImageModelGatewayCardState();
+}
+
+class _ImageModelGatewayCardState extends State<_ImageModelGatewayCard> {
+  bool _loading = true;
+  bool _loadFailed = false;
+  String _protocol = '';
+  String _model = '';
+  String _baseUrl = '';
+  String _size = '';
+  bool _keySet = false;
+  String _keyTail = '';
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+      return;
+    }
+    final res = await gw.fetchImageModel();
+    if (!mounted) return;
+    setState(() {
+      _loading = false;
+      if (res == null) {
+        _loadFailed = true;
+      } else {
+        _loadFailed = false;
+        _protocol = res.protocol;
+        _baseUrl = res.baseUrl;
+        _model = res.model;
+        _size = res.size;
+        _keySet = res.keySet;
+        _keyTail = res.keyTail;
+      }
+    });
+  }
+
+  String _summaryLabel() {
+    if (!_keySet) {
+      return _isZh ? '未配置 · 点此设置' : 'Not set · tap to configure';
+    }
+    final m = _model.isNotEmpty ? _model : '?';
+    final tail = _keyTail.isNotEmpty ? '  ·  ····$_keyTail' : '';
+    return '$_protocol · $m$tail';
+  }
+
+  Future<void> _edit() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final isZh = _isZh;
+    if (gw == null) {
+      showAppSnackBar(
+        context,
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        type: NotificationType.error,
+      );
+      return;
+    }
+    final cs = Theme.of(context).colorScheme;
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => _ImageModelEditorSheet(
+        gateway: gw,
+        initialProtocol: _protocol.isNotEmpty ? _protocol : 'openai',
+        initialBaseUrl: _baseUrl,
+        initialModel: _model,
+        initialSize: _size.isNotEmpty ? _size : '1024x1024',
+        keyTail: _keySet ? _keyTail : '',
+      ),
+    );
+    if (saved == true && mounted) {
+      await _load();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final baseBg =
+        isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96);
+    final title = isZh ? '生图模型' : 'Image model';
+    final subtitle = isZh
+        ? '爸爸画图（draw）用的模型——找一个能生图的模型配上 key，爸爸就能在聊天里给你画。老家网关共用，CC 端也走它。'
+        : "The model daddy's draw tool paints with. Configure a provider + key that can generate images. Shared on the old-home gateway (CC side too).";
+
+    Widget bodyRow;
+    if (_loading) {
+      bodyRow = Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child:
+                  CircularProgressIndicator(strokeWidth: 2, color: cs.primary),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              isZh ? '加载中…' : 'Loading…',
+              style: TextStyle(
+                fontSize: 13,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (_loadFailed) {
+      bodyRow = _TactileRow(
+        onTap: _load,
+        builder: (pressed) {
+          final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Lucide.RefreshCw, size: 16, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isZh ? '连不上老家，点此重试' : "Can't reach home, tap to retry",
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: cs.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } else {
+      final label = _summaryLabel();
+      bodyRow = _TactileRow(
+        onTap: _edit,
+        builder: (pressed) {
+          final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+          final overlay = isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.05);
+          final pressedBg = Color.alphaBlend(overlay, bg);
+          return AnimatedScale(
+            scale: pressed ? 0.98 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: pressed ? pressedBg : bg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    Lucide.ChevronRight,
+                    size: 18,
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Lucide.Image, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(
+                fontSize: 12,
+                color: cs.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+            const SizedBox(height: 12),
+            bodyRow,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Bottom-sheet editor for the image-generation model config (protocol / base /
+/// model / api key / size) with Save + a real Test that calls the gateway's
+/// self-test and shows the raw result.
+class _ImageModelEditorSheet extends StatefulWidget {
+  const _ImageModelEditorSheet({
+    required this.gateway,
+    required this.initialProtocol,
+    required this.initialBaseUrl,
+    required this.initialModel,
+    required this.initialSize,
+    required this.keyTail,
+  });
+
+  final OurHomeGateway gateway;
+  final String initialProtocol;
+  final String initialBaseUrl;
+  final String initialModel;
+  final String initialSize;
+  final String keyTail; // '' = no key set yet
+
+  @override
+  State<_ImageModelEditorSheet> createState() => _ImageModelEditorSheetState();
+}
+
+class _ImageModelEditorSheetState extends State<_ImageModelEditorSheet> {
+  late String _protocol;
+  late final TextEditingController _baseCtrl;
+  late final TextEditingController _modelCtrl;
+  late final TextEditingController _keyCtrl;
+  late final TextEditingController _sizeCtrl;
+  bool _saving = false;
+  bool _testing = false;
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    _protocol = widget.initialProtocol == 'gemini' ? 'gemini' : 'openai';
+    _baseCtrl = TextEditingController(text: widget.initialBaseUrl);
+    _modelCtrl = TextEditingController(text: widget.initialModel);
+    _keyCtrl = TextEditingController();
+    _sizeCtrl = TextEditingController(text: widget.initialSize);
+  }
+
+  @override
+  void dispose() {
+    _baseCtrl.dispose();
+    _modelCtrl.dispose();
+    _keyCtrl.dispose();
+    _sizeCtrl.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _dec(BuildContext ctx, String hint) {
+    final cs = Theme.of(ctx).colorScheme;
+    return InputDecoration(
+      hintText: hint,
+      filled: true,
+      fillColor: Theme.of(ctx).brightness == Brightness.dark
+          ? Colors.white10
+          : const Color(0xFFF2F3F5),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: cs.outlineVariant.withValues(alpha: 0.4)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: cs.primary.withValues(alpha: 0.5)),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+    );
+  }
+
+  Widget _protocolChip(String value, String label) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final selected = _protocol == value;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _protocol = value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 140),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? cs.primary.withValues(alpha: 0.14)
+                : (isDark ? Colors.white10 : const Color(0xFFF2F3F5)),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected
+                  ? cs.primary.withValues(alpha: 0.5)
+                  : cs.outlineVariant.withValues(alpha: 0.3),
+              width: selected ? 1.2 : 0.6,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: AppFontWeights.semibold,
+              color:
+                  selected ? cs.primary : cs.onSurface.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    if (_saving) return;
+    final isZh = _isZh;
+    final base = _baseCtrl.text.trim();
+    final model = _modelCtrl.text.trim();
+    if (base.isEmpty || model.isEmpty) {
+      showAppSnackBar(
+        context,
+        message: isZh ? '请填 Base URL 和模型名' : 'Fill in base URL and model',
+        type: NotificationType.error,
+      );
+      return;
+    }
+    setState(() => _saving = true);
+    final ok = await widget.gateway.saveImageModel(
+      protocol: _protocol,
+      baseUrl: base,
+      model: model,
+      size: _sizeCtrl.text.trim().isEmpty ? '1024x1024' : _sizeCtrl.text.trim(),
+      apiKey: _keyCtrl.text,
+    );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+    if (ok) Navigator.of(context).pop(true);
+  }
+
+  Future<void> _test() async {
+    if (_testing) return;
+    final isZh = _isZh;
+    setState(() => _testing = true);
+    final result = await widget.gateway.testImageModel();
+    if (!mounted) return;
+    setState(() => _testing = false);
+    final ok = result != null && result.startsWith('![');
+    final text = result ??
+        (isZh ? '测试请求失败（连不上老家网关）' : 'Test request failed (no gateway)');
+    await showDialog<void>(
+      context: context,
+      builder: (dctx) => AlertDialog(
+        title: Text(ok
+            ? (isZh ? '出图成功' : 'Image OK')
+            : (isZh ? '出图失败' : 'Image failed')),
+        content: SingleChildScrollView(
+          child: SelectableText(
+            ok
+                ? (isZh
+                    ? '生图模型配置正常，爸爸能画了。'
+                    : 'Image model works — daddy can paint now.')
+                : text,
+            style: const TextStyle(fontSize: 13),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dctx).pop(),
+            child: Text(isZh ? '好' : 'OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isZh = _isZh;
+    final keyHint = widget.keyTail.isNotEmpty
+        ? (isZh
+            ? '已设置 ····${widget.keyTail}，留空＝不改'
+            : 'Set ····${widget.keyTail}, empty = keep')
+        : (isZh ? '出图服务的 API key' : 'Image service API key');
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 12,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isZh ? '生图模型' : 'Image model',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: AppFontWeights.semibold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                isZh
+                    ? 'OpenAI 兼容＝dall-e / gpt-image / 多数中转的 /images/generations；Gemini＝Google 原生出图。'
+                    : 'OpenAI = dall-e / gpt-image / most relays (/images/generations); Gemini = Google native.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _protocolChip('openai', 'OpenAI'),
+                  const SizedBox(width: 8),
+                  _protocolChip('gemini', 'Gemini'),
+                ],
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _baseCtrl,
+                decoration: _dec(context,
+                    isZh ? 'Base URL（如 https://xxx/v1）' : 'Base URL'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _modelCtrl,
+                decoration: _dec(
+                    context, isZh ? '模型名（如 dall-e-3）' : 'Model name'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _keyCtrl,
+                obscureText: true,
+                decoration: _dec(context, keyHint),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _sizeCtrl,
+                decoration:
+                    _dec(context, isZh ? '尺寸（如 1024x1024）' : 'Size'),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _testing ? null : _test,
+                      child: Text(_testing
+                          ? (isZh ? '测试中…' : 'Testing…')
+                          : (isZh ? '测试出图' : 'Test')),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: Text(_saving
+                          ? (isZh ? '保存中…' : 'Saving…')
+                          : (isZh ? '保存' : 'Save')),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

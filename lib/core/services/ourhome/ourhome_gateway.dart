@@ -1746,6 +1746,101 @@ class OurHomeGateway {
     }
   }
 
+  /// The shared image-generation model config (the gateway's `draw` tool uses
+  /// it to paint). Returns the current effective config (api key only as the
+  /// last-4 tail, never the full key), or null on any failure (logged).
+  Future<
+      ({
+        String protocol,
+        String baseUrl,
+        String model,
+        String size,
+        bool keySet,
+        String keyTail,
+        bool isCustom,
+      })?> fetchImageModel() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/image-model'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchImageModel HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        protocol: (data['protocol'] ?? '').toString(),
+        baseUrl: (data['base_url'] ?? '').toString(),
+        model: (data['model'] ?? '').toString(),
+        size: (data['size'] ?? '').toString(),
+        keySet: data['key_set'] == true,
+        keyTail: (data['key_tail'] ?? '').toString(),
+        isCustom: data['is_custom'] == true,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchImageModel failed: $e');
+      return null;
+    }
+  }
+
+  /// Save the shared image-generation model config. An empty [apiKey] leaves
+  /// the key already stored on the server untouched. Returns true on success.
+  Future<bool> saveImageModel({
+    required String protocol,
+    required String baseUrl,
+    required String model,
+    required String size,
+    String apiKey = '',
+  }) async {
+    try {
+      final body = <String, dynamic>{
+        'protocol': protocol,
+        'base_url': baseUrl,
+        'model': model,
+        'size': size,
+      };
+      if (apiKey.trim().isNotEmpty) body['api_key'] = apiKey.trim();
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/image-model'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveImageModel HTTP ${res.statusCode}');
+        return false;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveImageModel failed: $e');
+      return false;
+    }
+  }
+
+  /// Run one real image-generation self-test on the gateway and return its raw
+  /// `result` string (success = `![..](url)`, failure = `（画不出来：…）`), or
+  /// null on a network/transport error.
+  Future<String?> testImageModel() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/gen-selftest'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 120));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] testImageModel HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (data['result'] ?? '').toString();
+    } catch (e) {
+      debugPrint('[OurHomeGateway] testImageModel failed: $e');
+      return null;
+    }
+  }
+
   /// The prompt daddy uses to distill out-of-window messages into long-term
   /// memory. Returns the current effective text + whether it's been customised,
   /// or null on any failure (logged) so the caller can show a recoverable state.
