@@ -3942,6 +3942,38 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                             usage: usage,
                           );
                         }
+                        // Ombre daddy tool card (display-only; carried as a
+                        // finished 'daddy_card' tool result). Slogan always
+                        // present; detail optional (feel never carries detail).
+                        final daddyTool = delta?['daddy_tool'];
+                        if (daddyTool is Map) {
+                          final slogan = (daddyTool['slogan'] ?? '').toString();
+                          if (slogan.isNotEmpty) {
+                            final detailRaw = daddyTool['detail']?.toString();
+                            final hasDetail =
+                                detailRaw != null && detailRaw.isNotEmpty;
+                            final kind = (daddyTool['kind'] ?? 'local')
+                                .toString();
+                            yield ChatStreamChunk(
+                              content: '',
+                              isDone: false,
+                              totalTokens: 0,
+                              usage: usage,
+                              toolResults: [
+                                ToolResultInfo(
+                                  id: 'daddy_${daddyCardSeq++}',
+                                  name: 'daddy_card',
+                                  arguments: <String, dynamic>{
+                                    'slogan': slogan,
+                                    if (hasDetail) 'detail': detailRaw,
+                                    'kind': kind,
+                                  },
+                                  content: hasDetail ? detailRaw! : slogan,
+                                ),
+                              ],
+                            );
+                          }
+                        }
                         if (txt.isNotEmpty) {
                           contentAccum += txt;
                           yield ChatStreamChunk(
