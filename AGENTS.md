@@ -7,6 +7,12 @@
 
 ## 1. Repository Facts
 
+- ⚠️ **真主干 = `claude/kelivo-ios-design-ref-nh9t5v`**。改装版 Still Here 的一切（房间、思考链定制、出包）都在这条。CC web session 默认打开的分支是贴着上游 `master` 的近乎白板分支，**没有房间等任何改装**——一上来先 `git fetch origin claude/kelivo-ios-design-ref-nh9t5v && git checkout` 它（或从它重切开发分支）再干活，别对着白板找不到改版。
+- **「房间」(Rooms) 子系统** = Still Here 底部「房间」tab（此刻/日历/倒计时/漫游…那套「今晚想进哪一间」）：
+  - 大厅：`lib/features/home/pages/still_rooms_page.dart`（门的网格 + 标题文案）。
+  - 每间房是 `lib/features/home/pages/rooms/` 下一个**原生 Flutter 页**（不是 webview 跳转）。
+  - **加一间房，只需在 `still_rooms_page.dart` 注册两处**：`_doors` 列表（门的图标/名字/副标题/寄语）+ `_pageForDoor` 的 switch（door id → 页面）。
+  - 房间文案用**内联双语** `zh ? '中文' : 'English'`（`Localizations.localeOf(context)`），**不走 ARB**——加房间照这个来，别为房间文案新增 ARB key（与全体房间保持一致）。
 - This is a Flutter app repository. Root `pubspec.yaml` declares `sdk: ^3.12.1` and `flutter: >=3.44.1` with `flutter.generate: true`.
 - Main code lives in `lib/`, tests in `test/`. Local path dependencies exist:
   - `dependencies/mcp_client`
