@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Wander</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#FDF9F1;--surface:#FFFEFB;--amber:#E8960C;--amber-light:#FCEED2;
+  --amber-dark:#C27508;--text:#413C35;--text-light:#A39A8D;--text-faint:#CFC8BC;
+  --border:#EDE7DB;--radius:16px;
+  --spring:cubic-bezier(.34,1.3,.5,1);
+  --serif:Georgia,'Times New Roman','Songti SC','STSong','SimSun',serif;
+}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);overflow:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;background:
+  radial-gradient(ellipse 90% 55% at 22% -8%,rgba(245,180,80,.16) 0%,transparent 60%),
+  radial-gradient(ellipse 70% 40% at 92% 108%,rgba(232,150,12,.08) 0%,transparent 60%)}
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.035;mix-blend-mode:multiply;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E")}
+#tour-select,#tour-active,#explore,#geoguessr{position:relative;z-index:2}
+#tour-select{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;overflow-y:auto}
+.select-header{text-align:center;margin-bottom:40px}
+.select-title{font-family:var(--serif);font-size:2.1rem;font-weight:700;color:var(--amber-dark);letter-spacing:.04em}
+.select-sub{font-size:.88rem;color:var(--text-light);margin-top:10px;letter-spacing:.05em}
+.select-sig{font-family:var(--serif);font-size:.78rem;color:var(--text-faint);margin-top:36px;font-style:italic;letter-spacing:.08em}
+.tour-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;max-width:560px;width:100%}
+.tour-card{background:linear-gradient(170deg,#FFFEFB 0%,#FDF8EE 100%);border:1px solid var(--border);border-radius:var(--radius);padding:26px 24px;cursor:pointer;transition:transform .35s var(--spring),box-shadow .3s,border-color .25s;overflow:hidden;position:relative;box-shadow:0 1px 3px rgba(120,90,40,.05)}
+.tour-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,rgba(232,150,12,.0));transition:background .3s}
+.tour-card:hover{border-color:rgba(232,150,12,.45);transform:translateY(-4px);box-shadow:0 14px 36px rgba(190,130,30,.14),0 2px 8px rgba(120,90,40,.06)}
+.tour-card:hover::before{background:linear-gradient(90deg,transparent 5%,var(--amber) 50%,transparent 95%)}
+.tour-card:active{transform:translateY(-1px) scale(.985)}
+.tour-card-emoji{font-size:2.1rem;margin-bottom:14px;filter:drop-shadow(0 2px 4px rgba(120,90,40,.12))}
+.tour-card-title{font-size:1.05rem;font-weight:650;margin-bottom:5px;letter-spacing:.01em}
+.tour-card-sub{font-size:.8rem;color:var(--text-light);line-height:1.6}
+.tour-card-stops{font-size:.7rem;color:var(--text-faint);margin-top:14px;letter-spacing:.04em}
+.tour-card.explore-card{border-style:dashed;background:transparent;box-shadow:none}
+.tour-card.explore-card .tour-card-emoji{opacity:.5}
+#tour-active{height:100%;display:none;flex-direction:column}
+.tour-top{display:flex;align-items:center;padding:10px 16px;background:rgba(253,249,241,.88);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-bottom:1px solid var(--border);z-index:100;gap:12px}
+.tour-back{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:var(--surface);font-size:.85rem;transition:all .2s;flex-shrink:0}
+.tour-back:hover{border-color:var(--amber);color:var(--amber-dark);transform:translateX(-2px)}
+.tour-info{flex:1;min-width:0}
+.tour-name{font-size:.85rem;font-weight:600;color:var(--amber-dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tour-progress-dots{display:flex;gap:6px;margin-top:4px}
+.tdot{width:6px;height:6px;border-radius:50%;background:var(--text-faint);transition:all .3s;cursor:pointer}
+.tdot.active{background:var(--amber);transform:scale(1.3)}
+.tdot.visited{background:var(--amber-light);border:1px solid var(--amber)}
+.tour-maps-btn{font-size:.75rem;padding:6px 12px;border-radius:16px;border:1px solid var(--border);background:var(--surface);cursor:pointer;color:var(--text-light);white-space:nowrap;transition:all .2s}
+.tour-maps-btn:hover{border-color:var(--amber);color:var(--amber-dark)}
+.tour-main{flex:1;display:flex;flex-direction:column;min-height:0}
+.tour-sv-wrap{flex:1;position:relative;min-height:0;background:#e8e4df}
+#tour-sv{width:100%;height:100%}
+.sv-fb{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:20px;text-align:center;gap:10px;color:var(--text-light)}
+.sv-fb .fb-icon{font-size:3rem;opacity:.5}
+.sv-fb .fb-title{font-size:.95rem;font-weight:600;color:var(--text)}
+.sv-fb .fb-hint{font-size:.8rem;max-width:280px;line-height:1.5}
+.sv-fb .fb-link{display:inline-block;margin-top:8px;padding:8px 20px;border-radius:20px;background:var(--amber);color:#fff;text-decoration:none;font-size:.82rem;font-weight:500;transition:background .2s}
+.sv-fb .fb-link:hover{background:var(--amber-dark)}
+.tour-minimap{position:absolute;bottom:12px;left:12px;width:140px;height:100px;border-radius:10px;overflow:hidden;border:2px solid var(--surface);box-shadow:0 2px 12px rgba(0,0,0,.15);z-index:80;opacity:.85;transition:opacity .2s}
+.tour-minimap:hover{opacity:1}
+.tour-commentary{background:linear-gradient(180deg,var(--surface) 0%,#FDF8EE 100%);border-top:1px solid var(--border);padding:18px 22px 10px;max-height:40vh;overflow-y:auto}
+.stop-title{font-family:var(--serif);font-size:1.08rem;font-weight:700;margin-bottom:9px;color:var(--text);letter-spacing:.02em}
+.stop-title::after{content:'';display:block;width:28px;height:2px;background:linear-gradient(90deg,var(--amber),transparent);margin-top:7px;border-radius:1px}
+.stop-text{font-size:.88rem;line-height:1.85;color:var(--text);opacity:.88}
+.tour-nav{display:flex;justify-content:space-between;align-items:center;padding:8px 20px 14px;background:#FDF8EE}
+.nav-btn{padding:8px 22px;border-radius:22px;border:1px solid var(--border);background:var(--surface);cursor:pointer;font-size:.82rem;color:var(--text);transition:all .25s var(--spring)}
+.nav-btn:hover:not(:disabled){border-color:var(--amber);color:var(--amber-dark);background:var(--amber-light)}
+.nav-btn:active:not(:disabled){transform:scale(.95)}
+.nav-btn:disabled{opacity:.3;cursor:default}
+.nav-btn.primary{background:linear-gradient(160deg,#F5A623,var(--amber-dark));color:#fff;border-color:transparent;font-weight:500;box-shadow:0 3px 12px rgba(232,150,12,.32),inset 0 1px 0 rgba(255,255,255,.25)}
+.nav-btn.primary:hover{box-shadow:0 5px 18px rgba(232,150,12,.42),inset 0 1px 0 rgba(255,255,255,.25);filter:brightness(1.05)}
+.nav-counter{font-size:.75rem;color:var(--text-light);font-variant-numeric:tabular-nums;letter-spacing:.06em}
+#explore{height:100%;display:none;flex-direction:column}
+.exp-top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:rgba(253,249,241,.92);backdrop-filter:blur(14px) saturate(1.3);-webkit-backdrop-filter:blur(14px) saturate(1.3);border-bottom:1px solid var(--border);box-shadow:0 1px 8px rgba(120,90,40,.05);z-index:500;position:relative}
+.exp-back{width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:1px solid var(--border);cursor:pointer;background:var(--surface);font-size:.85rem;transition:all .2s;flex-shrink:0}
+.exp-back:hover{border-color:var(--amber);color:var(--amber-dark)}
+.search-wrap{flex:1;position:relative;max-width:420px}
+.search-wrap input{width:100%;padding:8px 16px 8px 36px;border:1px solid var(--border);border-radius:20px;font-size:.88rem;background:var(--bg);color:var(--text);outline:none;transition:border-color .2s}
+.search-wrap input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(245,158,11,.1)}
+.search-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.85rem;opacity:.4;pointer-events:none}
+.search-results{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.1);max-height:60vh;overflow-y:auto;display:none;z-index:9000}
+.search-results.show{display:block}
+.sr-item{padding:10px 16px;cursor:pointer;font-size:.85rem;border-bottom:1px solid var(--border);transition:background .15s;line-height:1.4}
+.sr-item:hover{background:var(--amber-light)}
+.sr-item:last-child{border-bottom:none}
+.exp-main{flex:1;display:flex;min-height:0;position:relative}
+#exp-map-panel{flex:.45;position:relative;min-width:0}
+#exp-map{width:100%;height:100%}
+.exp-divider{width:5px;background:var(--border);cursor:col-resize;transition:background .2s;z-index:50}
+.exp-divider:hover,.exp-divider.active{background:var(--amber)}
+#exp-sv-panel{flex:.55;position:relative;min-width:0;background:#f5f0eb}
+#exp-sv{width:100%;height:100%}
+.exp-history{position:absolute;bottom:32px;right:8px;width:260px;max-height:300px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 4px 16px rgba(0,0,0,.12);overflow-y:auto;display:none;z-index:100;font-size:.8rem}
+.exp-history.show{display:block}
+.exp-history-item{padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.exp-history-item:hover{background:rgba(245,158,11,.06)}
+.exp-history-item:last-child{border-bottom:none}
+.exp-history-name{font-weight:500;color:var(--text)}
+.exp-history-coord{color:var(--text-light);font-size:.72rem}
+.exp-history-del{opacity:.3;cursor:pointer;font-size:.7rem;padding:2px 4px}
+.exp-history-del:hover{opacity:.8;color:#e55}
+.exp-history-empty{padding:16px;text-align:center;color:var(--text-light)}
+.home-history{margin-top:24px;padding:0 8px}
+.home-history h3{font-size:.9rem;color:var(--text-light);margin:0 0 12px;font-weight:500}
+.home-history-list{display:flex;flex-wrap:wrap;gap:8px}
+.home-history-chip{padding:6px 14px;background:var(--surface);border:1px solid var(--border);border-radius:16px;font-size:.78rem;cursor:pointer;transition:all .2s;color:var(--text)}
+.home-history-chip:hover{border-color:var(--amber);background:rgba(245,158,11,.06)}
+.home-history-coord{color:var(--text-light);font-size:.7rem;margin-left:4px}
+.exp-bottom{display:flex;align-items:center;padding:6px 16px;background:var(--surface);border-top:1px solid var(--border);font-size:.78rem;color:var(--text-light);gap:12px}
+.exp-coords{font-family:monospace;font-size:.72rem;cursor:pointer;transition:color .2s}.exp-coords:hover{color:var(--amber)}.exp-share{background:none;border:1px solid var(--border);border-radius:12px;padding:3px 10px;font-size:.68rem;color:var(--text-light);cursor:pointer;transition:all .2s;margin-left:auto}.exp-share:hover{border-color:var(--amber);color:var(--amber)}
+.custom-marker{width:18px;height:18px;border-radius:50%;background:var(--amber);border:3px solid var(--surface);box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.route-marker{width:10px;height:10px;border-radius:50%;background:var(--amber);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.route-marker.active{background:var(--amber-dark);width:14px;height:14px;border:3px solid #fff}
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.geo-reveal{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);background:linear-gradient(160deg,#F5A623,var(--amber-dark));color:#fff;border:none;padding:11px 30px;border-radius:26px;font-size:.9rem;font-weight:500;cursor:pointer;z-index:50;box-shadow:0 6px 22px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.25);transition:all .25s var(--spring)}
+.geo-reveal:hover{transform:translateX(-50%) scale(1.06)}
+.geo-reveal:active{transform:translateX(-50%) scale(.96)}
+.geo-answer{position:absolute;bottom:76px;left:50%;transform:translateX(-50%);background:rgba(46,42,38,.92);color:#fff;padding:14px 26px;border-radius:18px;font-size:.88rem;z-index:60;text-align:center;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);max-width:84%;line-height:1.6;box-shadow:0 10px 36px rgba(0,0,0,.3);animation:geoPop .4s var(--spring)}
+@keyframes geoPop{from{opacity:0;transform:translateX(-50%) translateY(14px) scale(.92)}to{opacity:1;transform:translateX(-50%) translateY(0) scale(1)}}
+.geo-next{margin-top:10px;background:linear-gradient(160deg,#F5A623,var(--amber-dark));color:#fff;border:none;padding:7px 22px;border-radius:18px;font-size:.78rem;cursor:pointer;transition:transform .2s}
+.geo-next:active{transform:scale(.94)}
+.geo-mode{position:absolute;top:12px;right:12px;z-index:55;display:flex;gap:6px}
+.geo-mode button{padding:6px 14px;border-radius:16px;border:none;background:rgba(0,0,0,.45);color:rgba(255,255,255,.75);font-size:.74rem;cursor:pointer;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);transition:all .2s}
+.geo-mode button.on{background:rgba(232,150,12,.85);color:#fff}
+.geo-guess-wrap{position:absolute;inset:0;z-index:70;background:rgba(20,16,12,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:20px}
+.geo-guess-wrap.show{display:flex}
+.geo-guess-panel{width:min(560px,94vw);height:min(420px,72vh);background:var(--surface);border-radius:20px;overflow:hidden;position:relative;box-shadow:0 24px 80px rgba(0,0,0,.4);animation:geoPop .35s var(--spring)}
+#geo-guess-map{width:100%;height:100%}
+.geo-guess-bar{position:absolute;bottom:0;left:0;right:0;display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(253,249,241,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--border);z-index:1000}
+.geo-guess-hint{flex:1;font-size:.78rem;color:var(--text-light)}
+.geo-guess-bar .nav-btn{padding:7px 18px;font-size:.78rem}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(46,42,38,.9);color:#fff;padding:8px 20px;border-radius:20px;font-size:.82rem;opacity:0;transition:opacity .3s;pointer-events:none;z-index:9999}
+.toast.show{opacity:1}
+.place-note{position:absolute;bottom:44px;left:12px;max-width:330px;background:rgba(253,249,241,.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(232,150,12,.3);border-left:3px solid var(--amber);border-radius:14px;padding:14px 36px 14px 16px;z-index:90;box-shadow:0 10px 32px rgba(120,90,40,.18);animation:geoPop .45s var(--spring)}
+.place-note-title{font-family:var(--serif);font-size:.92rem;font-weight:700;color:var(--amber-dark);margin-bottom:5px}
+.place-note-text{font-size:.8rem;line-height:1.7;color:var(--text)}
+.place-note-close{position:absolute;top:8px;right:10px;cursor:pointer;color:var(--text-faint);font-size:.85rem;padding:2px 5px}
+.place-note-close:hover{color:var(--amber-dark)}
+.streak-hud{position:absolute;top:12px;left:56px;z-index:55;background:rgba(0,0,0,.45);color:rgba(255,255,255,.85);padding:7px 14px;border-radius:16px;font-size:.74rem;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;font-variant-numeric:tabular-nums}
+.streak-hud.show{display:block}
+@media(max-width:640px){
+  .tour-grid{grid-template-columns:1fr}
+  .tour-minimap{width:100px;height:70px;bottom:8px;left:8px}
+  .tour-commentary{max-height:35vh;padding:14px 16px 10px}
+  .stop-text{font-size:.83rem}
+  .exp-main{flex-direction:column}
+  #exp-map-panel{flex:none!important;height:40%}
+  #exp-sv-panel{flex:none!important;height:60%}
+  .exp-divider{display:none}
+}
+</style>
+</head>
+<body>
+<div id="tour-select">
+  <div class="select-header">
+    <div class="select-title">Wander</div>
+    <div class="select-sub">用街景漫游世界</div>
+  </div>
+  <div class="tour-grid" id="tourGrid"></div>
+  
+</div>
+<div id="tour-active">
+  <div class="tour-top">
+    <div class="tour-back" id="tourBack">&#8592;</div>
+    <div class="tour-info">
+      <div class="tour-name" id="tourName"></div>
+      <div class="tour-progress-dots" id="tourDots"></div>
+    </div>
+    <button class="tour-maps-btn" id="tourMaps">&#8599; Maps</button>
+  </div>
+  <div class="tour-main">
+    <div class="tour-sv-wrap">
+      <div id="tour-sv"></div>
+      <div id="tour-minimap" class="tour-minimap"></div>
+    </div>
+    <div class="tour-commentary">
+      <div class="stop-title" id="stopTitle"></div>
+      <div class="stop-text" id="stopText"></div>
+    </div>
+    <div class="tour-nav">
+      <button class="nav-btn" id="prevBtn" disabled>&#8592; 上一站</button>
+      <span class="nav-counter" id="navCounter"></span>
+      <button class="nav-btn primary" id="nextBtn">下一站 &#8594;</button>
+    </div>
+  </div>
+</div>
+<div id="explore">
+  <div class="exp-top">
+    <div class="exp-back" id="expBack">&#8592;</div>
+    <div class="search-wrap">
+      <span class="search-icon">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="搜索地点..." autocomplete="off"/>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <button class="exp-share" onclick="randomExplore()" style="flex-shrink:0;margin:0;padding:6px 10px;font-size:.82rem" title="全部随机">🎲</button>
+    <button class="exp-share" onclick="randomLat()" style="flex-shrink:0;margin:0;padding:6px 8px;font-size:.72rem;opacity:.8" title="随机纬度">↕</button>
+    <button class="exp-share" onclick="randomLng()" style="flex-shrink:0;margin:0;padding:6px 8px;font-size:.72rem;opacity:.8" title="随机经度">↔</button>
+  </div>
+  <div class="exp-main">
+    <div id="exp-map-panel"><div id="exp-map"></div></div>
+    <div class="exp-divider" id="expDivider"></div>
+    <div id="exp-sv-panel"><div id="exp-sv"></div></div>
+  </div>
+  <div class="exp-history" id="expHistory"></div>
+  <div class="exp-bottom" style="flex-direction:column;gap:4px;padding:6px 10px">
+    <div style="display:flex;align-items:center;gap:8px;width:100%;min-width:0">
+      <span class="exp-coords" id="expCoords" onclick="shareCoords()">&mdash;</span>
+      <span id="expLocalTime" style="color:var(--amber-dark);font-size:.72rem;white-space:nowrap"></span>
+      <span id="expLoc" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">点击地图或搜索一个地方</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;width:100%">
+      <button class="exp-share" onclick="shareCoords()">📋</button><button class="exp-share" onclick="sendSnapshot()" title="发送">📨</button><button class="exp-share" onclick="saveToHistory()">📌</button><button class="exp-share" onclick="toggleHistory()">🕐</button>
+    </div>
+  </div>
+</div>
+<div id="geoguessr" style="display:none;height:100%;position:relative">
+  <div style="position:absolute;top:12px;left:12px;z-index:50">
+    <div class="exp-back" onclick="showView('select')" style="background:rgba(0,0,0,.5);color:#fff;border:none">&#8592;</div>
+  </div>
+  <div class="geo-mode">
+    <button id="geoModeLandmark" class="on" onclick="setGeoMode('landmark')">地标</button>
+    <button id="geoModeWild" onclick="setGeoMode('wild')">荒野</button>
+    <button id="geoStreakBtn" onclick="startStreak()">连战×5</button>
+  </div>
+  <div class="streak-hud" id="streakHud"></div>
+  <div id="geo-sv" style="width:100%;height:100%"></div>
+  <button class="geo-reveal" id="geoGuessBtn" onclick="openGuess()">我猜到了</button>
+  <div class="geo-guess-wrap" id="geoGuessWrap">
+    <div class="geo-guess-panel">
+      <div id="geo-guess-map"></div>
+      <div class="geo-guess-bar">
+        <span class="geo-guess-hint" id="geoGuessHint">在地图上点你猜的位置</span>
+        <button class="nav-btn" onclick="closeGuess()">再看看</button>
+        <button class="nav-btn" onclick="closeGuess();skipGuess()">直接揭晓</button>
+        <button class="nav-btn primary" id="geoConfirmBtn" onclick="confirmGuess()" disabled>就是这了</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+var GOOGLE_API_KEY = ''; // 填入你的 Google Maps API Key
+var places = [
+];
+var tours = [
+];
+var currentView='select',currentTour=null,currentStop=0,visitedStops={};
+var panorama=null,gmapsLoaded=false,miniMap=null,miniMarkers=[];
+var expMap=null,expMarker=null,expPanorama=null;
+function renderHomeHistory(){try{historyCache=JSON.parse(localStorage.getItem('wander_history')||'[]');var el=document.getElementById('historyCount');if(el)el.textContent=historyCache.length?historyCache.length+' 个地点':'还没有足迹'}catch(e){}}
+function renderHistoryList(){var grid=document.getElementById('tourGrid'),html='';html+='<div class="tour-card explore-card" data-action="back"><div class="tour-card-emoji">\u2190</div><div class="tour-card-title">返回</div><div class="tour-card-sub"></div><div class="tour-card-stops"></div></div>';historyCache.forEach(function(x,i){var lat=parseFloat(x.coords.split(',')[0]),lng=parseFloat(x.coords.split(',')[1]);html+='<div class="tour-card" data-hidx="'+i+'"><div class="tour-card-emoji">\u{1F4CC}</div><div class="tour-card-title">'+x.name+'</div><div class="tour-card-sub">'+x.coords+'</div><div class="tour-card-stops">'+x.time+'</div></div>'});if(!historyCache.length)html+='<div style="grid-column:1/-1;text-align:center;color:var(--text-light);padding:32px">还没有足迹，去探索吧</div>';grid.innerHTML=html;grid.querySelectorAll('[data-hidx]').forEach(function(c){c.addEventListener('click',function(){var x=historyCache[+c.dataset.hidx];if(x){var lat=parseFloat(x.coords.split(',')[0]),lng=parseFloat(x.coords.split(',')[1]);startExplore({lat:lat,lng:lng,heading:0,pitch:0,zoom:1})}})});grid.querySelector('[data-action="back"]').addEventListener('click',function(){renderGrid();renderHomeHistory()})}
+function init(){renderGrid();renderHomeHistory();parseHash()}
+function renderGrid(){
+  var grid=document.getElementById('tourGrid');
+  var html='<div class="tour-card" data-action="explore"><div class="tour-card-emoji">\u{1F30D}</div><div class="tour-card-title">自由探索</div><div class="tour-card-sub">在地图上自己逛</div><div class="tour-card-stops">搜索 · 拖拽 · 漫步</div></div>';
+  
+  html+='<div class="tour-card" data-action="geoguessr"><div class="tour-card-emoji">\u{1F50D}</div><div class="tour-card-title">图寻</div><div class="tour-card-sub">你在哪？</div><div class="tour-card-stops">地标 · 荒野 · 连战</div></div>';
+  
+  html+='<div class="tour-card" data-action="history"><div class="tour-card-emoji">\u{1F4CD}</div><div class="tour-card-title">历史足迹</div><div class="tour-card-sub">去过的地方</div><div class="tour-card-stops" id="historyCount">加载中...</div></div>';
+  grid.innerHTML=html;
+  grid.querySelector('[data-action="explore"]').addEventListener('click',function(){startExplore()});
+  
+  grid.querySelector('[data-action="geoguessr"]').addEventListener('click',function(){startGeoGuessr()});
+  
+  grid.querySelector('[data-action="history"]').addEventListener('click',function(){renderHistoryList()});
+}
+function renderTourList(){
+  var grid=document.getElementById('tourGrid'),html='';
+  html+='<div class="tour-card explore-card" data-action="back"><div class="tour-card-emoji">\u{2190}</div><div class="tour-card-title">返回</div><div class="tour-card-sub"></div><div class="tour-card-stops"></div></div>';
+  tours.forEach(function(t){
+    html+='<div class="tour-card" data-tour="'+t.id+'"><div class="tour-card-emoji">'+t.emoji+'</div><div class="tour-card-title">'+t.title+'</div><div class="tour-card-sub">'+t.subtitle+'</div><div class="tour-card-stops">'+t.stops.length+' 站</div></div>';
+  });
+  grid.innerHTML=html;
+  grid.querySelectorAll('.tour-card[data-tour]').forEach(function(c){c.addEventListener('click',function(){startTour(c.dataset.tour)})});
+  grid.querySelector('[data-action="back"]').addEventListener('click',function(){renderGrid()});
+}
+function parseHash(){
+  var h=location.hash.slice(1);if(!h)return;var p=new URLSearchParams(h);
+  if(p.has('tour'))startTour(p.get('tour'),parseInt(p.get('stop')||'0'));
+  else if(p.has('lat'))startExplore({lat:+p.get('lat'),lng:+p.get('lng'),heading:+(p.get('h')||0),pitch:+(p.get('p')||0),zoom:+(p.get('z')||1)});
+}
+function loadGMaps(cb){
+  if(gmapsLoaded){cb();return}if(!GOOGLE_API_KEY){cb();return}
+  var s=document.createElement('script');s.src='https://maps.googleapis.com/maps/api/js?key='+GOOGLE_API_KEY+'&callback=_gmReady';s.async=true;document.head.appendChild(s);
+  window._gmReady=function(){gmapsLoaded=true;cb()};
+}
+function gmapsUrl(stop){var t=Math.max(0,90-(stop.pitch||0));return'https://www.google.com/maps/@'+stop.lat+','+stop.lng+',3a,75y,'+stop.heading+'h,'+t+'t/data=!3m7!1e1!3m5!1s!2e0!7i16384!8i8192'}
+function startTour(id,startAt){
+  currentTour=null;for(var i=0;i<tours.length;i++){if(tours[i].id===id){currentTour=tours[i];break}}
+  if(!currentTour)return;currentStop=startAt||0;visitedStops={};visitedStops[currentStop]=true;
+  showView('tour');document.getElementById('tourName').textContent=currentTour.title;
+  document.title='Wander'+currentTour.title;renderDots();
+  loadGMaps(function(){initTourSV();initMiniMap();goToStop(currentStop)});
+}
+function initTourSV(){
+  var el=document.getElementById('tour-sv');el.innerHTML='';panorama=null;
+  if(!GOOGLE_API_KEY||!gmapsLoaded)return;var stop=currentTour.stops[currentStop];
+  panorama=new google.maps.StreetViewPanorama(el,{position:{lat:stop.lat,lng:stop.lng},pov:{heading:stop.heading,pitch:stop.pitch},zoom:stop.zoom,addressControl:false,showRoadLabels:true,motionTracking:false,motionTrackingControl:false,linksControl:true,panControl:false,enableCloseButton:false});
+}
+function showSVFallback(){
+  var stop=currentTour.stops[currentStop],el=document.getElementById('tour-sv');
+  el.innerHTML='<div class="sv-fb"><div class="fb-icon">'+currentTour.emoji+'</div><div class="fb-title">'+stop.title+'</div><div class="fb-hint">街景需要 Google Maps API Key</div><div class="fb-hint" style="margin-top:12px;font-size:.75rem;text-align:left;max-width:320px;line-height:1.8">1. 前往 <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--amber)">Google Cloud Console</a><br>2. 创建项目 → 启用 Maps JavaScript API 和 Street View API<br>3. 创建 API Key<br>4. 填入 index.html 第一行的 GOOGLE_API_KEY</div><a class="fb-link" href="'+gmapsUrl(stop)+'" target="_blank">↗ 在 Google Maps 中查看</a></div>';
+}
+function initMiniMap(){
+  if(miniMap){miniMap.remove();miniMap=null}miniMarkers=[];var stops=currentTour.stops;
+  miniMap=L.map('tour-minimap',{zoomControl:false,attributionControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,touchZoom:false});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18}).addTo(miniMap);
+  var latlngs=stops.map(function(s){return[s.lat,s.lng]});
+  L.polyline(latlngs,{color:'#F59E0B',weight:2,opacity:.6,dashArray:'5,8'}).addTo(miniMap);
+  stops.forEach(function(s,i){var a=i===currentStop;var icon=L.divIcon({className:'route-marker'+(a?' active':''),iconSize:a?[14,14]:[10,10],iconAnchor:a?[7,7]:[5,5]});miniMarkers.push(L.marker([s.lat,s.lng],{icon:icon}).addTo(miniMap))});
+  miniMap.fitBounds(L.latLngBounds(latlngs).pad(0.15));
+}
+function goToStop(idx){
+  if(idx<0||idx>=currentTour.stops.length)return;currentStop=idx;visitedStops[idx]=true;var stop=currentTour.stops[idx];
+  if(panorama&&GOOGLE_API_KEY){panorama.setPosition({lat:stop.lat,lng:stop.lng});panorama.setPov({heading:stop.heading,pitch:stop.pitch});panorama.setZoom(stop.zoom)}else{showSVFallback()}
+  var titleEl=document.getElementById('stopTitle'),textEl=document.getElementById('stopText');
+  titleEl.textContent=stop.title;textEl.textContent=stop.text;
+  var cm=titleEl.parentElement;cm.classList.remove('fade-in');void cm.offsetWidth;cm.classList.add('fade-in');cm.scrollTop=0;
+  document.getElementById('prevBtn').disabled=idx===0;var nb=document.getElementById('nextBtn');
+  if(idx===currentTour.stops.length-1){nb.innerHTML='&#8617; 回到列表';nb.classList.remove('primary')}else{nb.innerHTML='下一站 &#8594;';nb.classList.add('primary')}
+  document.getElementById('navCounter').textContent=(idx+1)+' / '+currentTour.stops.length;renderDots();
+  miniMarkers.forEach(function(m,i){var a=i===idx;m.setIcon(L.divIcon({className:'route-marker'+(a?' active':''),iconSize:a?[14,14]:[10,10],iconAnchor:a?[7,7]:[5,5]}))});
+  if(miniMap)miniMap.panTo([stop.lat,stop.lng],{animate:true});
+  history.replaceState(null,'','#tour='+currentTour.id+'&stop='+idx);
+}
+function renderDots(){
+  var c=document.getElementById('tourDots'),html='';
+  currentTour.stops.forEach(function(_,i){var cls='tdot';if(i===currentStop)cls+=' active';else if(visitedStops[i])cls+=' visited';html+='<div class="'+cls+'" data-s="'+i+'"></div>'});
+  c.innerHTML=html;c.querySelectorAll('.tdot').forEach(function(d){d.addEventListener('click',function(){goToStop(+d.dataset.s)})});
+}
+document.getElementById('prevBtn').addEventListener('click',function(){goToStop(currentStop-1)});
+document.getElementById('nextBtn').addEventListener('click',function(){if(currentStop===currentTour.stops.length-1)showView('select');else goToStop(currentStop+1)});
+document.getElementById('tourBack').addEventListener('click',function(){showView('select')});
+document.getElementById('tourMaps').addEventListener('click',function(){window.open(gmapsUrl(currentTour.stops[currentStop]),'_blank')});
+document.addEventListener('keydown',function(e){
+  if(currentView!=='tour')return;
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'){e.preventDefault();goToStop(currentStop-1)}
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'){e.preventDefault();if(currentStop===currentTour.stops.length-1)showView('select');else goToStop(currentStop+1)}
+  if(e.key==='Escape')showView('select');
+});
+function startExplore(pos){
+  showView('explore');pos=pos||{lat:41.8902,lng:12.4922,heading:180,pitch:0,zoom:1};
+  loadGMaps(function(){
+    if(!expMap){
+      expMap=L.map('exp-map',{zoomControl:false}).setView([pos.lat,pos.lng],15);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(expMap);
+      L.control.zoom({position:'bottomright'}).addTo(expMap);
+      var icon=L.divIcon({className:'custom-marker',iconSize:[18,18],iconAnchor:[9,9]});
+      expMarker=L.marker([pos.lat,pos.lng],{icon:icon,draggable:true}).addTo(expMap);
+      expMap.on('click',function(e){expMoveTo(e.latlng.lat,e.latlng.lng)});
+      expMarker.on('dragend',function(){var p=expMarker.getLatLng();expMoveTo(p.lat,p.lng)});
+    }else{expMap.setView([pos.lat,pos.lng],15);expMarker.setLatLng([pos.lat,pos.lng])}
+    setTimeout(function(){expMap.invalidateSize()},100);
+    if(GOOGLE_API_KEY&&gmapsLoaded){
+      if(!expPanorama){
+        expPanorama=new google.maps.StreetViewPanorama(document.getElementById('exp-sv'),{position:{lat:pos.lat,lng:pos.lng},pov:{heading:pos.heading,pitch:pos.pitch},zoom:pos.zoom,addressControl:false,showRoadLabels:true,motionTracking:false,motionTrackingControl:false,linksControl:true,panControl:false,enableCloseButton:false});
+        expPanorama.addListener('position_changed',function(){var p=expPanorama.getPosition();expMarker.setLatLng([p.lat(),p.lng()]);expMap.panTo([p.lat(),p.lng()]);document.getElementById('expCoords').textContent=p.lat().toFixed(5)+', '+p.lng().toFixed(5);setLocalTime(p.lng());reverseGeo(p.lat(),p.lng())});
+      }else{expPanorama.setPosition({lat:pos.lat,lng:pos.lng});expPanorama.setPov({heading:pos.heading,pitch:pos.pitch})}
+    }else{document.getElementById('exp-sv').innerHTML='<div class="sv-fb"><div class="fb-icon">\u{1F30D}</div><div class="fb-hint">街景需要 Google Maps API Key</div><div class="fb-hint" style="margin-top:12px;font-size:.75rem;text-align:left;max-width:320px;line-height:1.8">1. 前往 <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--amber)">Google Cloud Console</a><br>2. 创建项目 → 启用 Maps JavaScript API 和 Street View API<br>3. 创建 API Key<br>4. 填入 index.html 第一行的 GOOGLE_API_KEY</div></div>'}
+  });
+}
+function localTimeStr(lng){
+  var d=new Date(Date.now()+Math.round(lng/15)*3600000);
+  var h=d.getUTCHours(),m=d.getUTCMinutes();
+  var w=h<5?'深夜':h<7?'清晨':h<11?'上午':h<13?'正午':h<17?'下午':h<19?'黄昏':h<23?'夜晚':'深夜';
+  return'那里 '+('0'+h).slice(-2)+':'+('0'+m).slice(-2)+' '+w;
+}
+function setLocalTime(lng){var el=document.getElementById('expLocalTime');if(el)el.textContent=localTimeStr(lng)}
+function expMoveTo(lat,lng){expMarker.setLatLng([lat,lng]);expMap.panTo([lat,lng]);if(expPanorama)expPanorama.setPosition({lat:lat,lng:lng});document.getElementById('expCoords').textContent=lat.toFixed(5)+', '+lng.toFixed(5);setLocalTime(lng);reverseGeo(lat,lng)}
+var geoTimer;function reverseGeo(lat,lng){clearTimeout(geoTimer);geoTimer=setTimeout(function(){fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&accept-language=zh').then(function(r){return r.json()}).then(function(d){var parts=(d.display_name||'').split(',').map(function(s){return s.trim()});document.getElementById('expLoc').textContent=parts.slice(0,3).join(', ')}).catch(function(){})},600)}
+var searchEl=document.getElementById('searchInput'),resultsEl=document.getElementById('searchResults'),searchTimer;
+searchEl.addEventListener('input',function(){clearTimeout(searchTimer);var q=searchEl.value.trim();if(q.length<2){resultsEl.classList.remove('show');return}searchTimer=setTimeout(function(){doSearch(q)},400)});
+searchEl.addEventListener('keydown',function(e){if(e.key==='Escape'){resultsEl.classList.remove('show');searchEl.blur()}if(e.key==='Enter'){e.preventDefault();var first=resultsEl.querySelector('.sr-item[data-lat]');if(first&&resultsEl.classList.contains('show'))first.click();else doSearch(searchEl.value.trim())}});
+function doSearch(q){if(!q)return;var cm=q.match(/^\s*(-?\d+\.?\d*)\s*[,，\s]\s*(-?\d+\.?\d*)\s*$/);if(cm){expMoveTo(+cm[1],+cm[2]);expMap.setZoom(14);searchEl.value=cm[1]+', '+cm[2];resultsEl.classList.remove('show');return}fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(q)+'&limit=5&accept-language=zh').then(function(r){return r.json()}).then(function(data){if(!data.length){resultsEl.innerHTML='<div class="sr-item" style="color:var(--text-light);cursor:default">没有找到结果</div>'}else{resultsEl.innerHTML=data.map(function(d){return'<div class="sr-item" data-lat="'+d.lat+'" data-lng="'+d.lon+'">'+d.display_name+'</div>'}).join('');resultsEl.querySelectorAll('[data-lat]').forEach(function(item){item.addEventListener('click',function(){expMoveTo(+item.dataset.lat,+item.dataset.lng);expMap.setZoom(16);searchEl.value=item.textContent.split(',')[0];resultsEl.classList.remove('show')})})}resultsEl.classList.add('show')}).catch(function(){})}
+document.addEventListener('click',function(e){if(!e.target.closest('.search-wrap'))resultsEl.classList.remove('show')});
+document.getElementById('expBack').addEventListener('click',function(){showView('select')});
+var divEl=document.getElementById('expDivider'),emPanel=document.getElementById('exp-map-panel'),esPanel=document.getElementById('exp-sv-panel'),dragging=false;
+divEl.addEventListener('mousedown',function(e){dragging=true;divEl.classList.add('active');document.body.style.cursor='col-resize';document.body.style.userSelect='none';e.preventDefault()});
+document.addEventListener('mousemove',function(e){if(!dragging)return;var rect=document.querySelector('.exp-main').getBoundingClientRect();var ratio=Math.max(.2,Math.min(.8,(e.clientX-rect.left)/rect.width));emPanel.style.flex=String(ratio);esPanel.style.flex=String(1-ratio);expMap.invalidateSize()});
+document.addEventListener('mouseup',function(){if(dragging){dragging=false;divEl.classList.remove('active');document.body.style.cursor='';document.body.style.userSelect='';if(expMap)expMap.invalidateSize()}});
+function showView(v){
+  currentView=v;
+  document.getElementById('tour-select').style.display=v==='select'?'flex':'none';
+  document.getElementById('tour-active').style.display=v==='tour'?'flex':'none';
+  document.getElementById('explore').style.display=v==='explore'?'flex':'none';document.getElementById('geoguessr').style.display=v==='geoguessr'?'block':'none';
+  if(v==='select'){history.replaceState(null,'',location.pathname);document.title='Wander';renderHomeHistory();if(panorama){panorama=null;document.getElementById('tour-sv').innerHTML=''}}
+  if(v==='explore'&&expMap)setTimeout(function(){expMap.invalidateSize()},100);
+}
+function showToast(msg){var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(function(){t.classList.remove('show')},2000)}
+var geoLocations=[
+  {lat:48.8584,lng:2.2945,name:'巴黎 埃菲尔铁塔',country:'法国'},
+  {lat:35.6762,lng:139.6503,name:'东京 涩谷',country:'日本'},
+  {lat:40.4168,lng:-3.7038,name:'马德里 太阳门广场',country:'西班牙'},
+  {lat:41.9028,lng:12.4964,name:'罗马 斗兽场附近',country:'意大利'},
+  {lat:51.5074,lng:-0.1278,name:'伦敦 大本钟',country:'英国'},
+  {lat:37.9838,lng:23.7275,name:'雅典 宪法广场',country:'希腊'},
+  {lat:52.5200,lng:13.4050,name:'柏林 勃兰登堡门',country:'德国'},
+  {lat:59.3293,lng:18.0686,name:'斯德哥尔摩 老城',country:'瑞典'},
+  {lat:35.0116,lng:135.7681,name:'京都 金阁寺',country:'日本'},
+  {lat:25.0330,lng:121.5654,name:'台北 西门町',country:'台湾'},
+  {lat:1.3521,lng:103.8198,name:'新加坡 滨海湾',country:'新加坡'},
+  {lat:13.7563,lng:100.5018,name:'曼谷 大皇宫',country:'泰国'},
+  {lat:22.3193,lng:114.1694,name:'香港 维多利亚港',country:'香港'},
+  {lat:-33.8688,lng:151.2093,name:'悉尼 歌剧院',country:'澳大利亚'},
+  {lat:29.5602,lng:106.5528,name:'重庆 解放碑',country:'中国'},
+  {lat:55.7558,lng:37.6173,name:'莫斯科 红场',country:'俄罗斯'},
+  {lat:30.0444,lng:31.2357,name:'开罗 解放广场',country:'埃及'},
+  {lat:41.0082,lng:28.9784,name:'伊斯坦布尔 蓝色清真寺',country:'土耳其'},
+  {lat:-22.9068,lng:-43.1729,name:'里约热内卢 科帕卡巴纳',country:'巴西'},
+  {lat:3.1390,lng:101.6869,name:'吉隆坡 双子塔',country:'马来西亚'},
+  {lat:43.7696,lng:11.2558,name:'佛罗伦萨 老桥',country:'意大利'},
+  {lat:45.4408,lng:12.3155,name:'威尼斯 圣马可广场',country:'意大利'},
+  {lat:47.4979,lng:19.0402,name:'布达佩斯 渔人堡',country:'匈牙利'},
+  {lat:50.0755,lng:14.4378,name:'布拉格 查理大桥',country:'捷克'}
+];
+var geoPanorama=null,geoAnswer=null,geoMode='landmark',geoGuessMap=null,geoGuessMarker=null,geoGuessLine=null,geoGuessAnsMarker=null,geoGuessLatLng=null;
+var streak={on:false,round:0,total:0};
+function setGeoMode(m){
+  geoMode=m;
+  endStreak(true);
+  document.getElementById('geoModeLandmark').classList.toggle('on',m==='landmark');
+  document.getElementById('geoModeWild').classList.toggle('on',m==='wild');
+  startGeoGuessr();
+}
+function startStreak(){
+  streak={on:true,round:1,total:0};
+  document.getElementById('geoStreakBtn').classList.add('on');
+  updateStreakHud();
+  startGeoGuessr();
+}
+function endStreak(silent){
+  if(!streak.on&&!silent)return;
+  streak={on:false,round:0,total:0};
+  var b=document.getElementById('geoStreakBtn');if(b)b.classList.remove('on');
+  var h=document.getElementById('streakHud');if(h)h.classList.remove('show');
+}
+function updateStreakHud(){
+  var h=document.getElementById('streakHud');if(!h)return;
+  h.textContent='第 '+streak.round+'/5 题 · 累计 '+Math.round(streak.total).toLocaleString()+' km';
+  h.classList.add('show');
+}
+function streakRank(total){
+  if(total<300)return['🏛','考古学家 · 你是怎么做到的'];
+  if(total<2000)return['🧭','资深旅人 · 地球对你没有秘密'];
+  if(total<8000)return['📷','观光客 · 及格 但导游费省不了'];
+  if(total<20000)return['🛸','平行宇宙导航员 · 方向是有的 星球不对'];
+  return['🐿','迷路的飞鼠 · 建议跟紧我 别松手'];
+}
+function geoNext(){
+  closeGuess();
+  if(streak.on){
+    if(streak.round>=5){
+      var r=streakRank(streak.total);
+      var existing=document.querySelector('.geo-answer');if(existing)existing.remove();
+      var div=document.createElement('div');div.className='geo-answer';
+      div.innerHTML=r[0]+' <b>连战结算</b><br>5 题总误差 <b style="color:#F5C66B">'+Math.round(streak.total).toLocaleString()+' km</b><br><span style="font-size:.8rem">'+r[1]+'</span><br><button class="geo-next" onclick="endStreak();this.parentElement.remove();startGeoGuessr()">收工</button> <button class="geo-next" onclick="this.parentElement.remove();startStreak()">再来五题</button>';
+      document.getElementById('geoguessr').appendChild(div);
+      return;
+    }
+    streak.round++;updateStreakHud();
+  }
+  startGeoGuessr();
+}
+function startGeoGuessr(){
+  showView('geoguessr');
+  document.getElementById('geoGuessBtn').style.display='block';
+  if(streak.on)updateStreakHud();
+  var existing=document.querySelector('.geo-answer');if(existing)existing.remove();
+  geoGuessLatLng=null;closeGuess();
+  if(geoGuessMarker){geoGuessMarker.remove();geoGuessMarker=null}
+  if(geoGuessLine){geoGuessLine.remove();geoGuessLine=null}
+  if(geoGuessAnsMarker){geoGuessAnsMarker.remove();geoGuessAnsMarker=null}
+  var hint=document.getElementById('geoGuessHint');if(hint)hint.textContent='在地图上点你猜的位置';
+  loadGMaps(function(){
+    if(!(GOOGLE_API_KEY&&gmapsLoaded))return;
+    if(geoMode==='landmark'){
+      var loc=geoLocations[Math.floor(Math.random()*geoLocations.length)];
+      geoAnswer={lat:loc.lat,lng:loc.lng,name:loc.name,country:loc.country};
+      mountGeoSV(loc.lat,loc.lng);
+    }else{
+      document.getElementById('geo-sv').innerHTML='<div class="sv-fb"><div class="fb-icon">\u{1F3DC}</div><div class="fb-hint">正在荒野里找一条有街景的路…</div></div>';
+      wildSpot(0);
+    }
+  });
+}
+function wildSpot(tries){
+  if(tries>12){showToast('荒野太荒了 这把先回地标');setGeoMode('landmark');return}
+  var lat=-55+Math.random()*125,lng=-180+Math.random()*360;
+  var sv=new google.maps.StreetViewService();
+  sv.getPanorama({location:{lat:lat,lng:lng},radius:100000,source:google.maps.StreetViewSource.OUTDOOR},function(data,status){
+    if(status==='OK'&&data&&data.location){
+      var p=data.location.latLng;
+      geoAnswer={lat:p.lat(),lng:p.lng(),name:'',country:''};
+      mountGeoSV(p.lat(),p.lng());
+    }else wildSpot(tries+1);
+  });
+}
+function mountGeoSV(lat,lng){
+  geoPanorama=new google.maps.StreetViewPanorama(document.getElementById('geo-sv'),{position:{lat:lat,lng:lng},pov:{heading:Math.random()*360,pitch:0},zoom:1,addressControl:false,showRoadLabels:false,motionTracking:false,motionTrackingControl:false,linksControl:true,panControl:false,enableCloseButton:false});
+}
+function openGuess(){
+  document.getElementById('geoGuessWrap').classList.add('show');
+  if(!geoGuessMap){
+    geoGuessMap=L.map('geo-guess-map').setView([22,15],1);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OSM'}).addTo(geoGuessMap);
+    geoGuessMap.on('click',function(e){
+      geoGuessLatLng=e.latlng;
+      if(geoGuessMarker)geoGuessMarker.setLatLng(e.latlng);
+      else geoGuessMarker=L.marker(e.latlng,{icon:L.divIcon({className:'custom-marker',iconSize:[18,18],iconAnchor:[9,9]})}).addTo(geoGuessMap);
+      document.getElementById('geoConfirmBtn').disabled=false;
+      document.getElementById('geoGuessHint').textContent='猜这里？';
+    });
+  }
+  setTimeout(function(){geoGuessMap.invalidateSize()},80);
+}
+function closeGuess(){var w=document.getElementById('geoGuessWrap');if(w)w.classList.remove('show')}
+function skipGuess(){if(streak.on){streak.total+=5000;updateStreakHud();showToast('没猜 罚 5,000 km')}revealGeo()}
+function haversine(a,b){var R=6371,dLat=(b.lat-a.lat)*Math.PI/180,dLng=(b.lng-a.lng)*Math.PI/180;var x=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+function confirmGuess(){
+  if(!geoGuessLatLng||!geoAnswer)return;
+  var dist=haversine({lat:geoGuessLatLng.lat,lng:geoGuessLatLng.lng},geoAnswer);
+  geoGuessAnsMarker=L.marker([geoAnswer.lat,geoAnswer.lng],{icon:L.divIcon({className:'route-marker active',iconSize:[14,14],iconAnchor:[7,7]})}).addTo(geoGuessMap);
+  geoGuessLine=L.polyline([[geoGuessLatLng.lat,geoGuessLatLng.lng],[geoAnswer.lat,geoAnswer.lng]],{color:'#E8960C',weight:2,dashArray:'6,8'}).addTo(geoGuessMap);
+  geoGuessMap.fitBounds(L.latLngBounds([[geoGuessLatLng.lat,geoGuessLatLng.lng],[geoAnswer.lat,geoAnswer.lng]]).pad(.3));
+  var msg=dist<50?'神了！':dist<300?'很接近！':dist<1500?'方向是对的':dist<5000?'隔了一个国家':'隔了半个地球';
+  document.getElementById('geoGuessHint').innerHTML='差了 <b>'+(dist<10?dist.toFixed(1):Math.round(dist).toLocaleString())+' km</b> · '+msg;
+  document.getElementById('geoConfirmBtn').disabled=true;
+  if(streak.on){streak.total+=dist;updateStreakHud()}
+  revealGeo(dist);
+}
+function revealGeo(dist){
+  if(!geoAnswer)return;
+  document.getElementById('geoGuessBtn').style.display='none';
+  var existing=document.querySelector('.geo-answer');if(existing)existing.remove();
+  var div=document.createElement('div');div.className='geo-answer';
+  var nameHtml=geoAnswer.name?geoAnswer.name:'<span id="geoAnswerName">定位中…</span>';
+  var distHtml=typeof dist==='number'?' · <b style="color:#F5C66B">'+(dist<10?dist.toFixed(1):Math.round(dist).toLocaleString())+' km</b>':'';
+  var btnLabel=streak.on?(streak.round>=5?'看结算':'下一题 '+(streak.round+1)+'/5'):'下一个';
+  div.innerHTML='📍 '+nameHtml+distHtml+'<br><span style="font-size:.72rem;color:rgba(255,255,255,.6)">'+(geoAnswer.country?geoAnswer.country+' ':'')+'('+geoAnswer.lat.toFixed(4)+', '+geoAnswer.lng.toFixed(4)+')</span><br><button class="geo-next" onclick="geoNext()">'+btnLabel+'</button>';
+  document.getElementById('geoguessr').appendChild(div);
+  if(!geoAnswer.name){
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+geoAnswer.lat+'&lon='+geoAnswer.lng+'&accept-language=zh&zoom=10')
+      .then(function(r){return r.json()})
+      .then(function(d){var el=document.getElementById('geoAnswerName');if(el)el.textContent=d.display_name?d.display_name.split(',').slice(0,3).join(', '):'无名之地'})
+      .catch(function(){var el=document.getElementById('geoAnswerName');if(el)el.textContent='无名之地'});
+  }
+}
+
+/* === 带你去个地方：私藏坐标 === */
+function takeMeSomewhere(){
+  var seen=[];try{seen=JSON.parse(localStorage.getItem('svPlacesSeen')||'[]')}catch(e){}
+  var pool=places.map(function(_,i){return i}).filter(function(i){return seen.indexOf(i)<0});
+  if(!pool.length){seen=[];pool=places.map(function(_,i){return i})}
+  var idx=pool[Math.floor(Math.random()*pool.length)];
+  seen.push(idx);if(seen.length>places.length-3)seen=seen.slice(-Math.max(0,places.length-3));
+  try{localStorage.setItem('svPlacesSeen',JSON.stringify(seen))}catch(e){}
+  var p=places[idx];
+  startExplore({lat:p.lat,lng:p.lng,heading:Math.random()*360,pitch:0,zoom:1});
+  setTimeout(function(){
+    if(expPanorama&&gmapsLoaded){
+      var sv=new google.maps.StreetViewService();
+      sv.getPanorama({location:{lat:p.lat,lng:p.lng},radius:50000},function(data,status){
+        if(status==='OK'&&data&&data.location){
+          expPanorama.setPosition(data.location.latLng);
+        }
+      });
+    }
+    showPlaceNote(p);
+  },600);
+}
+function showPlaceNote(p){
+  var old=document.querySelector('.place-note');if(old)old.remove();
+  var div=document.createElement('div');div.className='place-note';
+  div.innerHTML='<div class="place-note-close" onclick="this.parentElement.remove()">✕</div><div class="place-note-title">'+p.name+'</div><div class="place-note-text">'+p.text+'</div>';
+  document.getElementById('exp-sv-panel').appendChild(div);
+}
+
+function randomExplore(){
+  var lat=-60+Math.random()*130,lng=-180+Math.random()*360;
+  var pos={lat:lat,lng:lng,heading:Math.random()*360,pitch:0,zoom:1};
+  if(expMap){expMap.setView([pos.lat,pos.lng],6);if(expMarker)expMarker.setLatLng([pos.lat,pos.lng]);else expMarker=L.marker([pos.lat,pos.lng]).addTo(expMap)}
+  if(expPanorama&&GOOGLE_API_KEY&&gmapsLoaded){var sv=new google.maps.StreetViewService();sv.getPanorama({location:{lat:pos.lat,lng:pos.lng},radius:50000},function(data,status){if(status==='OK'){var p=data.location.latLng;expPanorama.setPosition(p);expPanorama.setPov({heading:pos.heading,pitch:0});expMap.setView([p.lat(),p.lng()],14);if(expMarker)expMarker.setLatLng([p.lat(),p.lng()]);document.getElementById('expCoords').textContent=p.lat().toFixed(5)+', '+p.lng().toFixed(5);document.getElementById('expLoc').textContent='随机坐标'}else{randomExplore()}})}
+  document.getElementById('expCoords').textContent=pos.lat.toFixed(5)+', '+pos.lng.toFixed(5);
+  document.getElementById('expLoc').textContent='寻找街景...';
+  showToast('🎲 掷出去了');
+}
+function randomLat(){
+  var coords=document.getElementById('expCoords').textContent.split(',');
+  var curLng=coords.length>1?parseFloat(coords[1]):0;
+  var lat=-60+Math.random()*130;
+  expMoveTo(lat,curLng);
+}
+function randomLng(){
+  var coords=document.getElementById('expCoords').textContent.split(',');
+  var curLat=coords.length>0?parseFloat(coords[0]):0;
+  var lng=-180+Math.random()*360;
+  expMoveTo(curLat,lng);
+}
+var historyCache=[];
+function fetchHistory(cb){try{historyCache=JSON.parse(localStorage.getItem('wander_history')||'[]');if(cb)cb(historyCache)}catch(e){}}
+function saveToHistory(){var c=document.getElementById('expCoords').textContent;var n=document.getElementById('expLoc').textContent;if(!c||c==='—')return showToast('还没有坐标');if(historyCache.some(function(x){return x.coords===c}))return showToast('已经保存过了');historyCache.unshift({coords:c,name:n||c,time:new Date().toLocaleString()});localStorage.setItem('wander_history',JSON.stringify(historyCache));showToast('📌 已保存');renderHistory();renderHomeHistory()}
+function toggleHistory(){var el=document.getElementById('expHistory');el.classList.toggle('show');if(el.classList.contains('show'))fetchHistory(renderHistory)}
+function renderHistory(){var el=document.getElementById('expHistory');var h=historyCache;if(!h.length){el.innerHTML='<div class="exp-history-empty">还没有足迹</div>';return}el.innerHTML=h.map(function(x,i){return'<div class="exp-history-item" onclick="goHistory('+i+')"><div><div class="exp-history-name">'+x.name+'</div><div class="exp-history-coord">'+x.coords+' · '+x.time+'</div></div><span class="exp-history-del" onclick="event.stopPropagation();delHistory('+i+')">✕</span></div>'}).join('')}
+function goHistory(i){if(!historyCache[i])return;var p=historyCache[i].coords.split(',');expMoveTo(+p[0],+p[1]);expMap.setZoom(14);document.getElementById('expHistory').classList.remove('show')}
+function delHistory(i){if(!confirm('删除？'))return;historyCache.splice(i,1);localStorage.setItem('wander_history',JSON.stringify(historyCache));showToast('已删除');renderHistory();renderHomeHistory()}
+function shareCoords(){var c=document.getElementById('expCoords').textContent;if(!c||c==='—')return showToast('还没有坐标');navigator.clipboard.writeText(c).then(function(){showToast('已复制: '+c)}).catch(function(){showToast('复制失败')})}
+function sendSnapshot(){showToast("请在代码中配置你的发送接口")}
+init();
+</script>
+</body>
+</html>

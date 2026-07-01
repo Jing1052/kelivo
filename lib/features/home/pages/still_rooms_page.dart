@@ -21,6 +21,7 @@ import 'rooms/lounge_page.dart';
 import 'rooms/locked_room_page.dart';
 import 'rooms/capsule_page.dart';
 import 'rooms/theater_page.dart';
+import 'rooms/wander_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -176,6 +177,17 @@ class StillRoomsPage extends StatelessWidget {
       '写下去，等它自己来找你。',
       'Write it down. Let time be the one to deliver it.',
     ),
+    _Door(
+      'wander',
+      Lucide.Compass,
+      0xFF5FA0A0,
+      '漫游',
+      'Wander',
+      '街景 · 随机漫游 · 猜位置',
+      'street view · random roam · guess',
+      '想去哪，就带你去看看世界的那个角落。',
+      "Point anywhere — I'll take you to that corner of the world.",
+    ),
   ];
 
   @override
@@ -289,6 +301,8 @@ Widget _pageForDoor(_Door door) {
       return const CapsulePage();
     case 'theater':
       return const TheaterPage();
+    case 'wander':
+      return const WanderPage();
     default:
       return _RoomStubPage(door: door);
   }
