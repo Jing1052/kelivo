@@ -105,6 +105,15 @@ class StreamController {
   final Map<String, List<ToolUIPart>> _toolParts = <String, List<ToolUIPart>>{};
   Map<String, List<ToolUIPart>> get toolParts => _toolParts;
 
+  /// Ombre "daddy" tool cards per assistant message. Kept entirely separate from
+  /// [_toolParts] so they never interfere with the chain-of-thought timeline's
+  /// tool indexing / content-split bookkeeping. They ride the same persisted
+  /// tool-events box (name == 'daddy_card') and are split back out on restore.
+  final Map<String, List<ToolUIPart>> _daddyCards =
+      <String, List<ToolUIPart>>{};
+  Map<String, List<ToolUIPart>> get daddyCards => _daddyCards;
+  List<ToolUIPart>? getDaddyCards(String messageId) => _daddyCards[messageId];
+
   /// Gemini thought signatures per assistant message.
   final Map<String, String> _geminiThoughtSigs = <String, String>{};
   Map<String, String> get geminiThoughtSigs => _geminiThoughtSigs;
@@ -215,6 +224,7 @@ class StreamController {
     _reasoningSegments.remove(messageId);
     _contentSplits.remove(messageId);
     _toolParts.remove(messageId);
+    _daddyCards.remove(messageId);
     _geminiThoughtSigs.remove(messageId);
     _cleanupStreamTimers(messageId);
   }
@@ -225,6 +235,7 @@ class StreamController {
     _reasoningSegments.clear();
     _contentSplits.clear();
     _toolParts.clear();
+    _daddyCards.clear();
     _geminiThoughtSigs.clear();
     _cancelAllTimers();
     streamingContentNotifier.clear();
@@ -956,8 +967,53 @@ class StreamController {
     final messageId = state.messageId;
     final conversationId = state.conversationId;
 
+    // Split off Ombre daddy cards: they render as independent cards (never in the
+    // tool timeline), so they must stay out of _toolParts. They still ride the
+    // persisted tool-events box (upsert) so they restore after reload.
+    final daddyResults = chunk.toolResults!
+        .where((r) => r.name == 'daddy_card')
+        .toList();
+    if (daddyResults.isNotEmpty) {
+      final cards = List<ToolUIPart>.of(_daddyCards[messageId] ?? const []);
+      for (final r in daddyResults) {
+        cards.add(
+          ToolUIPart(
+            id: r.id,
+            toolName: r.name,
+            arguments: r.arguments,
+            content: r.content,
+            loading: false,
+          ),
+        );
+        try {
+          await upsertToolEventInDb(
+            messageId,
+            id: r.id,
+            name: r.name,
+            arguments: Map<String, dynamic>.from(r.arguments),
+            content: r.content,
+            metadata: r.metadata,
+          );
+        } catch (_) {}
+      }
+      _daddyCards[messageId] = cards;
+      if (getCurrentConversationId() == conversationId) {
+        final splits = _contentSplits[messageId];
+        streamingContentNotifier.notifyToolPartsUpdated(
+          messageId,
+          contentSplitOffsets: splits?.offsets,
+          reasoningCountAtSplit: splits?.reasoningCounts,
+          toolCountAtSplit: splits?.toolCounts,
+        );
+      }
+    }
+    final normalResults = chunk.toolResults!
+        .where((r) => r.name != 'daddy_card')
+        .toList();
+    if (normalResults.isEmpty) return;
+
     final parts = List<ToolUIPart>.of(_toolParts[messageId] ?? const []);
-    for (final r in chunk.toolResults!) {
+    for (final r in normalResults) {
       int idx = -1;
       for (int i = 0; i < parts.length; i++) {
         if (parts[i].loading &&
@@ -1262,25 +1318,32 @@ class StreamController {
       _reasoning[messageId] = rd;
     }
 
-    // Restore tool events
+    // Restore tool events. Daddy cards share the box (name == 'daddy_card') but
+    // must be split back into their own map so they never enter the timeline.
     try {
       final events = dedupeToolEvents(getToolEventsFromDb(messageId));
       if (events.isNotEmpty) {
-        _toolParts[messageId] = events
-            .map(
-              (e) => ToolUIPart(
-                id: (e['id'] ?? '').toString(),
-                toolName: (e['name'] ?? '').toString(),
-                arguments:
-                    (e['arguments'] as Map?)?.cast<String, dynamic>() ??
-                    const <String, dynamic>{},
-                content: (e['content']?.toString().isNotEmpty == true)
-                    ? e['content'].toString()
-                    : null,
-                loading: !(e['content']?.toString().isNotEmpty == true),
-              ),
-            )
+        ToolUIPart toPart(Map<String, dynamic> e) => ToolUIPart(
+          id: (e['id'] ?? '').toString(),
+          toolName: (e['name'] ?? '').toString(),
+          arguments:
+              (e['arguments'] as Map?)?.cast<String, dynamic>() ??
+              const <String, dynamic>{},
+          content: (e['content']?.toString().isNotEmpty == true)
+              ? e['content'].toString()
+              : null,
+          loading: !(e['content']?.toString().isNotEmpty == true),
+        );
+        final normal = events
+            .where((e) => (e['name'] ?? '').toString() != 'daddy_card')
+            .map(toPart)
             .toList();
+        final daddy = events
+            .where((e) => (e['name'] ?? '').toString() == 'daddy_card')
+            .map(toPart)
+            .toList();
+        if (normal.isNotEmpty) _toolParts[messageId] = normal;
+        if (daddy.isNotEmpty) _daddyCards[messageId] = daddy;
       }
     } catch (_) {}
 

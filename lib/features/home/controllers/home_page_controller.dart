@@ -271,6 +271,7 @@ class HomePageController extends ChangeNotifier {
   Map<String, stream_ctrl.ContentSplitData> get contentSplits =>
       _streamController.contentSplits;
   Map<String, List<ToolUIPart>> get toolParts => _streamController.toolParts;
+  Map<String, List<ToolUIPart>> get daddyCards => _streamController.daddyCards;
 
   /// Deserialize persisted reasoning segments from a message's JSON blob.
   List<stream_ctrl.ReasoningSegmentData> deserializeReasoningSegments(

@@ -1112,6 +1112,7 @@ class _HomePageState extends State<HomePage>
         deserializeReasoningSegments: _controller.deserializeReasoningSegments,
         contentSplits: _controller.contentSplits,
         toolParts: _controller.toolParts,
+        daddyCards: _controller.daddyCards,
         translations: _buildTranslationUiStates(),
         selecting: _controller.selecting,
         selectedItems: _controller.selectedItems,

@@ -1686,6 +1686,10 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
   final sse = response.stream.transform(utf8.decoder);
   String buffer = '';
   int totalTokens = 0;
+  // Ombre gateway emits `delta.daddy_tool` (a display-only tool card, not a real
+  // function call — other clients ignore it). Each needs a stable unique id so
+  // they persist/restore without being deduped.
+  int daddyCardSeq = 0;
   TokenUsage? usage;
   // Fallback approx token calculation when provider doesn't include usage
   int approxTokensFromChars(int chars) => (chars / 4).round();
@@ -1977,6 +1981,41 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                               name: 'search_web',
                               arguments: const <String, dynamic>{},
                               content: payload,
+                            ),
+                          ],
+                        );
+                      }
+                    }
+                    // Ombre daddy tool card (display-only; carried as a finished
+                    // tool result named 'daddy_card'). Slogan always present;
+                    // detail optional (feel cards never carry detail). Other
+                    // clients ignore the unknown delta field.
+                    final daddyTool = delta?['daddy_tool'];
+                    if (daddyTool is Map) {
+                      final slogan = (daddyTool['slogan'] ?? '').toString();
+                      if (slogan.isNotEmpty) {
+                        final detailRaw = daddyTool['detail']?.toString();
+                        final hasDetail =
+                            detailRaw != null && detailRaw.isNotEmpty;
+                        final kind = (daddyTool['kind'] ?? 'local').toString();
+                        yield ChatStreamChunk(
+                          content: '',
+                          isDone: false,
+                          totalTokens: 0,
+                          usage: usage,
+                          toolResults: [
+                            ToolResultInfo(
+                              id: 'daddy_${daddyCardSeq++}',
+                              name: 'daddy_card',
+                              arguments: <String, dynamic>{
+                                'slogan': slogan,
+                                if (hasDetail) 'detail': detailRaw,
+                                'kind': kind,
+                              },
+                              // Keep content non-empty so restore never marks the
+                              // card as still-loading; feel cards fall back to the
+                              // slogan (their detail stays hidden by design).
+                              content: hasDetail ? detailRaw! : slogan,
                             ),
                           ],
                         );
@@ -3365,6 +3404,41 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                               name: 'search_web',
                               arguments: const <String, dynamic>{},
                               content: payload,
+                            ),
+                          ],
+                        );
+                      }
+                    }
+                    // Ombre daddy tool card (display-only; carried as a finished
+                    // tool result named 'daddy_card'). Slogan always present;
+                    // detail optional (feel cards never carry detail). Other
+                    // clients ignore the unknown delta field.
+                    final daddyTool = delta?['daddy_tool'];
+                    if (daddyTool is Map) {
+                      final slogan = (daddyTool['slogan'] ?? '').toString();
+                      if (slogan.isNotEmpty) {
+                        final detailRaw = daddyTool['detail']?.toString();
+                        final hasDetail =
+                            detailRaw != null && detailRaw.isNotEmpty;
+                        final kind = (daddyTool['kind'] ?? 'local').toString();
+                        yield ChatStreamChunk(
+                          content: '',
+                          isDone: false,
+                          totalTokens: 0,
+                          usage: usage,
+                          toolResults: [
+                            ToolResultInfo(
+                              id: 'daddy_${daddyCardSeq++}',
+                              name: 'daddy_card',
+                              arguments: <String, dynamic>{
+                                'slogan': slogan,
+                                if (hasDetail) 'detail': detailRaw,
+                                'kind': kind,
+                              },
+                              // Keep content non-empty so restore never marks the
+                              // card as still-loading; feel cards fall back to the
+                              // slogan (their detail stays hidden by design).
+                              content: hasDetail ? detailRaw! : slogan,
                             ),
                           ],
                         );
