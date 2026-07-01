@@ -184,11 +184,29 @@ window.haptic = function(style){
     return 'https://$s';
   }
 
+  // Heuristic: does this look like a URL, or a search query? A space means
+  // search; an explicit scheme, `localhost`, or a `host.tld` shape means URL.
+  bool _looksLikeUrl(String s) {
+    if (s.contains(' ')) return false;
+    if (s.contains('://')) return true;
+    if (s == 'localhost' ||
+        s.startsWith('localhost:') ||
+        s.startsWith('localhost/')) {
+      return true;
+    }
+    final host = s.split('/').first.split('?').first;
+    return host.contains('.') && !host.startsWith('.') && !host.endsWith('.');
+  }
+
   void _submitUrl(String raw) {
     final s = raw.trim();
     if (s.isEmpty) return;
     _urlFocus.unfocus();
-    _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(_normalize(s))));
+    // Looks like a URL → open it; otherwise search it (Bing cn, no VPN needed).
+    final target = _looksLikeUrl(s)
+        ? _normalize(s)
+        : 'https://cn.bing.com/search?q=${Uri.encodeQueryComponent(s)}';
+    _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(target)));
   }
 
   Future<void> _toggleDesktop() async {
