@@ -95,6 +95,7 @@ class MessageListView extends StatefulWidget {
     required this.reasoningSegments,
     required this.contentSplits,
     required this.toolParts,
+    this.daddyCards = const <String, List<ToolUIPart>>{},
     required this.translations,
     required this.selecting,
     required this.selectedItems,
@@ -151,6 +152,7 @@ class MessageListView extends StatefulWidget {
   final Map<String, List<stream_ctrl.ReasoningSegmentData>> reasoningSegments;
   final Map<String, stream_ctrl.ContentSplitData> contentSplits;
   final Map<String, List<ToolUIPart>> toolParts;
+  final Map<String, List<ToolUIPart>> daddyCards;
   final Map<String, TranslationUiState> translations;
   final bool selecting;
   final Set<String> selectedItems;
@@ -846,6 +848,9 @@ class _MessageListViewState extends State<MessageListView> {
       },
       toolParts: message.role == 'assistant'
           ? widget.toolParts[message.id]
+          : null,
+      daddyCards: message.role == 'assistant'
+          ? widget.daddyCards[message.id]
           : null,
       contentSplitOffsets: message.role == 'assistant'
           ? widget.contentSplits[message.id]?.offsets

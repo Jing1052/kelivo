@@ -702,6 +702,9 @@ class ChatMessageWidget extends StatefulWidget {
   final VoidCallback? onToggleTranslation;
   // MCP tool calls/results mixed-in cards
   final List<ToolUIPart>? toolParts;
+  // Ombre "daddy" tool cards: rendered as independent collapsible cards below
+  // the reply, separate from the chain-of-thought timeline.
+  final List<ToolUIPart>? daddyCards;
   final List<int>? contentSplitOffsets;
   final List<int>? reasoningCountAtSplit;
   final List<int>? toolCountAtSplit;
@@ -748,6 +751,7 @@ class ChatMessageWidget extends StatefulWidget {
     this.translationExpanded = true,
     this.onToggleTranslation,
     this.toolParts,
+    this.daddyCards,
     this.contentSplitOffsets,
     this.reasoningCountAtSplit,
     this.toolCountAtSplit,
@@ -2014,7 +2018,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     List<ReasoningSegment>? reasoningSegments,
   }) {
     final visibleTools = (widget.toolParts ?? const <ToolUIPart>[])
-        .where((p) => p.toolName != 'builtin_search')
+        .where((p) => p.toolName != 'builtin_search' && p.toolName != 'daddy_card')
         .toList();
     final steps = _buildTimelineSteps(
       visibleTools,
@@ -2284,6 +2288,14 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                       : const LoadingIndicator(),
                 ),
               );
+            }
+            // Ombre daddy tool cards: independent collapsible cards under the
+            // reply, showing what daddy did (记忆/日程/推送…). feel cards show the
+            // slogan only, never their content.
+            final daddy = widget.daddyCards ?? const <ToolUIPart>[];
+            if (daddy.isNotEmpty) {
+              if (widgets.isNotEmpty) widgets.add(const SizedBox(height: 8));
+              widgets.add(_DaddyToolCards(cards: daddy));
             }
             return widgets;
           }(),
@@ -3327,6 +3339,121 @@ class ToolUIPart {
     this.content,
     this.loading = false,
   });
+}
+
+/// Independent collapsible cards for Ombre "daddy" tool activity (存记忆/日程/
+/// 推送/联网…). Each shows a slogan; tapping expands the detail. feel cards carry
+/// no detail (温室) and are not expandable.
+class _DaddyToolCards extends StatefulWidget {
+  const _DaddyToolCards({required this.cards});
+  final List<ToolUIPart> cards;
+  @override
+  State<_DaddyToolCards> createState() => _DaddyToolCardsState();
+}
+
+class _DaddyToolCardsState extends State<_DaddyToolCards> {
+  final Set<int> _expanded = <int>{};
+
+  IconData _iconForKind(String kind) {
+    switch (kind) {
+      case 'feel':
+        return Lucide.Heart;
+      case 'web':
+        return Lucide.Globe;
+      case 'push':
+      case 'music':
+        return Lucide.Sparkles;
+      default:
+        return Lucide.bookHeart;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = _chatSurfaceForegroundPalette(context);
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final Color fill = isDark ? Colors.white10 : const Color(0xFFF7F7F9);
+    final children = <Widget>[];
+    for (int i = 0; i < widget.cards.length; i++) {
+      final part = widget.cards[i];
+      final args = part.arguments;
+      final slogan = (args['slogan'] ?? part.content ?? '').toString();
+      if (slogan.isEmpty) continue;
+      final detail = args['detail']?.toString();
+      final hasDetail = detail != null && detail.isNotEmpty;
+      final kind = (args['kind'] ?? 'local').toString();
+      final expanded = _expanded.contains(i);
+      final index = i;
+      if (children.isNotEmpty) children.add(const SizedBox(height: 6));
+      children.add(
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: IosCardPress(
+            onTap: hasDetail
+                ? () => setState(() {
+                    if (_expanded.contains(index)) {
+                      _expanded.remove(index);
+                    } else {
+                      _expanded.add(index);
+                    }
+                  })
+                : null,
+            borderRadius: BorderRadius.circular(12),
+            baseColor: fill,
+            pressedBlendStrength: 0.12,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(_iconForKind(kind), size: 15, color: fg.accent),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        slogan,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: AppFontWeights.semibold,
+                          color: fg.strong,
+                        ),
+                      ),
+                    ),
+                    if (hasDetail) ...[
+                      const SizedBox(width: 6),
+                      Icon(
+                        expanded ? Lucide.ChevronDown : Lucide.ChevronRight,
+                        size: 16,
+                        color: fg.muted,
+                      ),
+                    ],
+                  ],
+                ),
+                if (hasDetail && expanded) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    detail!,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.35,
+                      color: fg.body,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    if (children.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: children,
+    );
+  }
 }
 
 // Data for a reasoning segment (for mixed display)

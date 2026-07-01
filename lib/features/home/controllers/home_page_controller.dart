@@ -253,6 +253,7 @@ class HomePageController extends ChangeNotifier {
   Map<String, stream_ctrl.ContentSplitData> get contentSplits =>
       _streamController.contentSplits;
   Map<String, List<ToolUIPart>> get toolParts => _streamController.toolParts;
+  Map<String, List<ToolUIPart>> get daddyCards => _streamController.daddyCards;
 
   /// Lightweight notifier for streaming content updates.
   /// Use this with ValueListenableBuilder in MessageListView to avoid full page rebuilds.
