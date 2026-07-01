@@ -222,8 +222,8 @@ class _WanderPageState extends State<WanderPage> {
     } else {
       await prefs.setString(_apiKeyPref, result);
     }
-    final controller = _controller;
-    if (controller != null) await _loadContent(controller);
+    final webController = _controller;
+    if (webController != null) await _loadContent(webController);
   }
 
   @override
