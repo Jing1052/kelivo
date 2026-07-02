@@ -874,6 +874,22 @@ class SettingsProvider extends ChangeNotifier {
         await prefs.setString(_homeBackgroundActiveKey, _homeBackgroundActive);
       }
     }
+    // 清理孤儿壁纸文件：以前"删壁纸"拿着失效旧路径去删、静默失败，真文件
+    // 从没删掉、一直积在 home_bg 里吃存储。开机把没被任何条目引用的清掉。
+    try {
+      final docsDir = await getApplicationDocumentsDirectory();
+      final bgDir = Directory(p.join(docsDir.path, 'home_bg'));
+      if (await bgDir.exists()) {
+        final keep = <String>{..._homeBackgrounds, _homeBackgroundActive};
+        await for (final f in bgDir.list()) {
+          if (f is File && !keep.contains(f.path)) {
+            try {
+              await f.delete();
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (_) {}
     _homeBgAiry = (prefs.getDouble(_homeBgAiryKey) ?? 0.35).clamp(0.0, 1.0);
     _homeWeatherCity = prefs.getString(_homeWeatherCityKey) ?? '';
     _homeWeatherLat = prefs.getDouble(_homeWeatherLatKey) ?? double.nan;
