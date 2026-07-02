@@ -16,6 +16,7 @@ import 'daddy_settings_page.dart';
 import 'tts_services_page.dart';
 import 'log_viewer_page.dart';
 import 'daddy_search_page.dart';
+import 'our_appearance_page.dart';
 import '../../backup/pages/backup_page.dart';
 import '../../quick_phrase/pages/quick_phrases_page.dart';
 import '../widgets/style_sheet.dart';
@@ -142,6 +143,27 @@ class SettingsPage extends StatelessWidget {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => const SettingsGuidePage(),
+                    ),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Palette,
+                label:
+                    WidgetsBinding
+                            .instance
+                            .platformDispatcher
+                            .locale
+                            .languageCode ==
+                        'zh'
+                    ? '外观'
+                    : 'Appearance',
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const OurAppearancePage(),
                     ),
                   );
                 },
