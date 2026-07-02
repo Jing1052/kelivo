@@ -76,7 +76,11 @@ class _CcTerminalPageState extends State<CcTerminalPage> {
   Future<void> _refresh() async {
     if (_refreshing) return;
     _refreshing = true;
-    final cap = await context.read<CcBridgeProvider>().captureTerminal();
+    // lines=1200：默认 120 行只够一屏多点，往上翻立刻到头（小猫 2026-07-02 报的）。
+    // 家里 tmux history-limit 默认 2000，抓 1200 行安全；纯文本快照，流量可忽略。
+    final cap = await context
+        .read<CcBridgeProvider>()
+        .captureTerminal(lines: 1200);
     if (!mounted) {
       _refreshing = false;
       return;
