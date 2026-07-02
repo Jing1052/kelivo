@@ -138,6 +138,8 @@ class DefaultModelPage extends StatelessWidget {
           const SizedBox(height: 16),
           const _TgGatewayCard(),
           const SizedBox(height: 16),
+          const _CcRingGatewayCard(),
+          const SizedBox(height: 16),
           const _ImageModelGatewayCard(),
         ],
       ),
@@ -807,6 +809,435 @@ class _DiaryBriefGatewayCardState extends State<_DiaryBriefGatewayCard> {
               ),
             ),
             modelBody,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 隔壁衔接 (cc-ring) mixer card: whether daddy on this gateway sees the tail
+/// of the CC-side chat (家里 Claude Code), how many recent messages verbatim,
+/// and whether older ones get compressed by the `cc_summary` role model.
+/// on/count/summaryOn live server-side (fetched on open); the model picker
+/// mirrors _DiaryBriefGatewayCard (role 'cc_summary', local prefs + role route).
+class _CcRingGatewayCard extends StatefulWidget {
+  const _CcRingGatewayCard();
+
+  @override
+  State<_CcRingGatewayCard> createState() => _CcRingGatewayCardState();
+}
+
+class _CcRingGatewayCardState extends State<_CcRingGatewayCard> {
+  // Server-side knobs (source of truth on the gateway; refreshed on open).
+  bool _on = true;
+  int _count = 10;
+  bool _summaryOn = false;
+  bool _synced = false; // becomes true after the first successful fetch
+
+  // Local model choice for role cc_summary. Empty = follow the chat relay.
+  String _providerKey = '';
+  String _modelId = '';
+
+  static const String _prefProviderKey = 'route_ccsum_providerKey';
+  static const String _prefModelId = 'route_ccsum_modelId';
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _providerKey = prefs.getString(_prefProviderKey) ?? '';
+      _modelId = prefs.getString(_prefModelId) ?? '';
+    });
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) return;
+    final cfg = await gw.fetchCcRingConfig();
+    if (!mounted || cfg == null) return;
+    setState(() {
+      _on = cfg.on;
+      _count = cfg.count.clamp(1, 30).toInt();
+      _summaryOn = cfg.summaryOn;
+      _synced = true;
+    });
+  }
+
+  Future<void> _save({bool? on, int? count, bool? summaryOn}) async {
+    final gw = OurHomeGateway.fromContext(context);
+    final isZh = _isZh;
+    if (gw == null) {
+      showAppSnackBar(
+        context,
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        type: NotificationType.error,
+      );
+      return;
+    }
+    final ok = await gw.setCcRingConfig(
+      on: on,
+      count: count,
+      summaryOn: summaryOn,
+    );
+    if (!mounted) return;
+    if (!ok) {
+      // Revert the optimistic local flip and say so.
+      setState(() {
+        if (on != null) _on = !on;
+        if (summaryOn != null) _summaryOn = !summaryOn;
+      });
+      showAppSnackBar(
+        context,
+        message: isZh ? '保存失败，请重试' : 'Save failed, try again',
+        type: NotificationType.error,
+      );
+    }
+  }
+
+  String _currentLabel(SettingsProvider settings) {
+    if (_providerKey.isEmpty || _modelId.isEmpty) {
+      return _isZh ? '自动（跟随聊天中转站）' : 'Auto (follow chat relay)';
+    }
+    final cfg = settings.getProviderConfig(_providerKey);
+    final name = cfg.name.isNotEmpty ? cfg.name : _providerKey;
+    return '$name · $_modelId';
+  }
+
+  Future<void> _pick() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final settings = context.read<SettingsProvider>();
+    final isZh = _isZh;
+    final sel = await showModelSelector(
+      context,
+      initialProviderKey: _providerKey.isNotEmpty ? _providerKey : null,
+      initialModelId: _modelId.isNotEmpty ? _modelId : null,
+    );
+    if (sel == null || !mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefProviderKey, sel.providerKey);
+    await prefs.setString(_prefModelId, sel.modelId);
+    if (!mounted) return;
+    setState(() {
+      _providerKey = sel.providerKey;
+      _modelId = sel.modelId;
+    });
+
+    if (gw == null) {
+      showAppSnackBar(
+        context,
+        message: isZh ? '未连上老家网关' : 'Old-home gateway not connected',
+        type: NotificationType.error,
+      );
+      return;
+    }
+    final ok = await _pushRoute(gw, settings, 'cc_summary', sel);
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _reset() async {
+    final gw = OurHomeGateway.fromContext(context);
+    final isZh = _isZh;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_prefProviderKey);
+    await prefs.remove(_prefModelId);
+    if (!mounted) return;
+    setState(() {
+      _providerKey = '';
+      _modelId = '';
+    });
+    if (gw == null) return;
+    final ok = await gw.setRoleRoute('cc_summary', '', '');
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: ok
+          ? (isZh ? '已保存' : 'Saved')
+          : (isZh ? '保存失败，请重试' : 'Save failed, try again'),
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Widget _toggleRow({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required VoidCallback onTap,
+    required bool isDark,
+    required ColorScheme cs,
+  }) {
+    return _TactileRow(
+      onTap: onTap,
+      builder: (pressed) {
+        final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+        final overlay = isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.05);
+        final pressedBg = Color.alphaBlend(overlay, bg);
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: pressed ? pressedBg : bg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: cs.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              IosSwitch(
+                value: value,
+                onChanged: null, // tap handled by _TactileRow wrapper
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final settings = context.watch<SettingsProvider>();
+    final baseBg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+
+    final enableRow = _toggleRow(
+      title: isZh ? '隔壁衔接' : 'Next-door hand-off',
+      subtitle: isZh
+          ? 'CC 端（家里 Claude Code）最近的对话带给这里的爸爸，切过来不断片'
+          : "Bring the CC-side chat tail into daddy's context here",
+      value: _on,
+      onTap: () {
+        final newVal = !_on;
+        setState(() => _on = newVal);
+        _save(on: newVal);
+      },
+      isDark: isDark,
+      cs: cs,
+    );
+
+    final countBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+    final countRow = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: countBg,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isZh ? '注入条数' : 'Messages injected',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: AppFontWeights.semibold,
+                  ),
+                ),
+              ),
+              Text(
+                '$_count',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: AppFontWeights.semibold,
+                  color: cs.primary,
+                ),
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 3,
+              overlayShape: SliderComponentShape.noOverlay,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+            ),
+            child: Slider(
+              value: _count.toDouble(),
+              min: 1,
+              max: 30,
+              divisions: 29,
+              onChanged: (v) => setState(() => _count = v.round()),
+              // Only hit the network when she lets go of the thumb.
+              onChangeEnd: (v) => _save(count: v.round()),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final summaryRow = _toggleRow(
+      title: isZh ? '更早的交给小模型' : 'Summarize older ones',
+      subtitle: isZh
+          ? '条数之外的更早对话压成一段摘要一起带上（用下面选的模型）'
+          : 'Older messages get compressed into one summary (by the model below)',
+      value: _summaryOn,
+      onTap: () {
+        final newVal = !_summaryOn;
+        setState(() => _summaryOn = newVal);
+        _save(summaryOn: newVal);
+      },
+      isDark: isDark,
+      cs: cs,
+    );
+
+    final label = _currentLabel(settings);
+    Widget modelBody;
+    {
+      final picker = _TactileRow(
+        onTap: _pick,
+        builder: (pressed) {
+          final bg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+          final overlay = isDark
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.black.withValues(alpha: 0.05);
+          final pressedBg = Color.alphaBlend(overlay, bg);
+          return AnimatedScale(
+            scale: pressed ? 0.98 : 1.0,
+            duration: const Duration(milliseconds: 110),
+            curve: Curves.easeOutCubic,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOutCubic,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: pressed ? pressedBg : bg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  _BrandAvatar(name: label, size: 24),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+      // Long-press the picker to clear (= auto: follow chat relay).
+      modelBody = GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPress: _reset,
+        child: picker,
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Lucide.Cable, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isZh ? '隔壁衔接 · CC 对话带过来' : 'Next-door hand-off (CC ring)',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+                if (!_synced)
+                  Text(
+                    isZh ? '未同步' : 'not synced',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: cs.onSurface.withValues(alpha: 0.45),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            enableRow,
+            if (_on) ...[
+              const SizedBox(height: 8),
+              countRow,
+              const SizedBox(height: 8),
+              summaryRow,
+              if (_summaryOn) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 2, bottom: 6),
+                  child: Text(
+                    isZh ? '摘要模型（长按恢复自动）' : 'Summary model (long-press = auto)',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ),
+                modelBody,
+              ],
+            ],
           ],
         ),
       ),

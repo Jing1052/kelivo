@@ -97,6 +97,11 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet>
   late TextEditingController _idCtrl;
   late TextEditingController _nameCtrl;
   bool _nameEdited = false;
+  // New-model sheet: whether she touched type/modality/ability by hand.
+  // Until then, typing a known model id (claude-…/gpt-…) live-prefills them
+  // via ModelRegistry.infer — a manually added claude used to ship with no
+  // reasoning flag, so the App never sent a thinking field (2026-07-02).
+  bool _capsEdited = false;
   ModelType _type = ModelType.chat;
   final Set<Modality> _input = {Modality.text};
   final Set<Modality> _output = {Modality.text};
@@ -409,8 +414,35 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet>
                   ? (v) {
                       if (!_nameEdited) {
                         _nameCtrl.text = v;
-                        setState(() {});
                       }
+                      if (!_capsEdited) {
+                        final t = v.trim();
+                        final inferred = ModelRegistry.infer(
+                          ModelInfo(
+                            id: t.isEmpty ? 'custom' : t,
+                            displayName: t,
+                          ),
+                        );
+                        _type = inferred.type;
+                        _input
+                          ..clear()
+                          ..addAll(
+                            inferred.input.isEmpty
+                                ? const [Modality.text]
+                                : inferred.input,
+                          );
+                        _output
+                          ..clear()
+                          ..addAll(
+                            inferred.output.isEmpty
+                                ? const [Modality.text]
+                                : inferred.output,
+                          );
+                        _abilities
+                          ..clear()
+                          ..addAll(inferred.abilities);
+                      }
+                      setState(() {});
                     }
                   : null,
               decoration: InputDecoration(
@@ -516,7 +548,10 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet>
               ],
               value: _type == ModelType.chat ? 0 : 1,
               onChanged: (i) => setState(
-                () => _setType(i == 0 ? ModelType.chat : ModelType.embedding),
+                () {
+                  _capsEdited = true;
+                  _setType(i == 0 ? ModelType.chat : ModelType.embedding);
+                },
               ),
             ),
           ],
@@ -539,6 +574,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet>
                 _input.contains(Modality.image),
               ],
               onChanged: (idx) => setState(() {
+                _capsEdited = true;
                 final mod = idx == 0 ? Modality.text : Modality.image;
                 if (_input.contains(mod)) {
                   _input.remove(mod);
@@ -562,6 +598,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet>
                   _output.contains(Modality.image),
                 ],
                 onChanged: (idx) => setState(() {
+                  _capsEdited = true;
                   final mod = idx == 0 ? Modality.text : Modality.image;
                   if (_output.contains(mod)) {
                     _output.remove(mod);
@@ -585,6 +622,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet>
                 ],
                 allowEmpty: true,
                 onChanged: (idx) => setState(() {
+                  _capsEdited = true;
                   final ab = idx == 0
                       ? ModelAbility.tool
                       : ModelAbility.reasoning;

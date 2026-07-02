@@ -183,24 +183,61 @@ class ClaudeProvider extends BaseProvider {
     final client = _Http.clientFor(cfg);
     try {
       final uri = Uri.parse('${cfg.baseUrl}/models');
-      final headers = <String, String>{'anthropic-version': anthropicVersion};
-      if (key.isNotEmpty) headers['x-api-key'] = key;
-      final res = await client.get(uri, headers: headers);
-      if (res.statusCode >= 200 && res.statusCode < 300) {
-        final obj = jsonDecode(res.body) as Map<String, dynamic>;
-        final data = (obj['data'] as List?) ?? [];
-        return [
-          for (final e in data)
-            if (e is Map && e['id'] is String)
-              ModelRegistry.infer(
-                ModelInfo(
-                  id: e['id'] as String,
-                  displayName:
-                      (e['display_name'] as String?) ?? (e['id'] as String),
+      // First try the Anthropic-native list (x-api-key + anthropic-version).
+      List<ModelInfo>? native;
+      Object? nativeErr;
+      try {
+        final headers = <String, String>{
+          'anthropic-version': anthropicVersion,
+        };
+        if (key.isNotEmpty) headers['x-api-key'] = key;
+        final res = await client.get(uri, headers: headers);
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          final obj = jsonDecode(res.body) as Map<String, dynamic>;
+          final data = (obj['data'] as List?) ?? [];
+          native = [
+            for (final e in data)
+              if (e is Map && e['id'] is String)
+                ModelRegistry.infer(
+                  ModelInfo(
+                    id: e['id'] as String,
+                    displayName:
+                        (e['display_name'] as String?) ?? (e['id'] as String),
+                  ),
                 ),
-              ),
-        ];
+          ];
+        }
+      } catch (e) {
+        nativeErr = e;
       }
+      if (native != null && native.isNotEmpty) return native;
+      // Fallback: OpenAI-compatible relays that front Claude usually only
+      // answer the Bearer-auth OpenAI list at the same /models path — without
+      // this, a Claude-type provider on such a relay can never fetch models
+      // (2026-07-02, apipipe).
+      try {
+        final headers = <String, String>{};
+        if (key.isNotEmpty) headers['Authorization'] = 'Bearer $key';
+        final res = await client.get(uri, headers: headers);
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          final data = (jsonDecode(res.body)['data'] as List?) ?? [];
+          final viaOpenAI = [
+            for (final e in data)
+              if (e is Map && e['id'] is String)
+                ModelRegistry.infer(
+                  ModelInfo(
+                    id: e['id'] as String,
+                    displayName: e['id'] as String,
+                  ),
+                ),
+          ];
+          if (viaOpenAI.isNotEmpty || native == null) return viaOpenAI;
+        }
+      } catch (_) {}
+      // Both shapes failed: a clean-but-empty native answer stays empty;
+      // otherwise surface the native error instead of pretending "no models".
+      if (native != null) return native;
+      if (nativeErr != null) throw nativeErr;
       return [];
     } finally {
       client.close();

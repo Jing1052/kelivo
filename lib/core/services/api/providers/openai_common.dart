@@ -789,6 +789,50 @@ void _applyVendorReasoningKnobs(
   int? thinkingBudget,
 }) {
   final off = _isOff(thinkingBudget);
+  // Claude via an OpenAI-compatible relay (NewAPI-style pass-through) must be
+  // matched by model id BEFORE any host heuristics below: relays live on
+  // arbitrary domains, and e.g. the volc/ark branch's thinking:{type:enabled}
+  // is exactly the 400 that claude-4.6+ throws (2026-07-02). Reuses the
+  // Claude-native path's era logic wholesale via the shims: 4.6+ speaks
+  // adaptive + output_config.effort, legacy speaks enabled+budget_tokens,
+  // fable/mythos are always-on. OpenRouter keeps its own reasoning shape.
+  final claudeUpstream = info.upstreamModelId.trim().toLowerCase().contains(
+    'claude-',
+  );
+  // Our own gateway (daddy route) builds Anthropic thinking params server-side
+  // from its own config — keep that request body byte-identical to before.
+  final isOurGateway = info.host.contains('cllove.zeabur.app');
+  if (claudeUpstream && !info.isOpenRouter && !isOurGateway) {
+    body.remove('reasoning_effort'); // Claude 不认 OpenAI 的这个键
+    if (isReasoning) {
+      final thinking = _claudeThinkingConfig(info.upstreamModelId, thinkingBudget);
+      if (thinking != null) body['thinking'] = thinking;
+      final outputConfig = _claudeOutputConfig(
+        info.upstreamModelId,
+        thinkingBudget,
+      );
+      if (outputConfig != null) body['output_config'] = outputConfig;
+      if (_claudeShouldOmitSamplingParams(info.upstreamModelId, thinkingBudget)) {
+        // 4.7+/fable/mythos reject sampling params alongside thinking.
+        body.remove('temperature');
+        body.remove('top_p');
+        body.remove('presence_penalty');
+        body.remove('frequency_penalty');
+      } else {
+        final tp = body['top_p'];
+        if (tp is num &&
+            _claudeCompatibleTopP(
+                  info.upstreamModelId,
+                  thinkingBudget,
+                  tp.toDouble(),
+                ) ==
+                null) {
+          body.remove('top_p');
+        }
+      }
+    }
+    return;
+  }
   if (info.isOpenRouter) {
     if (isReasoning) {
       if (off) {

@@ -2325,6 +2325,59 @@ class OurHomeGateway {
     }
   }
 
+  /// cc-ring (隔壁衔接) mixer config: whether the CC-side chat tail is injected
+  /// into daddy's context on the gateway, how many recent messages go in
+  /// verbatim, and whether older ones are compressed into a summary by the
+  /// `cc_summary` role model. Null on any failure (page keeps local state).
+  Future<({bool on, int count, bool summaryOn})?> fetchCcRingConfig() async {
+    try {
+      final res = await http
+          .get(Uri.parse('$base/api/home/cc-ring'), headers: _authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] fetchCcRingConfig HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is! Map) return null;
+      return (
+        on: data['on'] == true,
+        count: (data['count'] is num)
+            ? (data['count'] as num).toInt()
+            : int.tryParse('${data['count']}') ?? 10,
+        summaryOn: data['summary_on'] == true,
+      );
+    } catch (e) {
+      debugPrint('[OurHomeGateway] fetchCcRingConfig failed: $e');
+      return null;
+    }
+  }
+
+  /// Save cc-ring mixer knobs (POST action=config). Only the knobs passed are
+  /// changed server-side; the rest keep their stored values. True on success.
+  Future<bool> setCcRingConfig({bool? on, int? count, bool? summaryOn}) async {
+    try {
+      final res = await http
+          .post(
+            Uri.parse('$base/api/home/cc-ring'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'action': 'config',
+              if (on != null) 'on': on,
+              if (count != null) 'count': count,
+              if (summaryOn != null) 'summary_on': summaryOn,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return false;
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] setCcRingConfig failed: $e');
+      return false;
+    }
+  }
+
   /// Update heartbeat config keys (POST action=config). Throws on error.
   Future<void> updateHeartbeatConfig(Map<String, dynamic> changed) async {
     final res = await http
