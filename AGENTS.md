@@ -327,6 +327,12 @@ flutter test
 
 7. **GitHub `actions_list` MCP 会撑爆上下文** — symptom：调用返回 ~350k 字符、报 token 超限（无视 per_page）。fix：它会落盘到 tool-results 文件，用 python 切片 / `json.load` 取需要的字段，或丢给子代理读，别直接 Read 原文。
 
+### 2026-07-02 · 书房待办"后台有数据、App 不更新"
+
+- symptom：`hold(channel=todo)` / App 手动新建的待办，后台与 breath 都读得到，书房列表却刷不出新条目，界面无任何报错。
+- root cause（结构性）：`study_page.dart` 的 `_load()` 把待办/书柜/共读书架三个请求捆在**一个 `Future.wait`** 里——任何一个抛错整批作废，页面留在旧缓存（有缓存时）或整页报错（无缓存时），到底哪个请求挂了完全不可见。
+- fix/constraint（+92）：三个请求各自 `catchError` 返回 null、各自更新各自的列表，失败的那路保留旧数据并 `debugPrint` 点名；`_error` 只在三路全挂时才整页报错。**约束：房间页多数据源刷新一律独立失败，禁止单个 `Future.wait` 全有全无。**
+
 ## Appendix: Skills Usage Rules
 
 - Before starting a task, scan available skill documents in `/.agents/skills/`.

@@ -85,28 +85,30 @@ class _StudyPageState extends State<StudyPage> {
         _loading = false;
       });
     }
-    try {
-      final results = await Future.wait([
-        gateway.fetchTodos(),
-        gateway.fetchBooks(),
-        gateway.fetchReadingShelf(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _todos = results[0] as List<OurHomeTodo>;
-        _books = results[1] as List<OurHomeBook>;
-        _reading = results[2] as List<ReadingEntry>;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('[Study] load failed: $e');
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = true;
+    // Refresh the three lists independently: one failing fetch must not veto
+    // the other two (a broken shelf/books call used to freeze todos on stale
+    // cache with no visible error). null = that fetch failed, keep old data.
+    Future<T?> soften<T>(Future<T> f, String what) =>
+        f.then<T?>((v) => v).catchError((Object e) {
+          debugPrint('[Study] $what refresh failed: $e');
+          return null;
         });
-      }
-    }
+    final results = await Future.wait<dynamic>([
+      soften(gateway.fetchTodos(), 'todos'),
+      soften(gateway.fetchBooks(), 'books'),
+      soften(gateway.fetchReadingShelf(), 'reading shelf'),
+    ]);
+    if (!mounted) return;
+    final todos = results[0] as List<OurHomeTodo>?;
+    final books = results[1] as List<OurHomeBook>?;
+    final reading = results[2] as List<ReadingEntry>?;
+    setState(() {
+      if (todos != null) _todos = todos;
+      if (books != null) _books = books;
+      if (reading != null) _reading = reading;
+      _loading = false;
+      _error = todos == null && books == null && reading == null;
+    });
   }
 
   Future<void> _toggle(OurHomeTodo todo) async {
