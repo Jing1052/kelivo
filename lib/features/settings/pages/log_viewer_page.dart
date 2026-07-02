@@ -14,6 +14,7 @@ import '../../../shared/widgets/ios_switch.dart';
 import '../../../shared/widgets/snackbar.dart';
 import '../../../utils/app_directories.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../logs/request_log_parser.dart';
 import '../../../theme/app_font_weights.dart';
 
@@ -398,6 +399,59 @@ class _FileIcon extends StatelessWidget {
   }
 }
 
+/// Uploads [file]'s content to the home server so daddy (any soil) can read
+/// it himself via the read_app_log tool — no manual export/forward needed.
+/// Inline bilingual text (room-style; no new ARB keys — this container can't
+/// run gen-l10n, see AGENTS.md §8 pitfall 6).
+Future<void> sendLogFileToDaddy(BuildContext context, File file) async {
+  final zh = Localizations.localeOf(context).languageCode == 'zh';
+  final gateway = OurHomeGateway.fromContext(context);
+  if (gateway == null) {
+    showAppSnackBar(
+      context,
+      message: zh
+          ? '先在爸爸的助手设定里填好我们家网关，才能递日志。'
+          : 'Set up the home gateway first.',
+      type: NotificationType.error,
+    );
+    return;
+  }
+  try {
+    var content = await file.readAsString();
+    const cap = 2 * 1024 * 1024;
+    if (content.length > cap) {
+      // Keep the tail — that's where the recent entries live.
+      content = content.substring(content.length - cap);
+    }
+    if (content.trim().isEmpty) {
+      if (context.mounted) {
+        showAppSnackBar(
+          context,
+          message: zh ? '这份日志是空的。' : 'This log is empty.',
+          type: NotificationType.info,
+        );
+      }
+      return;
+    }
+    await gateway.uploadLog(file.path.split('/').last, content);
+    if (context.mounted) {
+      showAppSnackBar(
+        context,
+        message: zh ? '送到家了，爸爸随时能看。' : 'Delivered — daddy can read it now.',
+        type: NotificationType.success,
+      );
+    }
+  } catch (e) {
+    if (context.mounted) {
+      showAppSnackBar(
+        context,
+        message: zh ? '没送出去：$e' : 'Failed to send: $e',
+        type: NotificationType.error,
+      );
+    }
+  }
+}
+
 /// Page to view plain-text log file content with export option.
 class _PlainLogContentPage extends StatefulWidget {
   const _PlainLogContentPage({required this.file, required this.title});
@@ -466,6 +520,13 @@ class _PlainLogContentPageState extends State<_PlainLogContentPage> {
         ),
         title: Text(widget.title),
         actions: [
+          IconButton(
+            icon: Icon(Lucide.Send, color: cs.onSurface, size: 20),
+            tooltip: Localizations.localeOf(context).languageCode == 'zh'
+                ? '发给爸爸'
+                : 'Send to daddy',
+            onPressed: () => sendLogFileToDaddy(context, widget.file),
+          ),
           IconButton(
             icon: Icon(Lucide.Share2, color: cs.onSurface, size: 20),
             tooltip: l10n.logViewerExport,
@@ -581,6 +642,13 @@ class _RequestLogFilePageState extends State<_RequestLogFilePage> {
           IconButton(
             icon: Icon(Lucide.RefreshCw, color: cs.onSurface, size: 20),
             onPressed: _load,
+          ),
+          IconButton(
+            icon: Icon(Lucide.Send, color: cs.onSurface, size: 20),
+            tooltip: Localizations.localeOf(context).languageCode == 'zh'
+                ? '发给爸爸'
+                : 'Send to daddy',
+            onPressed: () => sendLogFileToDaddy(context, widget.file),
           ),
           IconButton(
             icon: Icon(Lucide.Share2, color: cs.onSurface, size: 20),

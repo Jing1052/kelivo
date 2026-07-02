@@ -904,6 +904,24 @@ class OurHomeGateway {
 
   Future<void> deleteTodo(String id) => _postTodo({'id': id, 'del': 1});
 
+  /// Upload a log file's content to the home server so daddy (any soil) can
+  /// read it himself via the read_app_log tool. Throws on transport/HTTP error.
+  Future<void> uploadLog(String name, String content) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/logs'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'name': name, 'content': content}),
+        )
+        .timeout(const Duration(seconds: 30));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'logs POST HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/logs'),
+      );
+    }
+  }
+
   Future<void> _postTodo(Map<String, dynamic> body) async {
     final res = await http
         .post(
