@@ -8,13 +8,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/assistant_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'ourhome_cache.dart';
+import '../logging/flutter_logger.dart';
 
 /// Runs [f] and resolves to null on error (logged with [what]). Room pages
 /// refresh several endpoints at once — wrap each with this so one failing
 /// fetch can't veto the others (null = keep whatever was shown before).
+/// Failures also land in FlutterLogger (when the log toggle is on) so they
+/// can be traced after the fact from the in-app log viewer.
 Future<T?> softFetch<T>(Future<T> f, String what) =>
     f.then<T?>((v) => v).catchError((Object e) {
       debugPrint('[OurHome] $what refresh failed: $e');
+      FlutterLogger.log('$what refresh failed: $e', tag: 'OurHome');
       return null;
     });
 
