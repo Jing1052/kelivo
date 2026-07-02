@@ -116,8 +116,14 @@ class SettingsPage extends StatelessWidget {
               ),
             ),
 
-          // 通用设置：使用iOS风格分组卡片，黑色（中性）图标与标题，无描述
-          header(l10n.settingsPageGeneralSection, first: true),
+          // 我们的家：家专属入口收拢一处，不再与原生 kelivo 设置混排
+          //（分组名走房间式内联双语，避开 gen-l10n）。
+          header(
+            Localizations.localeOf(context).languageCode == 'zh'
+                ? '我们的家'
+                : 'Our Home',
+            first: true,
+          ),
           _iosSectionCard(
             children: [
               _iosNavRow(
@@ -141,6 +147,67 @@ class SettingsPage extends StatelessWidget {
                 },
               ),
               _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Globe,
+                label: l10n.daddySearchPageTitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DaddySearchPage()),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Wrench,
+                label: l10n.settingsPageDaddyTools,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const DaddyToolsPage()),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Wand2,
+                label: l10n.daddySettingsStyleTitle,
+                onTap: () {
+                  showStyleSheet(context);
+                },
+              ),
+              _iosDivider(context),
+              // 日志入口常驻（原来开关全关时会消失，想开日志还得先知道彩蛋在哪）。
+              _iosNavRow(
+                context,
+                icon: Lucide.FileText,
+                label: l10n.settingsPageLogs,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LogViewerPage()),
+                  );
+                },
+              ),
+              _iosDivider(context),
+              _iosNavRow(
+                context,
+                icon: Lucide.Heart,
+                label: l10n.aboutUsPageTitle,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const AboutUsPage()),
+                  );
+                },
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          // 通用设置：使用iOS风格分组卡片，黑色（中性）图标与标题，无描述
+          header(l10n.settingsPageGeneralSection),
+          _iosSectionCard(
+            children: [
               _iosNavRow(
                 context,
                 icon: Lucide.Monitor,
@@ -206,20 +273,8 @@ class SettingsPage extends StatelessWidget {
                 },
               ),
               _iosDivider(context),
-              // 「搜索服务」入口对走网关的爸爸没用（联网走服务端 web_search），
-              // 在原位置换成「爸爸的联网搜索」（控网关搜索，存老家）。
-              // SearchServicesPage 源码保留，仅此入口替换。
-              _iosNavRow(
-                context,
-                icon: Lucide.Globe,
-                label: l10n.daddySearchPageTitle,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DaddySearchPage()),
-                  );
-                },
-              ),
-              _iosDivider(context),
+              // 原生「搜索服务」入口已被「爸爸的联网搜索」取代（联网走服务端
+              // web_search，SearchServicesPage 源码保留）——入口在上面「我们的家」。
               _iosNavRow(
                 context,
                 icon: Lucide.Volume2,
@@ -244,32 +299,12 @@ class SettingsPage extends StatelessWidget {
               _iosDivider(context),
               _iosNavRow(
                 context,
-                icon: Lucide.Wrench,
-                label: l10n.settingsPageDaddyTools,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DaddyToolsPage()),
-                  );
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
                 icon: Lucide.Zap,
                 label: l10n.settingsPageQuickPhrase,
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(builder: (_) => const QuickPhrasesPage()),
                   );
-                },
-              ),
-              _iosDivider(context),
-              _iosNavRow(
-                context,
-                icon: Lucide.Wand2,
-                label: l10n.daddySettingsStyleTitle,
-                onTap: () {
-                  showStyleSheet(context);
                 },
               ),
               _iosDivider(context),
@@ -312,24 +347,8 @@ class SettingsPage extends StatelessWidget {
                   );
                 },
               ),
-            ],
-          ),
-
-          const SizedBox(height: 12),
-          header(l10n.settingsPageAboutSection),
-          _iosSectionCard(
-            children: [
-              _iosNavRow(
-                context,
-                icon: Lucide.Heart,
-                label: l10n.aboutUsPageTitle,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const AboutUsPage()),
-                  );
-                },
-              ),
               _iosDivider(context),
+              // 统计并进数据组，撤掉只剩一行的「关于」组（关于我们已上移「我们的家」）。
               _iosNavRow(
                 context,
                 icon: Lucide.ChartColumnBig,
@@ -340,19 +359,6 @@ class SettingsPage extends StatelessWidget {
                   ).push(MaterialPageRoute(builder: (_) => const StatsPage()));
                 },
               ),
-              if (settings.requestLogEnabled || settings.flutterLogEnabled) ...[
-                _iosDivider(context),
-                _iosNavRow(
-                  context,
-                  icon: Lucide.FileText,
-                  label: l10n.settingsPageLogs,
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const LogViewerPage()),
-                    );
-                  },
-                ),
-              ],
               // _iosDivider(context),
               // _iosNavRow(
               //   context,
