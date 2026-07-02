@@ -858,6 +858,22 @@ class SettingsProvider extends ChangeNotifier {
     _homeBackgrounds =
         prefs.getStringList(_homeBackgroundsKey) ?? const <String>[];
     _homeBackgroundActive = prefs.getString(_homeBackgroundActiveKey) ?? '';
+    // iOS 更新会换沙盒容器 UUID：壁纸文件还躺在 Documents/home_bg 里，但存的
+    // 绝对路径失效 → 每次更新壁纸"消失"。开机把路径过一遍 resolver 自愈并写回。
+    final healedBgs = _homeBackgrounds
+        .map(SandboxPathResolver.fix)
+        .toList(growable: false);
+    if (!listEquals(healedBgs, _homeBackgrounds)) {
+      _homeBackgrounds = healedBgs;
+      await prefs.setStringList(_homeBackgroundsKey, _homeBackgrounds);
+    }
+    if (_homeBackgroundActive.isNotEmpty) {
+      final healedActive = SandboxPathResolver.fix(_homeBackgroundActive);
+      if (healedActive != _homeBackgroundActive) {
+        _homeBackgroundActive = healedActive;
+        await prefs.setString(_homeBackgroundActiveKey, _homeBackgroundActive);
+      }
+    }
     _homeBgAiry = (prefs.getDouble(_homeBgAiryKey) ?? 0.35).clamp(0.0, 1.0);
     _homeWeatherCity = prefs.getString(_homeWeatherCityKey) ?? '';
     _homeWeatherLat = prefs.getDouble(_homeWeatherLatKey) ?? double.nan;
