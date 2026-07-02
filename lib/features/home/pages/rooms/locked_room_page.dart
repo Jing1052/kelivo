@@ -55,26 +55,20 @@ class _LockedRoomPageState extends State<LockedRoomPage> {
         _loading = false;
       });
     }
-    try {
-      final results = await Future.wait([
-        gateway.fetchProfiles(),
-        gateway.fetchPlaylog(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _profiles = results[0] as OurHomeProfiles;
-        _log = results[1] as List<OurHomePlaylog>;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('[LockedRoom] load failed: $e');
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = true;
-        });
-      }
-    }
+    // Each fetch refreshes independently — see softFetch (null = keep old data).
+    final results = await Future.wait<dynamic>([
+      softFetch(gateway.fetchProfiles(), 'locked-room profiles'),
+      softFetch(gateway.fetchPlaylog(), 'locked-room playlog'),
+    ]);
+    if (!mounted) return;
+    final profiles = results[0] as OurHomeProfiles?;
+    final log = results[1] as List<OurHomePlaylog>?;
+    setState(() {
+      if (profiles != null) _profiles = profiles;
+      if (log != null) _log = log;
+      _loading = false;
+      _error = profiles == null && log == null;
+    });
   }
 
   Future<void> _edit(String side, String current, String title) async {

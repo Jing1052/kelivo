@@ -88,15 +88,10 @@ class _StudyPageState extends State<StudyPage> {
     // Refresh the three lists independently: one failing fetch must not veto
     // the other two (a broken shelf/books call used to freeze todos on stale
     // cache with no visible error). null = that fetch failed, keep old data.
-    Future<T?> soften<T>(Future<T> f, String what) =>
-        f.then<T?>((v) => v).catchError((Object e) {
-          debugPrint('[Study] $what refresh failed: $e');
-          return null;
-        });
     final results = await Future.wait<dynamic>([
-      soften(gateway.fetchTodos(), 'todos'),
-      soften(gateway.fetchBooks(), 'books'),
-      soften(gateway.fetchReadingShelf(), 'reading shelf'),
+      softFetch(gateway.fetchTodos(), 'study todos'),
+      softFetch(gateway.fetchBooks(), 'study books'),
+      softFetch(gateway.fetchReadingShelf(), 'study reading shelf'),
     ]);
     if (!mounted) return;
     final todos = results[0] as List<OurHomeTodo>?;

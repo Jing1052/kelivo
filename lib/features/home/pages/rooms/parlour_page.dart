@@ -107,26 +107,20 @@ class _ParlourPageState extends State<ParlourPage> {
         _loading = false;
       });
     }
-    try {
-      final results = await Future.wait([
-        gateway.fetchBoard(),
-        gateway.fetchLetters(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _notes = results[0] as List<OurHomeBoardNote>;
-        _letters = results[1] as List<OurHomeLetter>;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('[Parlour] load failed: $e');
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = true;
-        });
-      }
-    }
+    // Each list refreshes independently — see softFetch (null = keep old data).
+    final results = await Future.wait<dynamic>([
+      softFetch(gateway.fetchBoard(), 'parlour board'),
+      softFetch(gateway.fetchLetters(), 'parlour letters'),
+    ]);
+    if (!mounted) return;
+    final notes = results[0] as List<OurHomeBoardNote>?;
+    final letters = results[1] as List<OurHomeLetter>?;
+    setState(() {
+      if (notes != null) _notes = notes;
+      if (letters != null) _letters = letters;
+      _loading = false;
+      _error = notes == null && letters == null;
+    });
   }
 
   Future<void> _send() async {

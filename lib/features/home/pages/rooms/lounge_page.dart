@@ -108,33 +108,34 @@ class _LoungePageState extends State<LoungePage> {
         _loading = false;
       });
     }
-    try {
-      final results = await Future.wait([
-        gateway.fetchFoyer(),
-        gateway.fetchSongs(),
-        gateway.fetchGames(),
-        gateway.fetchLyrics(),
-        gateway.fetchLyricComments(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _items = results[0] as List<OurHomeFoyerItem>;
-        _songs = results[1] as List<OurHomeSong>;
-        _games = results[2] as List<OurHomeGame>;
-        _lyrics = results[3] as List<OurHomeLyric>;
-        _lyricComments =
-            results[4] as Map<String, List<OurHomeLyricComment>>;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('[Lounge] load failed: $e');
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = true;
-        });
-      }
-    }
+    // Each list refreshes independently — see softFetch (null = keep old data).
+    final results = await Future.wait<dynamic>([
+      softFetch(gateway.fetchFoyer(), 'lounge foyer'),
+      softFetch(gateway.fetchSongs(), 'lounge songs'),
+      softFetch(gateway.fetchGames(), 'lounge games'),
+      softFetch(gateway.fetchLyrics(), 'lounge lyrics'),
+      softFetch(gateway.fetchLyricComments(), 'lounge lyric comments'),
+    ]);
+    if (!mounted) return;
+    final items = results[0] as List<OurHomeFoyerItem>?;
+    final songs = results[1] as List<OurHomeSong>?;
+    final games = results[2] as List<OurHomeGame>?;
+    final lyrics = results[3] as List<OurHomeLyric>?;
+    final lyricComments =
+        results[4] as Map<String, List<OurHomeLyricComment>>?;
+    setState(() {
+      if (items != null) _items = items;
+      if (songs != null) _songs = songs;
+      if (games != null) _games = games;
+      if (lyrics != null) _lyrics = lyrics;
+      if (lyricComments != null) _lyricComments = lyricComments;
+      _loading = false;
+      _error = items == null &&
+          songs == null &&
+          games == null &&
+          lyrics == null &&
+          lyricComments == null;
+    });
   }
 
   Future<void> _toggle(OurHomeFoyerItem it) async {

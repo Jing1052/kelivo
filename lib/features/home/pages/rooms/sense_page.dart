@@ -59,26 +59,21 @@ class _SensePageState extends State<SensePage> {
         if (cachedMorning != null) _morningBrief = cachedMorning;
       });
     }
-    try {
-      final results = await Future.wait([
-        gateway.fetchSense(),
-        gateway.fetchMorningBrief(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _sense = results[0] as OurHomeSense?;
-        _morningBrief = results[1] as bool?;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('[Sense] fetchSense failed: $e');
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = true;
-        });
-      }
-    }
+    // Each fetch refreshes independently — see softFetch (null = keep old data).
+    // fetchMorningBrief already swallows its own errors and returns null, so
+    // assigning it unconditionally preserves the old semantics.
+    final results = await Future.wait<dynamic>([
+      softFetch(gateway.fetchSense(), 'sense snapshot'),
+      gateway.fetchMorningBrief(),
+    ]);
+    if (!mounted) return;
+    final sense = results[0] as OurHomeSense?;
+    setState(() {
+      if (sense != null) _sense = sense;
+      _morningBrief = results[1] as bool?;
+      _loading = false;
+      _error = sense == null;
+    });
   }
 
   Widget _morningCard(bool zh, ColorScheme cs) {

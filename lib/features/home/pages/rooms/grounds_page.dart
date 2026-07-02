@@ -59,26 +59,20 @@ class _GroundsPageState extends State<GroundsPage> {
         _loading = false;
       });
     }
-    try {
-      final results = await Future.wait([
-        gateway.fetchMemories(),
-        gateway.fetchGreenhouse(),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _memories = results[0] as List<OurHomeMemory>;
-        _feels = results[1] as List<OurHomeFeel>;
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('[Grounds] load failed: $e');
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = true;
-        });
-      }
-    }
+    // Each list refreshes independently — see softFetch (null = keep old data).
+    final results = await Future.wait<dynamic>([
+      softFetch(gateway.fetchMemories(), 'grounds memories'),
+      softFetch(gateway.fetchGreenhouse(), 'grounds greenhouse'),
+    ]);
+    if (!mounted) return;
+    final memories = results[0] as List<OurHomeMemory>?;
+    final feels = results[1] as List<OurHomeFeel>?;
+    setState(() {
+      if (memories != null) _memories = memories;
+      if (feels != null) _feels = feels;
+      _loading = false;
+      _error = memories == null && feels == null;
+    });
   }
 
   @override

@@ -9,6 +9,15 @@ import '../../providers/assistant_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'ourhome_cache.dart';
 
+/// Runs [f] and resolves to null on error (logged with [what]). Room pages
+/// refresh several endpoints at once — wrap each with this so one failing
+/// fetch can't veto the others (null = keep whatever was shown before).
+Future<T?> softFetch<T>(Future<T> f, String what) =>
+    f.then<T?>((v) => v).catchError((Object e) {
+      debugPrint('[OurHome] $what refresh failed: $e');
+      return null;
+    });
+
 /// A letter Llaude left for Cing (server channel "letter").
 class OurHomeLetter {
   const OurHomeLetter({
