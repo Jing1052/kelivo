@@ -222,16 +222,24 @@ class _DashboardState extends State<_Dashboard> {
     // Two 2×2 tile groups placed on one diagonal; the big weather/music squares
     // on the other — "crossed", per Cing's sketch.
     final group1 = <_RoomTileSpec>[
-      _RoomTileSpec(Lucide.NotebookTabs, () => const DiaryPage()),
-      _RoomTileSpec(Lucide.Calendar, () => const CalendarPage()),
-      _RoomTileSpec(Lucide.HeartPulse, () => const SensePage()),
-      _RoomTileSpec(Lucide.Timer, () => const CountdownPage()),
+      _RoomTileSpec(Lucide.NotebookTabs, () => const DiaryPage(),
+          asset: 'assets/clawd/icon-diary.png'),
+      _RoomTileSpec(Lucide.Calendar, () => const CalendarPage(),
+          asset: 'assets/clawd/icon-calendar.png'),
+      _RoomTileSpec(Lucide.HeartPulse, () => const SensePage(),
+          asset: 'assets/clawd/icon-sense.png'),
+      _RoomTileSpec(Lucide.Timer, () => const CountdownPage(),
+          asset: 'assets/clawd/icon-countdown.png'),
     ];
     final group2 = <_RoomTileSpec>[
-      _RoomTileSpec(Lucide.Mail, () => const ParlourPage()),
-      _RoomTileSpec(Lucide.Clapperboard, () => const LoungePage()),
-      _RoomTileSpec(Lucide.BookOpen, () => const StudyPage()),
-      _RoomTileSpec(Lucide.Sprout, () => const GroundsPage()),
+      _RoomTileSpec(Lucide.Mail, () => const ParlourPage(),
+          asset: 'assets/clawd/icon-parlour.png'),
+      _RoomTileSpec(Lucide.Clapperboard, () => const LoungePage(),
+          asset: 'assets/clawd/icon-lounge.png'),
+      _RoomTileSpec(Lucide.BookOpen, () => const StudyPage(),
+          asset: 'assets/clawd/icon-study.png'),
+      _RoomTileSpec(Lucide.Sprout, () => const GroundsPage(),
+          asset: 'assets/clawd/icon-grounds.png'),
     ];
 
     Widget squareRow(Widget left, Widget right) => LayoutBuilder(
@@ -894,9 +902,12 @@ class _AlbumCover extends StatelessWidget {
 // ===== 2×2 room tiles (icons only) =====
 
 class _RoomTileSpec {
-  const _RoomTileSpec(this.icon, this.page);
+  const _RoomTileSpec(this.icon, this.page, {this.asset});
   final IconData icon;
   final Widget Function() page;
+
+  /// Pixel-art Llawd icon (static PNG in assets/clawd/); falls back to [icon].
+  final String? asset;
 }
 
 class _RoomGrid extends StatelessWidget {
@@ -906,7 +917,7 @@ class _RoomGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     Widget tile(_RoomTileSpec t) =>
-        Expanded(child: _IconTile(icon: t.icon, builder: t.page));
+        Expanded(child: _IconTile(icon: t.icon, asset: t.asset, builder: t.page));
     return Column(
       children: [
         Expanded(
@@ -934,9 +945,10 @@ class _RoomGrid extends StatelessWidget {
 }
 
 class _IconTile extends StatelessWidget {
-  const _IconTile({required this.icon, required this.builder});
+  const _IconTile({required this.icon, required this.builder, this.asset});
   final IconData icon;
   final Widget Function() builder;
+  final String? asset;
 
   @override
   Widget build(BuildContext context) {
@@ -947,7 +959,19 @@ class _IconTile extends StatelessWidget {
         context,
       ).push(MaterialPageRoute(builder: (_) => builder())),
       child: Center(
-        child: Icon(icon, size: 23, color: cs.primary.withValues(alpha: 0.85)),
+        child: asset != null
+            ? Image.asset(
+                asset!,
+                width: 30,
+                height: 30,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
+              )
+            : Icon(
+                icon,
+                size: 23,
+                color: cs.primary.withValues(alpha: 0.85),
+              ),
       ),
     );
   }
