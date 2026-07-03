@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Cing 海豹图鉴</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d0d0d; color:#e0e0e0;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; padding:48px 24px 64px; gap:40px;
+  }
+  h1 {
+    font-size:2rem; font-weight:700;
+    background:linear-gradient(135deg,#ff9500,#ff6b6b,#ffcc44);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .subtitle { color:#555; font-size:.85rem; margin-top:6px; }
+  .grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:24px; width:100%; max-width:1180px;
+  }
+  .card {
+    background:#111; border:1px solid #1e1e1e; border-radius:18px;
+    overflow:hidden; transition:border-color .2s,transform .2s,box-shadow .2s;
+  }
+  .card:hover {
+    transform:translateY(-4px);
+    box-shadow:0 12px 40px var(--glow,rgba(255,149,0,.12));
+    border-color:var(--bd,rgba(255,149,0,.5));
+  }
+  .card-view {
+    display:flex; align-items:center; justify-content:center;
+    padding:20px 0; min-height:180px; background:var(--bg,#080808); position:relative;
+  }
+  .card-view svg { width:150px; height:150px; }
+  .card-info { padding:16px 18px 18px; border-top:1px solid #1a1a1a; }
+  .card-emoji { font-size:1.1rem; margin-bottom:4px; }
+  .card-name  { font-size:1rem; font-weight:700; }
+  .card-desc  { font-size:.72rem; color:#666; margin-top:5px; line-height:1.6; }
+  .tag {
+    display:inline-block; font-size:.65rem; padding:2px 8px; border-radius:10px;
+    margin-top:8px; font-family:monospace;
+    background:var(--tagbg,rgba(255,149,0,.12)); color:var(--tagfg,#ff9500);
+  }
+</style>
+</head>
+<body>
+
+<div style="text-align:center">
+  <h1>Cing 海豹图鉴</h1>
+  <p class="subtitle">纯 SVG + CSS keyframes · 斑海豹幼崽（渤海湾限定）</p>
+</div>
+
+<div class="grid">
+
+<!-- ════════ 懒瘫 IDLE (sd-) — breathe, blink, occasionally melt flatter ════════ -->
+<div class="card" data-name="seal-idle"
+     style="--glow:rgba(196,186,166,.2);--bd:rgba(196,186,166,.5);--bg:linear-gradient(180deg,#101318,#080808);--tagbg:rgba(196,186,166,.14);--tagfg:#c4baa6">
+  <div class="card-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -25 45 45">
+    <defs><style>
+      .sd-body{transform-origin:7.5px 15px;animation:sd-melt 6.8s infinite ease-in-out;}
+      .sd-shad{transform-origin:7.5px 15.5px;animation:sd-shadow 6.8s infinite ease-in-out;}
+      .sd-eye {transform-origin:7.5px 10px;animation:sd-blink 4.2s infinite;}
+      @keyframes sd-melt{
+        0%,100%{transform:scale(1,1);}
+        22%{transform:scale(1.015,.97);}
+        44%{transform:scale(1,1);}
+        58%{transform:scale(1.05,.9);}
+        74%{transform:scale(1.05,.9);}
+        90%{transform:scale(1,1);}
+      }
+      @keyframes sd-shadow{
+        0%,44%,90%,100%{transform:scaleX(1);opacity:.5;}
+        22%{transform:scaleX(1.01);opacity:.48;}
+        58%,74%{transform:scaleX(1.06);opacity:.55;}
+      }
+      @keyframes sd-blink{0%,46%,54%,100%{transform:scaleY(1);}50%{transform:scaleY(.1);}}
+    </style></defs>
+
+    <rect class="sd-shad" x="2.5" y="15" width="10" height="1" fill="#000" opacity=".5"/>
+    <g class="sd-body">
+      <!-- blob torso: one stepped dome polygon (no seams), widest at the bottom -->
+      <polygon fill="#F4EEE2" points="2.5,15 2.5,9 3,9 3,8 4,8 4,7 5,7 5,6 10,6 10,7 11,7 11,8 12,8 12,9 12.5,9 12.5,15"/>
+      <!-- faint spotted-seal spots, kept inside the silhouette -->
+      <g fill="#E4DCCB">
+        <rect x="5.7" y="6.9" width=".65" height=".65"/>
+        <rect x="8.5" y="7.5" width=".65" height=".65"/>
+        <rect x="3.4" y="11.8" width=".65" height=".65"/>
+        <rect x="10.9" y="12.3" width=".65" height=".65"/>
+      </g>
+      <!-- front flippers, lying forward at the bottom -->
+      <rect x="2" y="13.4" width="2.4" height="1.6" rx=".5" fill="#E2DACA"/>
+      <rect x="10.6" y="13.4" width="2.4" height="1.6" rx=".5" fill="#E2DACA"/>
+      <!-- face -->
+      <g class="sd-eye" fill="#000">
+        <rect x="5" y="9.3" width=".9" height="1.6"/>
+        <rect x="9.2" y="9.3" width=".9" height="1.6"/>
+      </g>
+      <rect x="7.05" y="10.3" width="1" height=".7" rx=".2" fill="#4a413a"/>
+      <!-- cheeks -->
+      <rect x="3.9" y="10.9" width="1.3" height=".8" rx=".3" fill="#F3C0AE" opacity=".75"/>
+      <rect x="9.9" y="10.9" width="1.3" height=".8" rx=".3" fill="#F3C0AE" opacity=".75"/>
+      <!-- whisker dots -->
+      <g fill="#C9BFAC">
+        <rect x="4.5" y="10.4" width=".35" height=".35"/>
+        <rect x="4.1" y="11.1" width=".35" height=".35"/>
+        <rect x="10.2" y="10.4" width=".35" height=".35"/>
+        <rect x="10.6" y="11.1" width=".35" height=".35"/>
+      </g>
+    </g>
+    </svg>
+  </div>
+  <div class="card-info">
+    <div class="card-emoji">🦭</div><div class="card-name">懒瘫</div>
+    <div class="card-desc">呼吸 · 慢慢眨眼<br>隔几秒融化成一滩</div>
+    <div class="tag">Seal Idle</div>
+  </div>
+</div>
+
+<!-- ════════ 睡觉 SLEEP (sz-) — closed eyes, deep breathing, ZZZ ════════ -->
+<div class="card" data-name="seal-sleep"
+     style="--glow:rgba(130,150,190,.2);--bd:rgba(130,150,190,.5);--bg:linear-gradient(180deg,#0b0e18,#080808);--tagbg:rgba(130,150,190,.14);--tagfg:#8296be">
+  <div class="card-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -25 45 45">
+    <defs><style>
+      .sz-body{transform-origin:7.5px 15px;animation:sz-breathe 4.6s infinite ease-in-out;}
+      .sz-shad{transform-origin:7.5px 15.5px;animation:sz-shadow 4.6s infinite ease-in-out;}
+      .sz-zzz{opacity:0;animation:sz-zzz 3.6s var(--sd,0s) infinite ease-out;font-family:monospace;font-weight:bold;}
+      @keyframes sz-breathe{0%,100%{transform:scale(1,1);}50%{transform:scale(1.03,.945);}}
+      @keyframes sz-shadow{0%,100%{transform:scaleX(1);opacity:.5;}50%{transform:scaleX(1.04);opacity:.53;}}
+      @keyframes sz-zzz{
+        0%{opacity:0;transform:translate(0,0);}
+        25%{opacity:.75;}
+        100%{opacity:0;transform:translate(2.5px,-7px);}
+      }
+    </style></defs>
+
+    <rect class="sz-shad" x="2.5" y="15" width="10" height="1" fill="#000" opacity=".5"/>
+    <g class="sz-body">
+      <polygon fill="#F4EEE2" points="2.5,15 2.5,9 3,9 3,8 4,8 4,7 5,7 5,6 10,6 10,7 11,7 11,8 12,8 12,9 12.5,9 12.5,15"/>
+      <g fill="#E4DCCB">
+        <rect x="5.7" y="6.9" width=".65" height=".65"/>
+        <rect x="8.5" y="7.5" width=".65" height=".65"/>
+        <rect x="3.4" y="11.8" width=".65" height=".65"/>
+        <rect x="10.9" y="12.3" width=".65" height=".65"/>
+      </g>
+      <rect x="2" y="13.4" width="2.4" height="1.6" rx=".5" fill="#E2DACA"/>
+      <rect x="10.6" y="13.4" width="2.4" height="1.6" rx=".5" fill="#E2DACA"/>
+      <!-- closed eyes: thin content sleeping lines -->
+      <g fill="#000">
+        <rect x="4.9" y="10.1" width="1.1" height=".4" rx=".2"/>
+        <rect x="9.1" y="10.1" width="1.1" height=".4" rx=".2"/>
+      </g>
+      <rect x="7.05" y="10.3" width="1" height=".7" rx=".2" fill="#4a413a"/>
+      <rect x="3.9" y="10.9" width="1.3" height=".8" rx=".3" fill="#F3C0AE" opacity=".75"/>
+      <rect x="9.9" y="10.9" width="1.3" height=".8" rx=".3" fill="#F3C0AE" opacity=".75"/>
+      <g fill="#C9BFAC">
+        <rect x="4.5" y="10.4" width=".35" height=".35"/>
+        <rect x="4.1" y="11.1" width=".35" height=".35"/>
+        <rect x="10.2" y="10.4" width=".35" height=".35"/>
+        <rect x="10.6" y="11.1" width=".35" height=".35"/>
+      </g>
+    </g>
+    <!-- ZZZ particles float up from beside the head (outside body so they don't squish) -->
+    <g fill="#9aa7b8">
+      <text class="sz-zzz" style="--sd:0s" x="11.2" y="7.6" font-size="2.6">Z</text>
+      <text class="sz-zzz" style="--sd:-1.2s" x="12.4" y="5.8" font-size="2">z</text>
+      <text class="sz-zzz" style="--sd:-2.4s" x="10.4" y="6.4" font-size="1.6">z</text>
+    </g>
+    </svg>
+  </div>
+  <div class="card-info">
+    <div class="card-emoji">💤</div><div class="card-name">睡觉</div>
+    <div class="card-desc">呼吸放深 · 眼睛弯成两条线<br>Z 字一颗颗往上飘</div>
+    <div class="tag">Seal Sleep</div>
+  </div>
+</div>
+
+<!-- ════════ 抱鱼 FISH (sf-) — hugging a fish, tail flaps, happy wiggle ════════ -->
+<div class="card" data-name="seal-fish"
+     style="--glow:rgba(127,184,216,.2);--bd:rgba(127,184,216,.5);--bg:linear-gradient(180deg,#081018,#080808);--tagbg:rgba(127,184,216,.14);--tagfg:#7fb8d8">
+  <div class="card-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -25 45 45">
+    <defs><style>
+      .sf-body{transform-origin:7.5px 15px;animation:sf-wiggle 2.8s infinite ease-in-out;}
+      .sf-shad{transform-origin:7.5px 15.5px;animation:sf-shadow 2.8s infinite ease-in-out;}
+      .sf-eye {transform-origin:7.5px 10px;animation:sf-blink 3.4s infinite;}
+      .sf-tail{transform-origin:9.6px 12.6px;animation:sf-flap 1.4s infinite ease-in-out;}
+      .sf-spark{opacity:0;animation:sf-spark 2.8s var(--sd,0s) infinite ease-out;}
+      @keyframes sf-wiggle{0%,100%{transform:rotate(-1.6deg);}50%{transform:rotate(1.6deg);}}
+      @keyframes sf-shadow{0%,100%{transform:scaleX(1);opacity:.5;}50%{transform:scaleX(.97);opacity:.47;}}
+      @keyframes sf-blink{0%,46%,54%,100%{transform:scaleY(1);}50%{transform:scaleY(.1);}}
+      @keyframes sf-flap{0%,100%{transform:rotate(-13deg);}50%{transform:rotate(15deg);}}
+      @keyframes sf-spark{
+        0%,55%{opacity:0;transform:translateY(0) scale(1);}
+        65%{opacity:.9;}
+        100%{opacity:0;transform:translateY(-3px) scale(.5);}
+      }
+    </style></defs>
+
+    <rect class="sf-shad" x="2.5" y="15" width="10" height="1" fill="#000" opacity=".5"/>
+    <g class="sf-body">
+      <polygon fill="#F4EEE2" points="2.5,15 2.5,9 3,9 3,8 4,8 4,7 5,7 5,6 10,6 10,7 11,7 11,8 12,8 12,9 12.5,9 12.5,15"/>
+      <g fill="#E4DCCB">
+        <rect x="5.7" y="6.9" width=".65" height=".65"/>
+        <rect x="8.5" y="7.5" width=".65" height=".65"/>
+        <rect x="3.4" y="11.8" width=".65" height=".65"/>
+      </g>
+      <!-- face -->
+      <g class="sf-eye" fill="#000">
+        <rect x="5" y="9.3" width=".9" height="1.6"/>
+        <rect x="9.2" y="9.3" width=".9" height="1.6"/>
+      </g>
+      <rect x="7.05" y="10.3" width="1" height=".7" rx=".2" fill="#4a413a"/>
+      <rect x="3.9" y="10.9" width="1.3" height=".8" rx=".3" fill="#F3C0AE" opacity=".75"/>
+      <rect x="9.9" y="10.9" width="1.3" height=".8" rx=".3" fill="#F3C0AE" opacity=".75"/>
+      <!-- the fish, hugged against the chest: slim body, head out left, tail out right -->
+      <g>
+        <g class="sf-tail">
+          <polygon points="9.6,12.6 11.6,11.5 11.6,13.7" fill="#5E9FC4"/>
+        </g>
+        <rect x="3.8" y="11.8" width="5.9" height="1.7" rx=".85" fill="#6FB3DA"/>
+        <rect x="4.1" y="12.7" width="5.3" height=".6" rx=".3" fill="#A8D3EA"/>
+        <rect x="4.7" y="12.15" width=".55" height=".55" fill="#0d2733"/>
+      </g>
+      <!-- flippers hugging over the fish's middle: drawn LAST so they press on it -->
+      <rect x="5" y="11.3" width="2.1" height="1.5" rx=".5" fill="#E2DACA" transform="rotate(26,5.4,12.1)"/>
+      <rect x="7.6" y="11.3" width="2.1" height="1.5" rx=".5" fill="#E2DACA" transform="rotate(-26,9.2,12.1)"/>
+    </g>
+    <!-- sparkles of joy (outside the body so they don't wiggle along) -->
+    <g fill="#fff">
+      <rect class="sf-spark" style="--sd:0s" x="1.8" y="7" width=".65" height=".65"/>
+      <rect class="sf-spark" style="--sd:-1.4s" x="12.9" y="8.2" width=".6" height=".6"/>
+    </g>
+    </svg>
+  </div>
+  <div class="card-info">
+    <div class="card-emoji">🐟</div><div class="card-name">抱鱼</div>
+    <div class="card-desc">双鳍把鱼搂紧 · 鱼尾扑腾<br>开心得左右摇</div>
+    <div class="tag">Seal Fish</div>
+  </div>
+</div>
+
+</div><!-- /grid -->
+
+<p style="color:#2a2a2a;font-size:.7rem;padding-bottom:8px">纯 SVG + CSS · 斑海豹原创动画 · for Cing</p>
+
+</body>
+</html>
