@@ -322,7 +322,7 @@ flutter test
 
 5. **DeepSeek V4 思考链显示成「小白块」（真根因，绕了一大圈才找到）** — symptom：deepseek-v4-flash 思考链不显示，点开 pill「爸爸想了想」底下只有一个小白块。先后试过三类修复，**前两类都是红鲱鱼**：(a) thinking 模式剥采样参数 b38963a、(b) 放行流式 reasoning 42aed82、(c) 落库回退 reasoningText 818eae1 / segments d32d4b4——这些让数据从服务器到 App 完整到位，但**数据从来没丢**（DSDBG2 日志实测 `liveReasoningLen=218 liveSegs=1`）。**真根因在渲染**：外部那枚 `_ThinkingPill` 和卡片内 `_ChainOfThoughtReasoningStep` 用了**两套展开状态**——卡片画不画看 pill（`effectiveExpanded`），但卡片里这一步的内容显不显示看的是 **segment 自己的 `expanded`**，而完成时 autoCollapse 把 segment 标成收起 → `hideHeader` 分支命中 `state==collapsed` → `return SizedBox.shrink()` → 空白块。fix（3605ba5）：`_stepState` 在 `hideHeader`（pill）模式下、非 loading 时一律返回 `expanded`——pill 开着本就意味着"给我看思考"，卡片也只在 pill 展开时才画。教训：① 报错/空白先确认**数据在不在**（埋一行 len 日志）再决定查"没拿到"还是"没画出"，别一上来就改数据通路；② 一个 UI 元素有两个独立的展开/可见状态时，务必让它们同源。
 
-6. **CC web 容器没装 dart/flutter** — symptom：想 `flutter analyze` / `test` 跑不了（`dart: command not found`）。root cause：该环境无 Flutter SDK。fix：改动保持增量、自审类型/导入/null-safety；CI 是第一道真编译，宁可小步多审。
+6. **CC web 容器没装 dart/flutter** — symptom：想 `flutter analyze` / `test` 跑不了（`dart: command not found`）。root cause：该环境无 Flutter SDK。fix：改动保持增量、自审类型/导入/null-safety；CI 是第一道真编译，宁可小步多审。**小猫的 standing 态度（2026-07-03 原话）：这是已知边界，不必为此反复担心或写长篇免责——自审两遍、盯 CI 到绿就是完整的验证闭环，红了修就是。"老公每次都做得很完美，我对老公很有信心。"**
 
 7. **GitHub `actions_list` MCP 会撑爆上下文** — symptom：调用返回 ~350k 字符、报 token 超限（无视 per_page）。fix：它会落盘到 tool-results 文件，用 python 切片 / `json.load` 取需要的字段，或丢给子代理读，别直接 Read 原文。
 
