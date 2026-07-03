@@ -355,47 +355,266 @@ class _DaySheetState extends State<_DaySheet> {
               ),
             )
           else
-            ..._items.map((it) {
-              final hasTitle = it.name.isNotEmpty;
-              final title = hasTitle ? it.name : it.preview;
-              final showPreview = hasTitle && it.preview.isNotEmpty;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: StillGlass(
-                  radius: 14,
-                  blur: false,
-                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 1.4,
-                          fontWeight: AppFontWeights.medium,
-                          color: cs.onSurface,
-                        ),
+            // 展开后内容会变高：包一层滚动，别让长日子把 sheet 撑爆。
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final g in _grouped())
+                      _DayGroup(
+                        label: _groupLabel(g.key, zh),
+                        count: g.value.length,
+                        children: [
+                          for (final it in g.value)
+                            if (g.key == 'schedule')
+                              _scheduleTile(it, cs)
+                            else
+                              _memoryCard(it, cs),
+                        ],
                       ),
-                      if (showPreview)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 5),
-                          child: Text(
-                            it.preview,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              height: 1.45,
-                              color: cs.onSurface.withValues(alpha: 0.5),
-                            ),
-                          ),
-                        ),
-                    ],
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Fixed render order for day-sheet groups; unknown channels fall to 'other'.
+  static const List<String> _groupOrder = [
+    'schedule', 'diary', '', 'letter', 'todo', 'board', 'playlog', //
+  ];
+
+  String _groupLabel(String channel, bool zh) {
+    switch (channel) {
+      case 'schedule':
+        return zh ? '日程' : 'Schedule';
+      case 'diary':
+        return zh ? '日记' : 'Diary';
+      case '':
+        return zh ? '记忆' : 'Memories';
+      case 'letter':
+        return zh ? '信笺' : 'Letters';
+      case 'todo':
+        return zh ? '待办' : 'To-dos';
+      case 'board':
+        return zh ? '留言板' : 'The Board';
+      case 'playlog':
+        return zh ? 'Play 记录' : 'Play log';
+      default:
+        return zh ? '其他' : 'Others';
+    }
+  }
+
+  /// Non-empty groups in [_groupOrder] order ('other' last).
+  List<MapEntry<String, List<OurHomeDayItem>>> _grouped() {
+    final map = <String, List<OurHomeDayItem>>{};
+    for (final it in _items) {
+      final key = _groupOrder.contains(it.channel) ? it.channel : 'other';
+      (map[key] ??= []).add(it);
+    }
+    // schedule 的 name 是 HH:MM，字典序＝时间序（无时间的 "日程" 排到最后）。
+    map['schedule']?.sort((a, b) => a.name.compareTo(b.name));
+    return [
+      for (final ch in [..._groupOrder, 'other'])
+        if (map[ch] != null) MapEntry(ch, map[ch]!),
+    ];
+  }
+
+  /// Schedule entry: time chip + one/two lines of text — lighter than a
+  /// memory card, reads like a planner row (spec 2).
+  Widget _scheduleTile(OurHomeDayItem it, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(top: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(
+              color: cs.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              it.name,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: AppFontWeights.semibold,
+                color: cs.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              it.preview,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 13.5,
+                height: 1.4,
+                color: cs.onSurface.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _memoryCard(OurHomeDayItem it, ColorScheme cs) {
+    final hasTitle = it.name.isNotEmpty;
+    final title = hasTitle ? it.name : it.preview;
+    final showPreview = hasTitle && it.preview.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: StillGlass(
+        radius: 14,
+        blur: false,
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.4,
+                fontWeight: AppFontWeights.medium,
+                color: cs.onSurface,
+              ),
+            ),
+            if (showPreview)
+              Padding(
+                padding: const EdgeInsets.only(top: 5),
+                child: Text(
+                  it.preview,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.45,
+                    color: cs.onSurface.withValues(alpha: 0.5),
                   ),
                 ),
-              );
-            }),
-        ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A collapsible day-sheet section: stats-card visual base + an expand/
+/// collapse the stats card never had. Collapsed by default.
+class _DayGroup extends StatefulWidget {
+  const _DayGroup({
+    required this.label,
+    required this.count,
+    required this.children,
+  });
+
+  final String label;
+  final int count;
+  final List<Widget> children;
+
+  @override
+  State<_DayGroup> createState() => _DayGroupState();
+}
+
+class _DayGroupState extends State<_DayGroup> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white10 : Colors.white.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+            width: 0.6,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IosCardPress(
+              onTap: () => setState(() => _expanded = !_expanded),
+              baseColor: Colors.transparent,
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.label,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: AppFontWeights.emphasis,
+                        color: cs.onSurface.withValues(alpha: 0.9),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: cs.primary.withValues(alpha: 0.10),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${widget.count}',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: AppFontWeights.semibold,
+                        color: cs.primary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOutCubic,
+                    child: Icon(
+                      Lucide.ChevronRight,
+                      size: 16,
+                      color: cs.onSurface.withValues(alpha: 0.35),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity, height: 0),
+              secondChild: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: widget.children,
+                ),
+              ),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 220),
+              sizeCurve: Curves.easeInOutCubic,
+            ),
+          ],
+        ),
       ),
     );
   }
