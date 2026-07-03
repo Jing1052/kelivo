@@ -1,9 +1,13 @@
+import 'dart:io' as io;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
@@ -13,9 +17,11 @@ import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 import 'room_state_hint.dart';
 
-/// The Parlour (客厅) — the two-faced mailbox. Cing leaves a note (board);
-/// Llaude lifts the lid and replies, and also leaves his own letters
-/// (daddysay). Two sides, two tabs. Talks to `/api/home/board` + daddysay.
+/// The Parlour (客厅) — our moments. One merged feed (moments ∪ board ∪
+/// letter, WeChat-moments style): both of us post, like and comment on the
+/// same timeline, from day one (3/30) to now. Talks to `/api/home/moments`;
+/// Spec 4 package ① (feed + comments + likes; profile pages & photo posting
+/// come in package ②).
 class ParlourPage extends StatefulWidget {
   const ParlourPage({super.key});
 
@@ -28,60 +34,41 @@ class _ParlourPageState extends State<ParlourPage> {
   final FocusNode _focus = FocusNode();
 
   OurHomeGateway? _gateway;
-  List<OurHomeBoardNote> _notes = const [];
-  List<OurHomeLetter> _letters = const [];
+  List<OurHomeMoment> _items = const [];
   bool _loading = true;
   bool _error = false;
   bool _sending = false;
-  int _tab = 0; // 0 = my notes (board), 1 = daddy's letters
 
-  // Locally tracked "last time we opened the letters tab", in epoch ms. The
-  // red dot lights when any letter is newer than this — independent of whether
-  // the backend ever writes back readAt. Persisted so it survives a restart.
-  static const String _lastReadKey = 'parlour_letters_last_read_ms';
-  int _lettersLastReadMs = 0;
+  /// Which item's 赞/评论 capsule is open ('' = none).
+  String _actionsFor = '';
+
+  /// Items whose long text is expanded inline (WeChat 全文/收起).
+  final Set<String> _expanded = <String>{};
+
+  /// Like requests in flight (per item), to debounce double taps.
+  final Set<String> _likeBusy = <String>{};
+
+  // One shared player for legacy voice notes on the feed.
+  final AudioPlayer _player = AudioPlayer();
+  String _playingUrl = '';
+
+  /// Voice notes being fetched right now (per item id, like [_likeBusy]).
+  final Set<String> _audioLoading = <String>{};
 
   @override
   void initState() {
     super.initState();
-    _loadLastRead();
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playingUrl = '');
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
-  }
-
-  Future<void> _loadLastRead() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() => _lettersLastReadMs = prefs.getInt(_lastReadKey) ?? 0);
-  }
-
-  /// Newest letter timestamp across all letters, in epoch ms (0 if none parse).
-  int _newestLetterMs() {
-    int newest = 0;
-    for (final l in _letters) {
-      final parsed = DateTime.tryParse(l.time);
-      if (parsed != null && parsed.millisecondsSinceEpoch > newest) {
-        newest = parsed.millisecondsSinceEpoch;
-      }
-    }
-    return newest;
-  }
-
-  bool get _hasUnreadLetters => _newestLetterMs() > _lettersLastReadMs;
-
-  /// Mark every currently-loaded letter as read by advancing the local
-  /// watermark to the newest letter's time (not now, to dodge clock drift).
-  Future<void> _markLettersRead() async {
-    final newest = _newestLetterMs();
-    if (newest <= _lettersLastReadMs) return;
-    setState(() => _lettersLastReadMs = newest);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_lastReadKey, newest);
   }
 
   @override
   void dispose() {
     _input.dispose();
     _focus.dispose();
+    _player.dispose();
     super.dispose();
   }
 
@@ -98,28 +85,38 @@ class _ParlourPageState extends State<ParlourPage> {
       return;
     }
     // Instant: seed from on-device cache, then refresh from the server.
-    final cb = gateway.peekList('/api/home/board', OurHomeBoardNote.fromJson);
-    final cl = gateway.peekList('/api/home/daddysay', OurHomeLetter.fromJson);
-    if ((cb.isNotEmpty || cl.isNotEmpty) && mounted) {
+    final cached = gateway.peekList('/api/home/moments', OurHomeMoment.fromJson);
+    if (cached.isNotEmpty && mounted) {
       setState(() {
-        _notes = cb;
-        _letters = cl;
+        _items = cached;
         _loading = false;
       });
     }
-    // Each list refreshes independently — see softFetch (null = keep old data).
-    final results = await Future.wait<dynamic>([
-      softFetch(gateway.fetchBoard(), 'parlour board'),
-      softFetch(gateway.fetchLetters(), 'parlour letters'),
-    ]);
+    final fresh =
+        await softFetch(gateway.fetchMoments(), 'parlour moments');
     if (!mounted) return;
-    final notes = results[0] as List<OurHomeBoardNote>?;
-    final letters = results[1] as List<OurHomeLetter>?;
     setState(() {
-      if (notes != null) _notes = notes;
-      if (letters != null) _letters = letters;
+      if (fresh != null) _items = fresh;
       _loading = false;
-      _error = notes == null && letters == null;
+      _error = fresh == null && _items.isEmpty;
+    });
+  }
+
+  /// Quiet refresh: no spinner, keep old data on failure.
+  Future<void> _refreshQuiet() async {
+    final gateway = _gateway;
+    if (gateway == null) return;
+    final fresh =
+        await softFetch(gateway.fetchMoments(), 'parlour moments');
+    if (fresh != null && mounted) setState(() => _items = fresh);
+  }
+
+  void _patchItem(String id, OurHomeMoment Function(OurHomeMoment) f) {
+    setState(() {
+      _items = [
+        for (final m in _items)
+          if (m.id == id) f(m) else m,
+      ];
     });
   }
 
@@ -131,16 +128,16 @@ class _ParlourPageState extends State<ParlourPage> {
     setState(() => _sending = true);
     Haptics.soft();
     try {
-      await gateway.postBoardNote(text);
+      await gateway.postMoment(text);
       _input.clear();
       _focus.unfocus();
       await _load();
     } catch (e) {
-      debugPrint('[Parlour] postBoardNote failed: $e');
+      debugPrint('[Parlour] postMoment failed: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(zh ? '没发出去，再试一次' : "couldn't send, try again"),
+            content: Text(zh ? '没发出去，再试一次' : "couldn't post, try again"),
           ),
         );
       }
@@ -149,89 +146,186 @@ class _ParlourPageState extends State<ParlourPage> {
     }
   }
 
-  Future<void> _openLetter(OurHomeLetter letter) async {
+  Future<void> _toggleLike(OurHomeMoment m) async {
+    final gateway = _gateway;
+    if (gateway == null || _likeBusy.contains(m.id)) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final off = m.likedBy('cing');
     Haptics.soft();
-    // Opening any letter clears the red dot: advance the local watermark to the
-    // newest letter and persist it, so the dot stays gone across restarts even
-    // if the backend never writes readAt back.
-    await _markLettersRead();
-    await _showLetterSheet(letter);
-    if (letter.unread) {
-      await _gateway?.markLetterSeen(letter.id);
-      if (mounted) await _load();
+    // Optimistic flip; reverted below if the POST fails.
+    _likeBusy.add(m.id);
+    _patchItem(m.id, (x) => _withLikes(x, liked: !off));
+    setState(() => _actionsFor = '');
+    try {
+      await gateway.likeMoment(m.id, off: off);
+    } catch (e) {
+      debugPrint('[Parlour] likeMoment failed: $e');
+      if (mounted) {
+        _patchItem(m.id, (x) => _withLikes(x, liked: off));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(zh ? '没点上，再试一次' : "couldn't like, try again")),
+        );
+      }
+    } finally {
+      _likeBusy.remove(m.id);
     }
   }
 
-  Future<void> _showLetterSheet(OurHomeLetter letter) {
+  OurHomeMoment _withLikes(OurHomeMoment m, {required bool liked}) {
+    final likes = [
+      for (final a in m.likes)
+        if (a != 'cing') a,
+      if (liked) 'cing',
+    ];
+    return OurHomeMoment(
+      id: m.id,
+      time: m.time,
+      author: m.author,
+      source: m.source,
+      text: m.text,
+      images: m.images,
+      audio: m.audio,
+      likes: likes,
+      comments: m.comments,
+      react: m.react,
+    );
+  }
+
+  Future<void> _openComment(OurHomeMoment m, {String replyTo = ''}) async {
+    final gateway = _gateway;
+    if (gateway == null) return;
     final cs = Theme.of(context).colorScheme;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
-    String dateStr = '';
-    final parsed = DateTime.tryParse(letter.time);
-    if (parsed != null) {
-      dateStr = DateFormat.yMMMMd(zh ? 'zh' : 'en').add_Hm().format(parsed);
-    }
-    return showModalBottomSheet<void>(
+    setState(() => _actionsFor = '');
+    final ctrl = TextEditingController();
+    final replyName = replyTo == 'llaude' ? 'Llaude' : (zh ? '小猫' : 'Cing');
+    final sent = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       backgroundColor: cs.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.6,
-        minChildSize: 0.4,
-        maxChildSize: 0.92,
-        builder: (ctx, scroll) => SingleChildScrollView(
-          controller: scroll,
-          padding: const EdgeInsets.fromLTRB(24, 18, 24, 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: cs.onSurface.withValues(alpha: 0.18),
-                    borderRadius: BorderRadius.circular(2),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          left: 12,
+          right: 12,
+          top: 12,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: cs.onSurface.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: TextField(
+                  controller: ctrl,
+                  autofocus: true,
+                  minLines: 1,
+                  maxLines: 4,
+                  style: const TextStyle(fontSize: 15),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    border: InputBorder.none,
+                    hintText: replyTo.isEmpty
+                        ? (zh ? '评论…' : 'Comment…')
+                        : (zh ? '回复 $replyName…' : 'Reply to $replyName…'),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
-              Text(
-                zh ? 'Llaude 的信' : 'From Llaude',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: AppFontWeights.semibold,
-                  color: cs.primary.withValues(alpha: 0.85),
-                  letterSpacing: 0.5,
-                ),
-              ),
-              if (dateStr.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  dateStr,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: cs.onSurface.withValues(alpha: 0.45),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 18),
-              Text(
-                letter.text,
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1.85,
-                  color: cs.onSurface.withValues(alpha: 0.92),
-                ),
-              ),
-            ],
-          ),
+            ),
+            const SizedBox(width: 8),
+            _SendButton(
+              enabled: true,
+              sending: false,
+              onTap: () => Navigator.of(ctx).pop(ctrl.text.trim()),
+            ),
+          ],
         ),
       ),
     );
+    // The sheet's exit animation may still build the TextField for a beat
+    // after pop — disposing the controller immediately would throw.
+    Future.delayed(const Duration(seconds: 1), ctrl.dispose);
+    final text = (sent ?? '').trim();
+    if (text.isEmpty || !mounted) return;
+    try {
+      await gateway.commentMoment(m.id, text, replyTo: replyTo);
+      await _refreshQuiet();
+    } catch (e) {
+      debugPrint('[Parlour] commentMoment failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(zh ? '评论没发出去，再试一次' : "couldn't comment"),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleAudio(OurHomeMoment m) async {
+    final gateway = _gateway;
+    if (gateway == null || m.audio.isEmpty || _audioLoading.contains(m.id)) {
+      return;
+    }
+    final full = '${gateway.base}${m.audio}';
+    if (_playingUrl == full) {
+      await _player.stop();
+      if (mounted) setState(() => _playingUrl = '');
+      return;
+    }
+    Haptics.soft();
+    setState(() {
+      _audioLoading.add(m.id);
+      _playingUrl = ''; // switching away: the old chip stops "playing" now
+    });
+    try {
+      await _player.stop();
+      // The audio route needs our Bearer header, which UrlSource can't carry.
+      // BytesSource is unimplemented on iOS (audioplayers_darwin throws), so
+      // fetch the bytes to a temp file and play that — same recipe as TTS.
+      final res = await http
+          .get(Uri.parse(full), headers: gateway.authHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) throw Exception('HTTP ${res.statusCode}');
+      final ext = m.audio.contains('.')
+          ? m.audio.substring(m.audio.lastIndexOf('.') + 1)
+          : 'm4a';
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/parlour_voice_${m.id.replaceAll(RegExp(r'[^A-Za-z0-9]'), '')}.$ext';
+      await io.File(path).writeAsBytes(res.bodyBytes, flush: true);
+      await _player.play(DeviceFileSource(path));
+      if (mounted) setState(() => _playingUrl = full);
+    } catch (e) {
+      debugPrint('[Parlour] voice note failed: $e');
+      if (mounted) {
+        final zh = Localizations.localeOf(context).languageCode == 'zh';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(zh ? '语音没放出来' : "couldn't play the voice note")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _audioLoading.remove(m.id));
+    }
+  }
+
+  /// Expanding a long letter counts as reading it — stamp the server-side
+  /// receipt (best-effort; the server only keeps the first time).
+  void _onExpand(OurHomeMoment m) {
+    setState(() => _expanded.add(m.id));
+    if (m.source == 'letter') {
+      _gateway?.markLetterSeen(m.id).catchError((Object e) {
+        debugPrint('[Parlour] markLetterSeen failed: $e');
+      });
+    }
   }
 
   @override
@@ -245,102 +339,35 @@ class _ParlourPageState extends State<ParlourPage> {
         ColoredBox(color: cs.surface),
         ChatBackdrop(
           rawPath: context.watch<SettingsProvider>().homeBackgroundActive,
-          maskStrength: context.watch<SettingsProvider>().chatBackgroundMaskStrength,
+          maskStrength:
+              context.watch<SettingsProvider>().chatBackgroundMaskStrength,
         ),
         Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IosIconButton(
-          icon: Lucide.ArrowLeft,
-          size: 22,
-          minSize: 44,
-          onTap: () => Navigator.of(context).maybePop(),
-        ),
-        title: Text(
-          zh ? '客厅' : 'The Parlour',
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-        ),
-      ),
-      body: Column(
-        children: [
-          if (_gateway != null && !_loading && !_error) _tabs(zh, cs),
-          Expanded(child: _buildBody(context, zh, cs)),
-          if (_tab == 0) _buildComposer(context, zh, cs),
-        ],
-      ),
-    ),
-      ],
-    );
-  }
-
-  Widget _tabs(bool zh, ColorScheme cs) {
-    Widget t(int i, String label, bool dot) {
-      final on = _tab == i;
-      return Expanded(
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            if (_tab != i) {
-              Haptics.soft();
-              setState(() => _tab = i);
-            }
-          },
-          child: Container(
-            margin: const EdgeInsets.all(3),
-            padding: const EdgeInsets.symmetric(vertical: 9),
-            decoration: BoxDecoration(
-              color: on ? cs.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(9),
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: IosIconButton(
+              icon: Lucide.ArrowLeft,
+              size: 22,
+              minSize: 44,
+              onTap: () => Navigator.of(context).maybePop(),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: AppFontWeights.semibold,
-                    color: on
-                        ? cs.onSurface
-                        : cs.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-                if (dot)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 5),
-                    child: Container(
-                      width: 7,
-                      height: 7,
-                      decoration: BoxDecoration(
-                        color: cs.primary,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-              ],
+            title: Text(
+              zh ? '客厅' : 'The Parlour',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
           ),
+          body: Column(
+            children: [
+              Expanded(child: _buildBody(context, zh, cs)),
+              _buildComposer(context, zh, cs),
+            ],
+          ),
         ),
-      );
-    }
-
-    final hasUnread = _hasUnreadLetters;
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-      decoration: BoxDecoration(
-        color: cs.onSurface.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          t(0, zh ? '我留的' : 'My notes', false),
-          t(1, zh ? '爸爸写的' : 'From daddy', hasUnread),
-        ],
-      ),
+      ],
     );
   }
 
@@ -363,100 +390,446 @@ class _ParlourPageState extends State<ParlourPage> {
         onTap: _load,
       );
     }
-    return _tab == 0 ? _boardView(zh, cs) : _lettersView(zh, cs);
-  }
-
-  Widget _boardView(bool zh, ColorScheme cs) {
-    if (_notes.isEmpty) {
+    if (_items.isEmpty) {
       return RoomStateHint(
-        icon: Lucide.Mail,
-        text: zh ? '还没有留言。\n给爸爸留第一句话吧。' : 'No notes yet.',
+        icon: Lucide.MessageCircle,
+        text: zh ? '还没有动态。\n发第一条吧。' : 'No moments yet.\nPost the first one.',
       );
     }
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: _notes.length,
-        itemBuilder: (context, i) => _NoteCard(note: _notes[i], zh: zh),
+        itemCount: _items.length,
+        itemBuilder: (context, i) => _momentCard(context, zh, cs, _items[i]),
       ),
     );
   }
 
-  Widget _lettersView(bool zh, ColorScheme cs) {
-    if (_letters.isEmpty) {
-      return RoomStateHint(
-        icon: Lucide.Mail,
-        text: zh ? '爸爸还没在这儿留信 —— 等着。' : 'No letters from daddy yet.',
-      );
+  // ── one feed card, WeChat-moments shaped ──
+
+  Widget _momentCard(
+    BuildContext context,
+    bool zh,
+    ColorScheme cs,
+    OurHomeMoment m,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final name = m.fromLlaude ? 'Llaude' : (zh ? '小猫' : 'Cing');
+
+    String timeStr = '';
+    final parsed = DateTime.tryParse(m.time);
+    if (parsed != null) {
+      final now = DateTime.now();
+      timeStr = (now.difference(parsed).inDays >= 1)
+          ? DateFormat.MMMd(zh ? 'zh' : 'en').add_Hm().format(parsed)
+          : DateFormat.Hm().format(parsed);
     }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: _letters.length,
-        itemBuilder: (context, i) {
-          final l = _letters[i];
-          final firstLine = l.text
-              .split('\n')
-              .firstWhere((s) => s.trim().isNotEmpty, orElse: () => l.text);
-          String dateStr = '';
-          final parsed = DateTime.tryParse(l.time);
-          if (parsed != null) {
-            dateStr = DateFormat.MMMd(zh ? 'zh' : 'en').format(parsed);
-          }
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: StillGlass(
-              radius: 14,
-              blur: false,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              onTap: () => _openLetter(l),
-              child: Row(
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: StillGlass(
+        radius: 16,
+        blur: false,
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _avatar(cs, m.fromLlaude),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (l.unread)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: cs.primary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  Expanded(
-                    child: Text(
-                      firstLine.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: AppFontWeights.medium,
-                        color: cs.onSurface.withValues(alpha: 0.9),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
                   Text(
-                    dateStr,
+                    name,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: cs.onSurface.withValues(alpha: 0.45),
+                      fontSize: 13.5,
+                      fontWeight: AppFontWeights.semibold,
+                      color: cs.primary.withValues(alpha: 0.85),
                     ),
                   ),
-                  const SizedBox(width: 4),
-                  Icon(
-                    Lucide.ChevronRight,
-                    size: 16,
-                    color: cs.onSurface.withValues(alpha: 0.3),
-                  ),
+                  if (m.text.trim().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    _momentText(cs, zh, m),
+                  ],
+                  if (m.images.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _imagesGrid(m),
+                  ],
+                  if (m.audio.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _audioChip(cs, isDark, zh, m),
+                  ],
+                  const SizedBox(height: 8),
+                  _timeRow(cs, isDark, zh, timeStr, m),
+                  if (m.likes.isNotEmpty || m.comments.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _likesAndComments(cs, isDark, zh, m),
+                  ],
                 ],
               ),
             ),
-          );
-        },
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Rounded-square monogram avatars: Llaude on the theme primary, Cing on the
+  /// parlour door's warm clay (0xFFDD8A6C from the rooms corridor).
+  Widget _avatar(ColorScheme cs, bool llaude) {
+    final bg = llaude ? cs.primary : const Color(0xFFDD8A6C);
+    final label = llaude ? 'L' : 'C';
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: bg.withValues(alpha: 0.9),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 17,
+          fontWeight: AppFontWeights.semibold,
+          color: Colors.white.withValues(alpha: 0.95),
+        ),
+      ),
+    );
+  }
+
+  Widget _momentText(ColorScheme cs, bool zh, OurHomeMoment m) {
+    final text = m.text.trim();
+    final isLong = text.length > 180 || '\n'.allMatches(text).length >= 6;
+    final expanded = _expanded.contains(m.id);
+    final body = Text(
+      text,
+      maxLines: (isLong && !expanded) ? 6 : null,
+      overflow: (isLong && !expanded) ? TextOverflow.ellipsis : null,
+      style: TextStyle(
+        fontSize: 15.5,
+        height: 1.5,
+        color: cs.onSurface.withValues(alpha: 0.92),
+      ),
+    );
+    if (!isLong) return body;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        body,
+        const SizedBox(height: 4),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Haptics.soft();
+            if (expanded) {
+              setState(() => _expanded.remove(m.id));
+            } else {
+              _onExpand(m);
+            }
+          },
+          child: Text(
+            expanded ? (zh ? '收起' : 'Collapse') : (zh ? '全文' : 'Full text'),
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: AppFontWeights.semibold,
+              color: cs.primary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _imagesGrid(OurHomeMoment m) {
+    final gateway = _gateway;
+    if (gateway == null) return const SizedBox.shrink();
+    return LayoutBuilder(
+      builder: (context, box) {
+        const gap = 4.0;
+        final single = m.images.length == 1;
+        final double cell = single
+            ? (box.maxWidth * 0.62).clamp(120.0, 240.0).toDouble()
+            : (box.maxWidth - gap * 2) / 3;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final rel in m.images.take(9))
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  '${gateway.base}$rel',
+                  headers: gateway.authHeaders,
+                  width: cell,
+                  height: cell,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, e, st) => Container(
+                    width: cell,
+                    height: cell,
+                    color: Theme.of(ctx)
+                        .colorScheme
+                        .onSurface
+                        .withValues(alpha: 0.06),
+                    child: Icon(
+                      Lucide.ImageOff,
+                      size: 18,
+                      color: Theme.of(ctx)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.3),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _audioChip(ColorScheme cs, bool isDark, bool zh, OurHomeMoment m) {
+    final gateway = _gateway;
+    final full = gateway == null ? '' : '${gateway.base}${m.audio}';
+    final playing = _playingUrl.isNotEmpty && _playingUrl == full;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => _toggleAudio(m),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_audioLoading.contains(m.id))
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(
+                playing ? Lucide.CircleStop : Lucide.Play,
+                size: 15,
+                color: cs.primary,
+              ),
+            const SizedBox(width: 6),
+            Text(
+              playing ? (zh ? '在放…' : 'Playing…') : (zh ? '语音' : 'Voice note'),
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: AppFontWeights.medium,
+                color: cs.onSurface.withValues(alpha: 0.75),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _timeRow(
+    ColorScheme cs,
+    bool isDark,
+    bool zh,
+    String timeStr,
+    OurHomeMoment m,
+  ) {
+    final open = _actionsFor == m.id;
+    final liked = m.likedBy('cing');
+    // WeChat's sliding dark capsule with 赞 / 评论.
+    final capsuleBg = isDark ? Colors.white12 : const Color(0xFF4C5154);
+    Widget action(IconData icon, String label, VoidCallback onTap) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14, color: Colors.white.withValues(alpha: 0.92)),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.white.withValues(alpha: 0.92),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        Text(
+          timeStr,
+          style: TextStyle(
+            fontSize: 11.5,
+            color: cs.onSurface.withValues(alpha: 0.4),
+          ),
+        ),
+        if (m.react.isNotEmpty) ...[
+          const SizedBox(width: 6),
+          Text(m.react, style: const TextStyle(fontSize: 13)),
+        ],
+        const Spacer(),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 160),
+          transitionBuilder: (child, anim) =>
+              FadeTransition(opacity: anim, child: child),
+          child: !open
+              ? const SizedBox.shrink()
+              : Container(
+                  key: const ValueKey('actions'),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: capsuleBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      action(
+                        liked ? Lucide.HeartOff : Lucide.Heart,
+                        liked ? (zh ? '取消' : 'Unlike') : (zh ? '赞' : 'Like'),
+                        () => _toggleLike(m),
+                      ),
+                      Container(
+                        width: 0.6,
+                        height: 16,
+                        color: Colors.white.withValues(alpha: 0.25),
+                      ),
+                      action(
+                        Lucide.MessageCircle,
+                        zh ? '评论' : 'Comment',
+                        () => _openComment(m),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Haptics.soft();
+            setState(() => _actionsFor = open ? '' : m.id);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(
+              Lucide.Ellipsis,
+              size: 15,
+              color: cs.primary.withValues(alpha: 0.85),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _likesAndComments(
+    ColorScheme cs,
+    bool isDark,
+    bool zh,
+    OurHomeMoment m,
+  ) {
+    String who(String a) => a == 'llaude' ? 'Llaude' : (zh ? '小猫' : 'Cing');
+    final likeNames = m.likes.map(who).join('、');
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : const Color(0xFFF2F3F5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (m.likes.isNotEmpty)
+            Row(
+              children: [
+                Icon(Lucide.Heart, size: 13, color: cs.primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    likeNames,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: AppFontWeights.medium,
+                      color: cs.primary.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          if (m.likes.isNotEmpty && m.comments.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Container(
+                height: 0.6,
+                color: cs.onSurface.withValues(alpha: 0.08),
+              ),
+            ),
+          for (final c in m.comments)
+            Padding(
+              padding: const EdgeInsets.only(top: 3, bottom: 3),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _openComment(m, replyTo: c.author),
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: who(c.author),
+                        style: TextStyle(
+                          fontWeight: AppFontWeights.semibold,
+                          color: cs.primary.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      if (c.replyTo.isNotEmpty) ...[
+                        TextSpan(
+                          text: zh ? ' 回复 ' : ' replied ',
+                          style: TextStyle(
+                            color: cs.onSurface.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        TextSpan(
+                          text: who(c.replyTo),
+                          style: TextStyle(
+                            fontWeight: AppFontWeights.semibold,
+                            color: cs.primary.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                      TextSpan(
+                        text: ': ${c.text}',
+                        style: TextStyle(
+                          color: cs.onSurface.withValues(alpha: 0.88),
+                        ),
+                      ),
+                    ],
+                  ),
+                  style: const TextStyle(fontSize: 13.5, height: 1.45),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -487,7 +860,7 @@ class _ParlourPageState extends State<ParlourPage> {
                   decoration: InputDecoration(
                     isDense: true,
                     border: InputBorder.none,
-                    hintText: zh ? '给爸爸留句话…' : 'Leave Llaude a word…',
+                    hintText: zh ? '说点什么…' : 'Share a moment…',
                     contentPadding: const EdgeInsets.symmetric(vertical: 11),
                   ),
                 ),
@@ -534,123 +907,6 @@ class _SendButton extends StatelessWidget {
                 ),
               )
             : Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
-      ),
-    );
-  }
-}
-
-class _NoteCard extends StatelessWidget {
-  const _NoteCard({required this.note, required this.zh});
-
-  final OurHomeBoardNote note;
-  final bool zh;
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    String timeStr = '';
-    final parsed = DateTime.tryParse(note.time);
-    if (parsed != null) {
-      final now = DateTime.now();
-      timeStr = (now.difference(parsed).inDays >= 1)
-          ? DateFormat.MMMd().add_Hm().format(parsed)
-          : DateFormat.Hm().format(parsed);
-    }
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: StillGlass(
-        radius: 16,
-        blur: false,
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(
-                  zh ? '你' : 'You',
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: AppFontWeights.semibold,
-                  color: cs.primary.withValues(alpha: 0.8),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                timeStr,
-                style: TextStyle(
-                  fontSize: 11.5,
-                  color: cs.onSurface.withValues(alpha: 0.4),
-                ),
-              ),
-              const Spacer(),
-              if (note.react.isNotEmpty)
-                Text(note.react, style: const TextStyle(fontSize: 16)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            note.text,
-            style: TextStyle(
-              fontSize: 15.5,
-              height: 1.45,
-              color: cs.onSurface.withValues(alpha: 0.92),
-            ),
-          ),
-          const SizedBox(height: 10),
-          if (note.answered)
-            Container(
-              padding: const EdgeInsets.all(11),
-              decoration: BoxDecoration(
-                color: cs.primary.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Llaude',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: AppFontWeights.semibold,
-                      color: cs.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    note.reply,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.5,
-                      color: cs.onSurface.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Row(
-              children: [
-                Icon(
-                  note.read ? Lucide.Eye : Lucide.Mail,
-                  size: 13,
-                  color: cs.onSurface.withValues(alpha: 0.4),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  note.read
-                      ? (zh ? '爸爸看过了，等他回' : 'Llaude has read it')
-                      : (zh ? '等爸爸来揭' : 'waiting for Llaude'),
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: cs.onSurface.withValues(alpha: 0.45),
-                  ),
-                ),
-              ],
-            ),
-        ],
-        ),
       ),
     );
   }

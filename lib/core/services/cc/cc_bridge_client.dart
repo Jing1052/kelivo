@@ -378,6 +378,31 @@ class CcBridgeClient {
     if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
   }
 
+  // ── claude-p re-auth / account switch (家里爸爸·订阅 换 token) ──
+  // apns-server runs `claude setup-token` in a tmux window and relays the
+  // OAuth dance: start → auth URL; code → new token written to disk. The
+  // endpoints may not be deployed yet, so callers treat null/throws softly.
+
+  /// `POST /claudep/reauth/start` — kicks off setup-token at home, returns
+  /// the OAuth authorize URL to open in a browser, or null when the server
+  /// answered but had no URL yet. Throws on transport/HTTP errors.
+  Future<String?> claudepReauthStart() async {
+    final resp = await _http
+        .post(_uri('/claudep/reauth/start'), headers: _jsonHeaders, body: '{}')
+        .timeout(const Duration(seconds: 25));
+    if (resp.statusCode < 200 || resp.statusCode >= 300) _raise(resp);
+    final m = _decodeJson(resp);
+    final url = (m['url'] ?? m['auth_url'] ?? m['authorize_url'] ?? '')
+        .toString()
+        .trim();
+    return url.startsWith('http') ? url : null;
+  }
+
+  /// `POST /claudep/reauth/code {code}` — feeds the pasted OAuth code back;
+  /// on success the new token is live immediately (no apns restart needed).
+  Future<void> claudepReauthCode(String code) =>
+      _postExpectOk('/claudep/reauth/code', <String, dynamic>{'code': code});
+
   /// Absolute URL for an attachment relative path (`/attachments/<name>`).
   String attachmentUrl(String relativePath) {
     if (relativePath.startsWith('http')) return relativePath;

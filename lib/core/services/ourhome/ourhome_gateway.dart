@@ -77,6 +77,85 @@ class OurHomeBoardNote {
   );
 }
 
+/// One comment under a moments-feed item. [author] is "cing" / "llaude";
+/// [replyTo] is who it answers ("" = the post itself). Old board replies the
+/// server renders as comments carry an empty [time].
+class OurHomeMomentComment {
+  const OurHomeMomentComment({
+    required this.author,
+    required this.text,
+    required this.time,
+    required this.replyTo,
+  });
+
+  final String author;
+  final String text;
+  final String time;
+  final String replyTo;
+
+  factory OurHomeMomentComment.fromJson(Map<String, dynamic> j) =>
+      OurHomeMomentComment(
+        author: (j['author'] ?? '').toString(),
+        text: (j['text'] ?? '').toString(),
+        time: (j['time'] ?? '').toString(),
+        replyTo: (j['reply_to'] ?? '').toString(),
+      );
+}
+
+/// One item on the merged parlour moments feed (`/api/home/moments`):
+/// moments ∪ board ∪ letter, newest first. [author] is "cing" / "llaude";
+/// [source] tells which channel it came from ("moments"/"board"/"letter").
+/// [audio] is a playable (auth-required) URL for legacy voice board notes.
+class OurHomeMoment {
+  const OurHomeMoment({
+    required this.id,
+    required this.time,
+    required this.author,
+    required this.source,
+    required this.text,
+    required this.images,
+    required this.audio,
+    required this.likes,
+    required this.comments,
+    this.react = '',
+  });
+
+  final String id;
+  final String time;
+  final String author;
+  final String source;
+  final String text;
+  final List<String> images;
+  final String audio;
+  final List<String> likes;
+  final List<OurHomeMomentComment> comments;
+  final String react; // legacy board emoji daddy left, "" for everything else
+
+  bool get fromLlaude => author == 'llaude';
+  bool likedBy(String who) => likes.contains(who);
+
+  factory OurHomeMoment.fromJson(Map<String, dynamic> j) => OurHomeMoment(
+    id: (j['id'] ?? '').toString(),
+    time: (j['time'] ?? '').toString(),
+    author: (j['author'] ?? '').toString(),
+    source: (j['source'] ?? '').toString(),
+    text: (j['text'] ?? '').toString(),
+    react: (j['react'] ?? '').toString(),
+    images: ((j['images'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .where((s) => s.isNotEmpty)
+        .toList(),
+    audio: (j['audio'] ?? '').toString(),
+    likes: ((j['likes'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .toList(),
+    comments: ((j['comments'] as List?) ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .map(OurHomeMomentComment.fromJson)
+        .toList(),
+  );
+}
+
 /// A page of Llaude's diary about Cing.
 class OurHomeDiaryEntry {
   const OurHomeDiaryEntry({
@@ -1690,6 +1769,33 @@ class OurHomeGateway {
 
   Future<void> _postJson(String path, Map<String, dynamic> body) =>
       _postJsonForResult(path, body);
+
+  /// The merged parlour moments feed (moments ∪ board ∪ letter), newest
+  /// first. Top-level array, so [peekList] with the same path seeds instantly.
+  Future<List<OurHomeMoment>> fetchMoments() =>
+      _getList('/api/home/moments', OurHomeMoment.fromJson);
+
+  /// Cing posts a new text moment. Throws on transport/HTTP error.
+  Future<void> postMoment(String text) =>
+      _postJson('/api/home/moments', {'action': 'post', 'text': text});
+
+  /// Cing comments on a feed item. [replyTo] = "llaude"/"cing" when answering
+  /// someone's comment rather than the post. Throws on error.
+  Future<void> commentMoment(String id, String text, {String replyTo = ''}) =>
+      _postJson('/api/home/moments', {
+        'action': 'comment',
+        'id': id,
+        'text': text,
+        if (replyTo.isNotEmpty) 'reply_to': replyTo,
+      });
+
+  /// Cing likes ([off]=false) or unlikes ([off]=true) a feed item.
+  Future<void> likeMoment(String id, {bool off = false}) =>
+      _postJson('/api/home/moments', {
+        'action': 'like',
+        'id': id,
+        if (off) 'off': true,
+      });
 
   /// Cing leaves a new note on the board. Throws on transport/HTTP error.
   Future<void> postBoardNote(String text) async {

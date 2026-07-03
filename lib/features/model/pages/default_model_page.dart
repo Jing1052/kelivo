@@ -15,6 +15,10 @@ import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/core/services/api/daddy_gateway_route.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../shared/widgets/ios_switch.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../../core/providers/cc_bridge_provider.dart';
+import '../../../core/services/cc/cc_bridge_client.dart';
 
 class DefaultModelPage extends StatelessWidget {
   const DefaultModelPage({super.key});
@@ -139,6 +143,8 @@ class DefaultModelPage extends StatelessWidget {
           const _TgGatewayCard(),
           const SizedBox(height: 16),
           const _CcRingGatewayCard(),
+          const SizedBox(height: 16),
+          const _ClaudepReauthCard(),
           const SizedBox(height: 16),
           const _ImageModelGatewayCard(),
         ],
@@ -1237,6 +1243,382 @@ class _CcRingGatewayCardState extends State<_CcRingGatewayCard> {
                 ),
                 modelBody,
               ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// claude-p re-auth / account-switch card（家里爸爸·订阅 换 token）。
+/// Walks the OAuth dance against apns-server at home: fetch the authorize
+/// URL (she logs in — same account = renew, another account = switch/rescue),
+/// paste the code back, and the new token is live immediately (claudep_ext
+/// re-reads the token file per request; no apns restart). Endpoints may be
+/// undeployed or the home box offline — everything degrades to gentle hints.
+class _ClaudepReauthCard extends StatefulWidget {
+  const _ClaudepReauthCard();
+
+  @override
+  State<_ClaudepReauthCard> createState() => _ClaudepReauthCardState();
+}
+
+class _ClaudepReauthCardState extends State<_ClaudepReauthCard> {
+  bool _busy = false;
+  bool _done = false;
+  String _authUrl = '';
+  final TextEditingController _code = TextEditingController();
+
+  bool get _isZh => Localizations.localeOf(context).languageCode == 'zh';
+
+  @override
+  void dispose() {
+    _code.dispose();
+    super.dispose();
+  }
+
+  /// A live client for the home apns-server: the provider's active endpoint
+  /// when connected, else the first config candidate whose /health answers.
+  Future<CcBridgeClient?> _client() async {
+    final cc = context.read<CcBridgeProvider>();
+    if (!cc.isConfigured) return null;
+    final active = cc.activeBaseUrl;
+    if (active != null && active.isNotEmpty) {
+      return CcBridgeClient(
+        baseUrl: active,
+        sharedSecret: cc.config.sharedSecret,
+      );
+    }
+    for (final ep in cc.config.endpoints) {
+      if (ep.trim().isEmpty) continue;
+      final c = CcBridgeClient(
+        baseUrl: ep,
+        sharedSecret: cc.config.sharedSecret,
+      );
+      if (await c.health()) return c;
+      c.dispose();
+    }
+    return null;
+  }
+
+  void _toast(String zhMsg, String enMsg, {bool ok = false}) {
+    if (!mounted) return;
+    showAppSnackBar(
+      context,
+      message: _isZh ? zhMsg : enMsg,
+      type: ok ? NotificationType.success : NotificationType.error,
+    );
+  }
+
+  Future<void> _start() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _done = false;
+    });
+    Haptics.soft();
+    CcBridgeClient? c;
+    try {
+      c = await _client();
+      if (c == null) {
+        _toast(
+          '连不上家里——先在「CC 桥接」里配好地址，或等家里上线',
+          'Home unreachable — set up the CC bridge first',
+        );
+        return;
+      }
+      final url = await c.claudepReauthStart();
+      if (!mounted) return;
+      if (url == null) {
+        _toast('家里没抓到授权链接，稍等几秒再试', 'No auth URL yet, try again');
+        return;
+      }
+      setState(() => _authUrl = url);
+    } on CcAuthException {
+      _toast('家里的口令对不上（检查 CC 桥接的 shared secret）',
+          'Auth failed — check the CC bridge shared secret');
+    } catch (e) {
+      _toast('家里还没就绪：$e', 'Home not ready: $e');
+    } finally {
+      c?.dispose();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    final code = _code.text.trim();
+    if (code.isEmpty || _busy) return;
+    setState(() => _busy = true);
+    Haptics.soft();
+    CcBridgeClient? c;
+    try {
+      c = await _client();
+      if (c == null) {
+        _toast('连不上家里，稍后再交 code', 'Home unreachable');
+        return;
+      }
+      await c.claudepReauthCode(code);
+      if (!mounted) return;
+      setState(() {
+        _done = true;
+        _authUrl = '';
+        _code.clear();
+      });
+      _toast('换好了——立刻生效，直接找家里爸爸说句话验证', 'Token swapped — live now', ok: true);
+    } on CcAuthException {
+      _toast('家里的口令对不上（检查 CC 桥接的 shared secret）',
+          'Auth failed — check the CC bridge shared secret');
+    } catch (e) {
+      _toast('没换成：$e', 'Swap failed: $e');
+    } finally {
+      c?.dispose();
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isZh = _isZh;
+    final baseBg = isDark
+        ? Colors.white10
+        : Colors.white.withValues(alpha: 0.96);
+    final innerBg = isDark ? Colors.white10 : const Color(0xFFF2F3F5);
+
+    final startRow = _TactileRow(
+      onTap: _start,
+      builder: (pressed) {
+        final overlay = isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.05);
+        final pressedBg = Color.alphaBlend(overlay, innerBg);
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: pressed ? pressedBg : innerBg,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              if (_busy)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                Icon(Lucide.Link, size: 16, color: cs.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _busy
+                      ? (isZh ? '正在联系家里…' : 'Calling home…')
+                      : (isZh ? '获取授权链接' : 'Get authorize link'),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: baseBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: cs.outlineVariant.withValues(alpha: isDark ? 0.08 : 0.06),
+          width: 0.6,
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Lucide.KeyRound, size: 18, color: cs.onSurface),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isZh ? '家里爸爸 · 重新授权 / 换号' : 'claude-p re-auth / switch',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: AppFontWeights.semibold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              isZh
+                  ? '订阅掉线、token 过期、或想换一个订阅号时用：拿链接 → 浏览器登录（登哪个号就是哪个号）→ 把 code 贴回来，立刻生效，不用重启。'
+                  : 'Renew the home subscription token or switch to another '
+                        'account: open the link, log in, paste the code back. '
+                        'Live immediately.',
+              style: TextStyle(
+                fontSize: 11.5,
+                height: 1.5,
+                color: cs.onSurface.withValues(alpha: 0.6),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (_authUrl.isEmpty) startRow,
+            if (_done) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Lucide.CheckCircle, size: 15, color: cs.primary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      isZh
+                          ? '换好了——去「家里爸爸·订阅」发句话验证。'
+                          : 'Swapped — say hi to verify.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: cs.onSurface.withValues(alpha: 0.75),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            if (_authUrl.isNotEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: innerBg,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SelectableText(
+                      _authUrl,
+                      maxLines: 3,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: cs.onSurface.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        _TactileIconButton(
+                          icon: Lucide.Copy,
+                          color: cs.primary,
+                          size: 18,
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: _authUrl));
+                            _toast('链接已复制', 'Copied', ok: true);
+                          },
+                        ),
+                        const SizedBox(width: 4),
+                        _TactileIconButton(
+                          icon: Lucide.Globe,
+                          color: cs.primary,
+                          size: 18,
+                          onTap: () => launchUrl(
+                            Uri.parse(_authUrl),
+                            mode: LaunchMode.externalApplication,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text(
+                          isZh ? '复制 / 打开' : 'copy / open',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: cs.onSurface.withValues(alpha: 0.45),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                isZh
+                    ? '⚠️ 用惯用网络登录授权，别在陌生 IP 登。'
+                    : '⚠️ Log in from your usual network.',
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: innerBg,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        controller: _code,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          hintText: isZh ? '把 code 整段贴这里' : 'Paste the code',
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 11),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _TactileRow(
+                    onTap: _busy ? () {} : _submit,
+                    builder: (pressed) => AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 11,
+                      ),
+                      decoration: BoxDecoration(
+                        color: pressed
+                            ? cs.primary.withValues(alpha: 0.8)
+                            : cs.primary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: _busy
+                          ? SizedBox(
+                              width: 14,
+                              height: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: cs.onPrimary,
+                              ),
+                            )
+                          : Text(
+                              isZh ? '提交' : 'Submit',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: AppFontWeights.semibold,
+                                color: cs.onPrimary,
+                              ),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ],
         ),
