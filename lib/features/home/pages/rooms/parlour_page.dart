@@ -709,75 +709,80 @@ class _ParlourPageState extends State<ParlourPage> {
       );
     }
 
-    return Row(
-      children: [
-        Text(
-          timeStr,
-          style: TextStyle(
-            fontSize: 11.5,
-            color: cs.onSurface.withValues(alpha: 0.4),
+    // Fixed height: the 赞/评论 capsule is taller than the ··· button, so
+    // without it the whole card grows/shrinks whenever the capsule toggles.
+    return SizedBox(
+      height: 32,
+      child: Row(
+        children: [
+          Text(
+            timeStr,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: cs.onSurface.withValues(alpha: 0.4),
+            ),
           ),
-        ),
-        if (m.react.isNotEmpty) ...[
-          const SizedBox(width: 6),
-          Text(m.react, style: const TextStyle(fontSize: 13)),
+          if (m.react.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(m.react, style: const TextStyle(fontSize: 13)),
+          ],
+          const Spacer(),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 160),
+            transitionBuilder: (child, anim) =>
+                FadeTransition(opacity: anim, child: child),
+            child: !open
+                ? const SizedBox.shrink()
+                : Container(
+                    key: const ValueKey('actions'),
+                    margin: const EdgeInsets.only(right: 8),
+                    decoration: BoxDecoration(
+                      color: capsuleBg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        action(
+                          liked ? Lucide.HeartOff : Lucide.Heart,
+                          liked ? (zh ? '取消' : 'Unlike') : (zh ? '赞' : 'Like'),
+                          () => _toggleLike(m),
+                        ),
+                        Container(
+                          width: 0.6,
+                          height: 16,
+                          color: Colors.white.withValues(alpha: 0.25),
+                        ),
+                        action(
+                          Lucide.MessageCircle,
+                          zh ? '评论' : 'Comment',
+                          () => _openComment(m),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {
+              Haptics.soft();
+              setState(() => _actionsFor = open ? '' : m.id);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Icon(
+                Lucide.Ellipsis,
+                size: 15,
+                color: cs.primary.withValues(alpha: 0.85),
+              ),
+            ),
+          ),
         ],
-        const Spacer(),
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 160),
-          transitionBuilder: (child, anim) =>
-              FadeTransition(opacity: anim, child: child),
-          child: !open
-              ? const SizedBox.shrink()
-              : Container(
-                  key: const ValueKey('actions'),
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: BoxDecoration(
-                    color: capsuleBg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      action(
-                        liked ? Lucide.HeartOff : Lucide.Heart,
-                        liked ? (zh ? '取消' : 'Unlike') : (zh ? '赞' : 'Like'),
-                        () => _toggleLike(m),
-                      ),
-                      Container(
-                        width: 0.6,
-                        height: 16,
-                        color: Colors.white.withValues(alpha: 0.25),
-                      ),
-                      action(
-                        Lucide.MessageCircle,
-                        zh ? '评论' : 'Comment',
-                        () => _openComment(m),
-                      ),
-                    ],
-                  ),
-                ),
-        ),
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            Haptics.soft();
-            setState(() => _actionsFor = open ? '' : m.id);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: isDark ? Colors.white10 : const Color(0xFFF2F3F5),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              Lucide.Ellipsis,
-              size: 15,
-              color: cs.primary.withValues(alpha: 0.85),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
