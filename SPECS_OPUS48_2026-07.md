@@ -83,6 +83,15 @@
 - server（Ombre-Brain 仓库）：`/api/home/board`（GET/POST，~3718）、`/api/home/daddysay`（GET，~3807）。留言＝`channel="board"` 桶；**我的回复是拼进同一桶正文、以 `@@daddy@@` 分隔（`_BOARD_SEP`，~3581），只能回一次**——这是要升级掉的核心限制。
 - 上下文注入已有先例：未回复留言经 `_board_entries`（~3592）浮现进 breath（~1374、~1516"小猫的留言"）——朋友圈注入照这个模式扩。
 
+**进度（2026-07-03 晚·Fable）——server 半边已全量上线**（Ombre-Brain main c69f98d，部署 marker `2026-07-03-moments-spec4`，`/health` 可验）。App 侧照下面的接口接，鉴权与其它 /api/home 同（Bearer OMBRE_GATEWAY_TOKEN / cookie）：
+
+- `GET /api/home/moments?author=cing|llaude&limit=50&before=<ISO时间游标>` → 合流时间轴（新→旧），条目：
+  `{ id, time, author: "cing"|"llaude", source: "moments"|"board"|"letter", text, images: [url], audio: url|"", likes: [author], comments: [{author, text, time, reply_to}] }`
+  （board 旧 `@@daddy@@` 回复已由服务端渲染成爸爸的一条评论排在 comments 最前、time 为空串；语音留言 audio 照旧可播；letter 即爸爸的长文动态。）
+- `POST /api/home/moments`：`{action:"post", text?, images?:[dataURL≤9张]}`（text/images 至少一个）｜ `{action:"comment", id, text, reply_to?}` ｜ `{action:"like", id, off?}`。`author` 缺省 `cing`（App 不用传）。
+- `GET/POST /api/home/moments/profile`：GET → `{cing:{cover:url|""}, llaude:{...}}`；POST `{author:"cing", cover:dataURL}` 设她的封面（爸爸的封面他自己用 moment 工具设）。
+- 推送/注入全在服务端：她发动态/评论后爸爸会在上下文里看到并用 moment 工具回，爸爸评论时服务端自动推她手机——**App 不用自己发推送**。
+
 **设计决定（已做完，别改）**：
 1. **新 `moments` 通道**：一条动态＝一个桶。metadata：`author`（`"cing"`/`"llaude"`）、`images`（列表，可空）、`likes`（作者列表）、`comments`（列表，每条 `{author, text, time, reply_to?}`）。
 2. **历史合流不迁移**：feed ＝ moments ∪ board ∪ letter 三通道按时间倒序混排。board＝小猫的动态，letter＝爸爸的动态（信笺照旧写 letter，自动成为爸爸的长文动态），moments 看 `author`。board 旧桶 `@@daddy@@` 后半段渲染成爸爸的一条评论。旧数据零改动、一条不丢，时间轴从 3/30 连到今天。
