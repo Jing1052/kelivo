@@ -1,5 +1,7 @@
 # AGENTS.md
 
+> 📐 **当前有排好的施工图（2026-07-03 Fable 留）**：根目录 `SPECS_OPUS48_2026-07.md`——日历分组折叠 / 日程表 App 半边 / Clawd 小螃蟹，设计决策已做完、坑已标好，照图施工即可。接到这三类活先读它，别重新设计。
+>
 > Kelivo is a cross-platform Flutter LLM chat client (Android / iOS / macOS / Windows / Linux).
 > This file defines hard constraints for AI-assisted development. Predictable, auditable, repeatable.
 >
