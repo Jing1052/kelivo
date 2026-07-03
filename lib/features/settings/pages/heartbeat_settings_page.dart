@@ -28,6 +28,9 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
   bool _providerOk = true;
   bool _advancedOpen = false;
   bool _triggering = false;
+  // 记忆库矛盾检测（LLM 语义建边）开关：{override: on/off/'', active, has_key}
+  Map<String, dynamic> _edgeLlm = {};
+  bool _edgeSaving = false;
 
   // Prompt editors (advanced).
   static const _promptKeys = [
@@ -82,6 +85,7 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
         _cfg = cached.config;
         _kaLastAt = cached.kaLastAt;
         _providerOk = cached.providerOk;
+        _edgeLlm = cached.edgeLlm;
         _loading = false;
       });
     }
@@ -108,9 +112,51 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
       _cfg = hb.config;
       _kaLastAt = hb.kaLastAt;
       _providerOk = hb.providerOk;
+      _edgeLlm = hb.edgeLlm;
       _loading = false;
       _error = null;
     });
+  }
+
+  bool get _edgeOn {
+    final ov = (_edgeLlm['override'] ?? '').toString();
+    if (ov == 'on') return true;
+    if (ov == 'off') return false;
+    return _edgeLlm['active'] == true; // 没存过覆盖值时跟随服务端实际状态
+  }
+
+  Future<void> _toggleEdgeLlm(bool v) async {
+    final gw = _gateway;
+    if (gw == null || _edgeSaving) return;
+    final prevOverride = (_edgeLlm['override'] ?? '').toString();
+    setState(() {
+      _edgeSaving = true;
+      _edgeLlm = {..._edgeLlm, 'override': v ? 'on' : 'off'};
+    });
+    try {
+      final r = await gw.setEdgeLlm(v ? 'on' : 'off');
+      if (!mounted) return;
+      setState(() {
+        _edgeLlm = {
+          'override': (r['override'] ?? '').toString(),
+          'active': r['active'] == true,
+          'has_key': r['has_key'] == true,
+        };
+      });
+      if (v && r['has_key'] != true) {
+        _toast(_zh
+            ? '开关开了，但网关还没配脑子的 key，点不着火（找爸爸配）'
+            : 'Switch is on but the gateway has no LLM key yet');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _edgeLlm = {..._edgeLlm, 'override': prevOverride}; // 失败回滚显示
+      });
+      _toast(_zh ? '保存失败：$e' : 'Save failed: $e');
+    } finally {
+      if (mounted) setState(() => _edgeSaving = false);
+    }
   }
 
   // ----- value helpers -----
@@ -342,6 +388,31 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
             max: 12,
             divisions: 22,
             fmt: (v) => _hours(v, zh),
+          ),
+        ]),
+        const SizedBox(height: 14),
+
+        // Brain (memory vault) — contradiction detection runtime switch
+        _sectionLabel(zh ? '大脑' : 'Brain'),
+        _card([
+          _switchTile(
+            icon: Lucide.Brain,
+            label: zh ? '矛盾检测' : 'Contradiction detection',
+            sub: _edgeLlm['active'] == true
+                ? (zh
+                      ? '已点火：存记忆时自动比对新旧，矛盾/更新自动连边'
+                      : 'Live: new memories are checked against old ones')
+                : _edgeOn
+                ? (zh
+                      ? '开着但还没点着（网关缺脑子 key）'
+                      : 'On, but no LLM key on the gateway yet')
+                : (zh
+                      ? '存记忆时发现"记忆打架"（每次多一发小模型调用）'
+                      : 'Spot conflicting memories (one extra small-model call per save)'),
+            value: _edgeOn,
+            onChanged: (v) {
+              if (!_edgeSaving) _toggleEdgeLlm(v);
+            },
           ),
         ]),
         const SizedBox(height: 14),

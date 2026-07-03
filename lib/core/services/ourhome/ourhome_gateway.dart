@@ -2238,6 +2238,7 @@ class OurHomeGateway {
       String kaLastAt,
       bool pending,
       bool providerOk,
+      Map<String, dynamic> edgeLlm,
     })?
   >
   fetchHeartbeat() async {
@@ -2264,6 +2265,9 @@ class OurHomeGateway {
         kaLastAt: (ka['last_at'] ?? '').toString(),
         pending: ka['pending'] == true,
         providerOk: data['provider_ok'] == true,
+        edgeLlm: (data['edge_llm'] is Map)
+            ? Map<String, dynamic>.from(data['edge_llm'] as Map)
+            : <String, dynamic>{},
       );
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchHeartbeat failed: $e');
@@ -2278,6 +2282,7 @@ class OurHomeGateway {
     String kaLastAt,
     bool pending,
     bool providerOk,
+    Map<String, dynamic> edgeLlm,
   })?
   peekHeartbeat() {
     final body = OurHomeCache.peek('/api/home/heartbeat');
@@ -2296,6 +2301,9 @@ class OurHomeGateway {
         kaLastAt: (ka['last_at'] ?? '').toString(),
         pending: ka['pending'] == true,
         providerOk: data['provider_ok'] == true,
+        edgeLlm: (data['edge_llm'] is Map)
+            ? Map<String, dynamic>.from(data['edge_llm'] as Map)
+            : <String, dynamic>{},
       );
     } catch (_) {
       return null;
@@ -2576,6 +2584,27 @@ class OurHomeGateway {
         Uri.parse('$base/api/home/heartbeat'),
       );
     }
+  }
+
+  /// Flip the memory-vault contradiction-detection (LLM semantic edges)
+  /// runtime switch. [value] ∈ 'on' / 'off' / '' (follow server env).
+  /// Returns the server's fresh state ({override, active, has_key}).
+  Future<Map<String, dynamic>> setEdgeLlm(String value) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/heartbeat'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'action': 'edge_llm', 'value': value}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'edge_llm HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/heartbeat'),
+      );
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    return data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{};
   }
 
   /// Force daddy to reach out right now (POST action=trigger_keepalive).
