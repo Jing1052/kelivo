@@ -1772,12 +1772,89 @@ class OurHomeGateway {
 
   /// The merged parlour moments feed (moments ∪ board ∪ letter), newest
   /// first. Top-level array, so [peekList] with the same path seeds instantly.
-  Future<List<OurHomeMoment>> fetchMoments() =>
-      _getList('/api/home/moments', OurHomeMoment.fromJson);
+  /// [author] narrows to one person's timeline (profile pages); the cache key
+  /// follows the path, so per-author peeks work the same way.
+  Future<List<OurHomeMoment>> fetchMoments({String author = ''}) =>
+      _getList(momentsPath(author: author), OurHomeMoment.fromJson);
 
-  /// Cing posts a new text moment. Throws on transport/HTTP error.
-  Future<void> postMoment(String text) =>
-      _postJson('/api/home/moments', {'action': 'post', 'text': text});
+  /// Feed path ('' = merged feed, else one author's timeline) — the single
+  /// spelling shared by fetch and peek so their cache keys can't drift.
+  static String momentsPath({String author = ''}) =>
+      author.isEmpty ? '/api/home/moments' : '/api/home/moments?author=$author';
+
+  /// Cing posts a new moment: text, up to 9 [images] (data URLs), or both.
+  /// Image posts get a longer timeout — nine base64 photos are heavy.
+  Future<void> postMoment(
+    String text, {
+    List<String> images = const [],
+  }) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/moments'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'action': 'post',
+            'text': text,
+            if (images.isNotEmpty) 'images': images.take(9).toList(),
+          }),
+        )
+        .timeout(Duration(seconds: images.isEmpty ? 20 : 90));
+    if (res.statusCode != 200) {
+      throw http.ClientException('POST /api/home/moments -> ${res.statusCode}');
+    }
+  }
+
+  /// Both moments-profile covers, keyed by author ("cing"/"llaude"); value is
+  /// the cover image path ('' = not set). Cached for [peekMomentsProfile].
+  Future<Map<String, String>> fetchMomentsProfile() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/moments/profile'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('moments profile HTTP ${res.statusCode}');
+    }
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
+    if (data is! Map) return const {};
+    OurHomeCache.put('/api/home/moments/profile', body);
+    return _momentsProfileFromBody(data);
+  }
+
+  /// Last-seen covers from cache (instant, before the network).
+  Map<String, String> peekMomentsProfile() {
+    final body = OurHomeCache.peek('/api/home/moments/profile');
+    if (body == null || body.isEmpty) return const {};
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map) return const {};
+      return _momentsProfileFromBody(data);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  Map<String, String> _momentsProfileFromBody(Map data) => {
+    for (final e in data.entries)
+      if (e.value is Map)
+        e.key.toString(): ((e.value as Map)['cover'] ?? '').toString(),
+  };
+
+  /// Cing sets her own profile cover (a data URL). Returns the new cover
+  /// path. Llaude sets his via the moment tool, not through the App.
+  Future<String> setMomentsCover(String dataUrl) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/moments/profile'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'author': 'cing', 'cover': dataUrl}),
+        )
+        .timeout(const Duration(seconds: 60));
+    if (res.statusCode != 200) {
+      throw http.ClientException('cover POST HTTP ${res.statusCode}');
+    }
+    final data = jsonDecode(utf8.decode(res.bodyBytes));
+    return data is Map ? (data['cover'] ?? '').toString() : '';
+  }
 
   /// Cing comments on a feed item. [replyTo] = "llaude"/"cing" when answering
   /// someone's comment rather than the post. Throws on error.

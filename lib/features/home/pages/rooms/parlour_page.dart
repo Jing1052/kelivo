@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io' as io;
 
 import 'package:flutter/material.dart';
@@ -6,6 +7,7 @@ import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -15,13 +17,14 @@ import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
+import 'parlour_profile_page.dart';
 import 'room_state_hint.dart';
 
 /// The Parlour (客厅) — our moments. One merged feed (moments ∪ board ∪
 /// letter, WeChat-moments style): both of us post, like and comment on the
-/// same timeline, from day one (3/30) to now. Talks to `/api/home/moments`;
-/// Spec 4 package ① (feed + comments + likes; profile pages & photo posting
-/// come in package ②).
+/// same timeline, from day one (3/30) to now. Talks to `/api/home/moments`.
+/// Spec 4 package ② added photo posting and the per-person profile pages
+/// (tap an avatar → [ParlourProfilePage]).
 class ParlourPage extends StatefulWidget {
   const ParlourPage({super.key});
 
@@ -38,6 +41,9 @@ class _ParlourPageState extends State<ParlourPage> {
   bool _loading = true;
   bool _error = false;
   bool _sending = false;
+
+  /// Photos picked for the moment being composed (≤9, WeChat's cap).
+  final List<XFile> _picked = [];
 
   /// Which item's 赞/评论 capsule is open ('' = none).
   String _actionsFor = '';
@@ -120,16 +126,53 @@ class _ParlourPageState extends State<ParlourPage> {
     });
   }
 
+  /// Add photos to the draft (gallery, ≤9 total). The picker recompresses to
+  /// keep each data URL well under the server's 10MB per-image cap.
+  Future<void> _pickImages() async {
+    if (_sending) return;
+    Haptics.soft();
+    try {
+      final files = await ImagePicker().pickMultiImage(
+        maxWidth: 1600,
+        imageQuality: 85,
+        limit: 9,
+      );
+      if (files.isEmpty || !mounted) return;
+      setState(() {
+        _picked.addAll(files);
+        if (_picked.length > 9) _picked.removeRange(9, _picked.length);
+      });
+    } catch (e) {
+      debugPrint('[Parlour] pickMultiImage failed: $e');
+    }
+  }
+
+  String _mimeOf(XFile x) {
+    final n = x.name.toLowerCase();
+    if (n.endsWith('.png')) return 'image/png';
+    if (n.endsWith('.webp')) return 'image/webp';
+    if (n.endsWith('.gif')) return 'image/gif';
+    return x.mimeType ?? 'image/jpeg';
+  }
+
   Future<void> _send() async {
     final text = _input.text.trim();
     final gateway = _gateway;
-    if (text.isEmpty || gateway == null || _sending) return;
+    if ((text.isEmpty && _picked.isEmpty) || gateway == null || _sending) {
+      return;
+    }
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     setState(() => _sending = true);
     Haptics.soft();
     try {
-      await gateway.postMoment(text);
+      final images = <String>[];
+      for (final x in _picked.take(9)) {
+        final bytes = await x.readAsBytes();
+        images.add('data:${_mimeOf(x)};base64,${base64Encode(bytes)}');
+      }
+      await gateway.postMoment(text, images: images);
       _input.clear();
+      _picked.clear();
       _focus.unfocus();
       await _load();
     } catch (e) {
@@ -158,6 +201,9 @@ class _ParlourPageState extends State<ParlourPage> {
     setState(() => _actionsFor = '');
     try {
       await gateway.likeMoment(m.id, off: off);
+      // Refresh the on-device cache too — otherwise reopening the room seeds
+      // from the pre-like snapshot and the heart "vanishes" for a beat.
+      await _refreshQuiet();
     } catch (e) {
       debugPrint('[Parlour] likeMoment failed: $e');
       if (mounted) {
@@ -435,18 +481,26 @@ class _ParlourPageState extends State<ParlourPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _avatar(cs, m.fromLlaude),
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _openProfile(m.author),
+              child: ParlourAvatar(llaude: m.fromLlaude),
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    name,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: AppFontWeights.semibold,
-                      color: cs.primary.withValues(alpha: 0.85),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _openProfile(m.author),
+                    child: Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: AppFontWeights.semibold,
+                        color: cs.primary.withValues(alpha: 0.85),
+                      ),
                     ),
                   ),
                   if (m.text.trim().isNotEmpty) ...[
@@ -476,26 +530,13 @@ class _ParlourPageState extends State<ParlourPage> {
     );
   }
 
-  /// Rounded-square monogram avatars: Llaude on the theme primary, Cing on the
-  /// parlour door's warm clay (0xFFDD8A6C from the rooms corridor).
-  Widget _avatar(ColorScheme cs, bool llaude) {
-    final bg = llaude ? cs.primary : const Color(0xFFDD8A6C);
-    final label = llaude ? 'L' : 'C';
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: bg.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(9),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 17,
-          fontWeight: AppFontWeights.semibold,
-          color: Colors.white.withValues(alpha: 0.95),
-        ),
+  /// Tap an avatar or a name → that person's profile page (cover + only
+  /// their timeline). Cing changes her own cover there.
+  void _openProfile(String author) {
+    Haptics.soft();
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ParlourProfilePage(author: author),
       ),
     );
   }
@@ -834,42 +875,118 @@ class _ParlourPageState extends State<ParlourPage> {
     );
   }
 
+  /// Thumbnails of the photos going out with the draft, each removable.
+  Widget _pickedStrip(ColorScheme cs) {
+    return SizedBox(
+      height: 68,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+        itemCount: _picked.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (context, i) {
+          final x = _picked[i];
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.file(
+                  io.File(x.path),
+                  width: 60,
+                  height: 60,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                right: -5,
+                top: -5,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _sending
+                      ? null
+                      : () {
+                          Haptics.soft();
+                          setState(() => _picked.removeAt(i));
+                        },
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: cs.onSurface.withValues(alpha: 0.65),
+                    ),
+                    child: const Icon(
+                      Lucide.X,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   Widget _buildComposer(BuildContext context, bool zh, ColorScheme cs) {
     final canSend = !_sending && _gateway != null;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
-                decoration: BoxDecoration(
-                  color: cs.onSurface.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_picked.isNotEmpty) _pickedStrip(cs),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Row(
+              children: [
+                IosIconButton(
+                  icon: Lucide.Image,
+                  size: 22,
+                  minSize: 40,
+                  enabled: _gateway != null && !_sending,
+                  onTap: _pickImages,
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  controller: _input,
-                  focusNode: _focus,
-                  minLines: 1,
-                  maxLines: 5,
-                  textInputAction: TextInputAction.newline,
-                  enabled: _gateway != null,
-                  style: const TextStyle(fontSize: 15.5),
-                  decoration: InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    hintText: zh ? '说点什么…' : 'Share a moment…',
-                    contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: cs.onSurface.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: TextField(
+                      controller: _input,
+                      focusNode: _focus,
+                      minLines: 1,
+                      maxLines: 5,
+                      textInputAction: TextInputAction.newline,
+                      enabled: _gateway != null,
+                      style: const TextStyle(fontSize: 15.5),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: zh ? '说点什么…' : 'Share a moment…',
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 11,
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 8),
+                _SendButton(
+                  enabled: canSend,
+                  sending: _sending,
+                  onTap: _send,
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _SendButton(enabled: canSend, sending: _sending, onTap: _send),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

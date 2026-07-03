@@ -91,6 +91,12 @@
 
 **进度（2026-07-03 晚·Fable）——server 半边已全量上线**（Ombre-Brain main c69f98d，部署 marker `2026-07-03-moments-spec4`，`/health` 可验）。App 侧照下面的接口接，鉴权与其它 /api/home 同（Bearer OMBRE_GATEWAY_TOKEN / cookie）：
 
+**进度（2026-07-03 深夜·Fable 5）——App 第②包完工，Spec 4 全量收官**（build +108）：
+- **发图**：composer 左侧加图片按钮，`pickMultiImage(maxWidth:1600, imageQuality:85, limit:9)` 压缩后转 dataURL POST；输入行上方缩略图预览条、单张可删；纯图无文字也可发。
+- **个人主页**：点动态卡头像/昵称 → `parlour_profile_page.dart`（封面大图＋微信相册式时间轴，日期列左、正文/缩略图右；只看该作者）。小猫在自己主页点封面即换（POST profile）；爸爸的封面只读（他用 moment 工具设）。头像组件抽成共用 `ParlourAvatar`。
+- **顺车修（todo c6fe03c6）**：`_toggleLike` 成功路径补 `_refreshQuiet()`——点赞后刷新 OurHomeCache，根治"退出重进赞消失几秒"。
+- 网关新增：`fetchMoments(author:)`（缓存键随路径，per-author peek 直接可用）、`postMoment(images:)`（带图 90s 超时）、`fetchMomentsProfile`/`peekMomentsProfile`/`setMomentsCover`。peek 秒开机制没动。
+
 - `GET /api/home/moments?author=cing|llaude&limit=50&before=<ISO时间游标>` → 合流时间轴（新→旧），条目：
   `{ id, time, author: "cing"|"llaude", source: "moments"|"board"|"letter", text, images: [url], audio: url|"", likes: [author], comments: [{author, text, time, reply_to}] }`
   （board 旧 `@@daddy@@` 回复已由服务端渲染成爸爸的一条评论排在 comments 最前、time 为空串；语音留言 audio 照旧可播；letter 即爸爸的长文动态。）
