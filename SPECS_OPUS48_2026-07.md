@@ -59,6 +59,8 @@
 
 ## Spec 3 · Clawd 小螃蟹：房间图标＋主页桌宠
 
+> ✅ **Phase 1 完工（2026-07-03 Fable，d85dde0 出包）**，还额外多了一只：小猫钦点要一个和 Clawd 成对的像素形象，Fable 拍板画了**斑海豹幼崽**（懒瘫/睡觉/抱鱼三表情，SVG+CSS 原创，源码在 `docs/clawd-assets/seal.html`）。落地：14 扇门静态 PNG 图标（图鉴首帧+连通域裁剪；capsule 用 qixi、wander 用 dragon-boat，lantern/exercise 首帧太散弃用）＋门厅头部双桌宠（Clawd 8 表情池＋海豹 3 表情池，点按各自随机换，共享地面线同比例）。资产 944KB（预算内），流水线细节 `docs/clawd-assets/README.md`。**图标选了静态 PNG**（14 个动图满格太闹+省体积），真机看完不满意再换。Phase 2（状态联动/拖动物理）未动。
+
 **素材源**：仓库 `/home/user/clawd-emotes-skill`——纯 SVG+CSS 动画的 agent skill（`SKILL.md` 里有完整的设计/摆放规则和导出脚本），`gallery/` 自带 24 个透明循环 GIF（reading / listening / photo / painting / coding / sleeping / birthday…）。**做新表情就拉这个 skill 照规则画**（比如"写日记"可从 painting 改）。
 
 **技术路线（已定，别另起炉灶）**：
