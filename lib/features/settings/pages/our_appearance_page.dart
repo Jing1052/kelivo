@@ -89,6 +89,47 @@ class OurAppearancePage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             child: Text(
+              zh ? '门厅桌宠' : 'Hall pets',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: AppFontWeights.semibold,
+                color: cs.onSurface.withValues(alpha: 0.55),
+              ),
+            ),
+          ),
+          _iosSectionCard(
+            children: [
+              _petToggleRow(
+                context,
+                thumb: 'assets/clawd/pet-coffee.gif',
+                label: zh ? '小螃蟹 Clawd' : 'Clawd the crab',
+                subtitle: zh
+                    ? '在门厅可拖动 · 长按调形态和大小'
+                    : 'Drag it around the hall · long-press to adjust',
+                value: !settings.stillPetClawd.hidden,
+                onChanged: (v) => context.read<SettingsProvider>().setStillPetClawd(
+                      settings.stillPetClawd.copyWith(hidden: !v),
+                    ),
+              ),
+              _iosDivider(context),
+              _petToggleRow(
+                context,
+                thumb: 'assets/clawd/pet-seal-idle.gif',
+                label: zh ? '小海豹 Cing' : 'Cing the seal',
+                subtitle: zh
+                    ? '在门厅可拖动 · 长按调形态和大小'
+                    : 'Drag it around the hall · long-press to adjust',
+                value: !settings.stillPetSeal.hidden,
+                onChanged: (v) => context.read<SettingsProvider>().setStillPetSeal(
+                      settings.stillPetSeal.copyWith(hidden: !v),
+                    ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
+            child: Text(
               zh ? '聊天' : 'Chat',
               style: TextStyle(
                 fontSize: 13,
@@ -193,6 +234,53 @@ Widget _iosDivider(BuildContext context) {
     indent: 54,
     endIndent: 12,
     color: cs.outlineVariant.withValues(alpha: 0.18),
+  );
+}
+
+/// One hall-pet row: animated thumbnail + name + show/hide switch.
+Widget _petToggleRow(
+  BuildContext context, {
+  required String thumb,
+  required String label,
+  required String subtitle,
+  required bool value,
+  required ValueChanged<bool> onChanged,
+}) {
+  final cs = Theme.of(context).colorScheme;
+  return Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 34,
+          height: 34,
+          child: Image.asset(
+            thumb,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+            gaplessPlayback: true,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 14, color: cs.onSurface)),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: cs.onSurface.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+        IosSwitch(value: value, onChanged: onChanged),
+      ],
+    ),
   );
 }
 

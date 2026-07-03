@@ -267,3 +267,11 @@
 - 根因：localize 在消息定稿(_finishStreaming)时把远程图链改成**本地长路径**，长度变了，但气泡分条用的 contentSplitOffsets 是按定稿前(远程短链)算的→偏移失配→把 URL 从中间切到两个气泡→markdown 失效成原文。base64 那条没事是因为它在流式期就跑、offset 按本地化后内容算。
 - 处置：**revert** localizeRemoteImages（删方法/正则/http import + 去掉 chat_actions 调用），图回到远程链接渲染（稳）。本地存储以后重做：要么放流式期跑(随 base64)，要么 localize 后重算 offset。先求稳。
 - 无 Flutter SDK，未跑 analyze/build；CI 是第一道真编译。
+
+## 2026-07-03 · 外观·我们的家 新增「门厅桌宠」开关（配合桌宠 Phase 2）
+
+- 位置：`外观 · 我们的家`（`our_appearance_page.dart`），主页背景分组之后新增「门厅桌宠」分组：小螃蟹 Clawd / 小海豹 Cing 两行（动图缩略 + IosSwitch）。
+- 作用：显示/隐藏门厅的浮动桌宠。开关值＝`!hidden`。桌宠在门厅**长按**弹调节面板（形态钉选或随机 / 大小滑杆 0.6–1.8 / 隐藏），**拖动**换位置；面板里点了隐藏就回这里找回——这两个入口是同一份配置。
+- 数据：本地 `SettingsProvider`，键 `still_pet_clawd_v1` / `still_pet_seal_v1`（JSON：hidden/scale/posX/posY/emote；posX/posY 归一化 0..1，-1=没挪过用默认位；emote 空串=每次进门随机）。纯客户端外观，与网关无关。
+- 文案照房间规矩内联双语（本页整页如此）。
+- ⚠️ 无 Flutter SDK，未跑 analyze/format/build；CI flutter build ios 是第一道真编译。

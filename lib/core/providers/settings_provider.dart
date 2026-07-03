@@ -117,6 +117,8 @@ class SettingsProvider extends ChangeNotifier {
   static const String _homeWeatherLonKey = 'home_weather_lon_v1';
   static const String _homeCardBlurKey = 'home_card_blur_v1';
   static const String _homeCardOpacityKey = 'home_card_opacity_v1';
+  static const String _stillPetClawdKey = 'still_pet_clawd_v1';
+  static const String _stillPetSealKey = 'still_pet_seal_v1';
   static const String _useDynamicColorKey = 'use_dynamic_color_v1';
   static const String _thinkingBudgetKey = 'thinking_budget_v1';
   static const String _titleGenerationThinkingEnabledKey =
@@ -518,6 +520,26 @@ class SettingsProvider extends ChangeNotifier {
     await prefs.setDouble(_homeCardOpacityKey, v);
   }
 
+  // ----- Still rooms hall: floating desk pets (Clawd crab + Cing seal) -----
+  StillPetConfig _stillPetClawd = const StillPetConfig();
+  StillPetConfig get stillPetClawd => _stillPetClawd;
+  StillPetConfig _stillPetSeal = const StillPetConfig();
+  StillPetConfig get stillPetSeal => _stillPetSeal;
+
+  Future<void> setStillPetClawd(StillPetConfig c) async {
+    _stillPetClawd = c;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_stillPetClawdKey, jsonEncode(c.toJson()));
+  }
+
+  Future<void> setStillPetSeal(StillPetConfig c) async {
+    _stillPetSeal = c;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_stillPetSealKey, jsonEncode(c.toJson()));
+  }
+
   Future<void> clearHomeWeatherCity() async {
     _homeWeatherCity = '';
     _homeWeatherLat = double.nan;
@@ -897,6 +919,10 @@ class SettingsProvider extends ChangeNotifier {
     _homeCardBlur = prefs.getBool(_homeCardBlurKey) ?? true;
     _homeCardOpacity =
         (prefs.getDouble(_homeCardOpacityKey) ?? 0.46).clamp(0.10, 0.85);
+    _stillPetClawd = StillPetConfig.fromPrefs(
+      prefs.getString(_stillPetClawdKey),
+    );
+    _stillPetSeal = StillPetConfig.fromPrefs(prefs.getString(_stillPetSealKey));
     _useDynamicColor =
         prefs.getBool(_useDynamicColorKey) ?? false; // 默认关动态取色，确保暖纸皮显示
     var providerConfigsLoaded = false;
@@ -5700,5 +5726,72 @@ class ProviderConfig {
         k.contains('vercel') ||
         k.contains('silicon') ||
         RegExp(r'kimi|moonshot|月之暗面').hasMatch(k);
+  }
+}
+
+/// Per-pet preferences for the floating desk pets on the Still rooms hall
+/// (Clawd the crab / Cing the seal). Stored as one JSON string per pet.
+class StillPetConfig {
+  const StillPetConfig({
+    this.hidden = false,
+    this.scale = 1.0,
+    this.posX = -1,
+    this.posY = -1,
+    this.emote = '',
+  });
+
+  final bool hidden;
+
+  /// Render scale, clamped to 0.6..1.8 by the UI slider.
+  final double scale;
+
+  /// Normalized 0..1 position within the hall's safe area; -1 = never moved,
+  /// use the pet's default spot.
+  final double posX;
+  final double posY;
+
+  /// Pinned emote asset path; '' = random pick each time the hall opens.
+  final String emote;
+
+  StillPetConfig copyWith({
+    bool? hidden,
+    double? scale,
+    double? posX,
+    double? posY,
+    String? emote,
+  }) {
+    return StillPetConfig(
+      hidden: hidden ?? this.hidden,
+      scale: scale ?? this.scale,
+      posX: posX ?? this.posX,
+      posY: posY ?? this.posY,
+      emote: emote ?? this.emote,
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'hidden': hidden,
+        'scale': scale,
+        'posX': posX,
+        'posY': posY,
+        'emote': emote,
+      };
+
+  static StillPetConfig fromPrefs(String? raw) {
+    if (raw == null || raw.isEmpty) return const StillPetConfig();
+    try {
+      final m = jsonDecode(raw);
+      if (m is! Map) return const StillPetConfig();
+      return StillPetConfig(
+        hidden: m['hidden'] == true,
+        scale:
+            ((m['scale'] as num?)?.toDouble() ?? 1.0).clamp(0.6, 1.8).toDouble(),
+        posX: (m['posX'] as num?)?.toDouble() ?? -1,
+        posY: (m['posY'] as num?)?.toDouble() ?? -1,
+        emote: (m['emote'] as String?) ?? '',
+      );
+    } catch (_) {
+      return const StillPetConfig();
+    }
   }
 }
