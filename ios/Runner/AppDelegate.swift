@@ -186,25 +186,36 @@ private final class IosCalendarHandler {
     }
   }
 
-  // Deletes all events whose title starts with [prefix] within an optional date
+  // Deletes events whose title starts with [prefix] within an optional date
   // window (defaults to 2024-01-01 .. now+1d). Used to clear the diary backfill
   // batch (titles prefixed "📔") before re-syncing them with notes. Returns the
   // number of events removed.
+  //
+  // Blast-radius guards (the app must never eat the user's own events):
+  // - only searches the calendar this app writes to (defaultCalendarForNewEvents),
+  //   never shared/subscribed calendars;
+  // - with onlyWithoutNotes (the migration's case) only note-less events match —
+  //   the legacy backfill batch was title-only, while both app-created events
+  //   since then and virtually all hand-made events carry notes.
   private func clearEventsByPrefix(args: [String: Any], result: @escaping FlutterResult) {
     let prefix = (args["prefix"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
     guard !prefix.isEmpty else { result(0); return }
+    let onlyWithoutNotes = args["onlyWithoutNotes"] as? Bool ?? false
 
     let cal = Calendar.current
     let start = (dayComponents(args["start"] as? String ?? "").flatMap { cal.date(from: $0) })
       ?? cal.date(from: DateComponents(year: 2024, month: 1, day: 1))!
     let end = Date().addingTimeInterval(86400)
 
-    let calendars = store.calendars(for: .event)
-    let predicate = store.predicateForEvents(withStart: start, end: end, calendars: calendars)
+    guard let own = store.defaultCalendarForNewEvents else { result(0); return }
+    let predicate = store.predicateForEvents(withStart: start, end: end, calendars: [own])
     let events = store.events(matching: predicate)
 
     var removed = 0
     for ev in events where (ev.title ?? "").hasPrefix(prefix) {
+      if onlyWithoutNotes && !(ev.notes ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        continue
+      }
       do {
         try store.remove(ev, span: .thisEvent)
         removed += 1

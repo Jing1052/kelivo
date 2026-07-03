@@ -76,20 +76,24 @@ class IphoneLinkService {
   /// Deletes all calendar events whose title starts with [prefix] (e.g. the
   /// "📔" diary glyph), within an optional `YYYY-MM-DD` [start] window. Returns
   /// the number of events removed (0 on non-iOS or failure).
+  /// Returns the number of events removed, or -1 if the platform call failed —
+  /// callers gating one-time migrations on this must NOT treat -1 as done.
   static Future<int> clearEventsByPrefix(
     String prefix, {
     String? start,
+    bool onlyWithoutNotes = false,
   }) async {
     if (!Platform.isIOS) return 0;
     try {
       final res = await _channel.invokeMethod<int>('clearEventsByPrefix', {
         'prefix': prefix,
         'start': start,
+        'onlyWithoutNotes': onlyWithoutNotes,
       });
       return res ?? 0;
     } catch (e) {
       debugPrint('IphoneLinkService.clearEventsByPrefix failed: $e');
-      return 0;
+      return -1;
     }
   }
 

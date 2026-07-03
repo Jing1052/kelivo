@@ -55,16 +55,24 @@ class DiaryCalendarSync {
 
       // One-time: clear the notes-less batch from build 80, then forget which
       // ids were synced so they all get re-created with notes below.
+      // onlyWithoutNotes keeps the deletion window narrow — the legacy batch is
+      // exactly the note-less 📔 events; anything with notes (app-created since,
+      // or the user's own) must survive even when this reruns after a reinstall.
       if (!(prefs.getBool(_notesMigrationKey) ?? false)) {
-        await IphoneLinkService.clearEventsByPrefix(_glyph);
+        final cleared = await IphoneLinkService.clearEventsByPrefix(
+          _glyph,
+          onlyWithoutNotes: true,
+        );
+        if (cleared < 0) return; // platform call failed — retry next pass
         await prefs.remove(_syncedIdsKey);
         await prefs.setBool(_notesMigrationKey, true);
       }
 
       final synced = (prefs.getStringList(_syncedIdsKey) ?? <String>[]).toSet();
 
-      var changed = false;
-      // Oldest first so the calendar fills in chronological order.
+      // Oldest first so the calendar fills in chronological order. Synced ids
+      // are persisted after every successful add — if the process dies mid-run,
+      // the next pass must not re-create events it already made (duplicates).
       for (final entry in entries.reversed) {
         final key = entry.id.isNotEmpty ? entry.id : '${entry.name}|${entry.time}';
         if (synced.contains(key)) continue;
@@ -79,12 +87,8 @@ class DiaryCalendarSync {
         );
         if (ok) {
           synced.add(key);
-          changed = true;
+          await prefs.setStringList(_syncedIdsKey, synced.toList());
         }
-      }
-
-      if (changed) {
-        await prefs.setStringList(_syncedIdsKey, synced.toList());
       }
     } catch (e) {
       debugPrint('DiaryCalendarSync.syncOnce failed: $e');
