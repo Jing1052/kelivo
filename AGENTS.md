@@ -26,11 +26,10 @@
   - `template-arb-file: app_en.arb`
   - `output-localization-file: app_localizations.dart`
   - `untranslated-messages-file: desiredFileName.txt`
-- There are exactly 4 ARB files that must stay in sync:
+- There are exactly 2 ARB files that must stay in sync (zh_Hans/zh_Hant were
+  removed 2026-07-03 — this household only needs English + Simplified Chinese):
   - `lib/l10n/app_en.arb`
   - `lib/l10n/app_zh.arb`
-  - `lib/l10n/app_zh_Hans.arb`
-  - `lib/l10n/app_zh_Hant.arb`
 - The following are generated or build artifacts. Never hand-edit them:
   - `lib/l10n/app_localizations*.dart`
   - `lib/core/models/*.g.dart`
@@ -92,13 +91,11 @@
   - `semanticLabel`
   - Notification text
   - Tray menu text
-- When adding or modifying user-visible strings, ALL 4 files must be updated simultaneously:
+- When adding or modifying user-visible strings, BOTH files must be updated simultaneously:
   - `lib/l10n/app_en.arb`
   - `lib/l10n/app_zh.arb`
-  - `lib/l10n/app_zh_Hans.arb`
-  - `lib/l10n/app_zh_Hant.arb`
 - Updating only `app_en.arb` or only `app_zh.arb` and stopping is not acceptable.
-- Placeholders, plurals, selects, and `@key` metadata must be consistent across all four ARB files.
+- Placeholders, plurals, selects, and `@key` metadata must be consistent across both ARB files.
 - New keys follow the existing camelCase convention with a feature prefix. Do not use context-free short names like `title1` or `labelText`.
 - After ARB changes, run:
 
@@ -264,7 +261,7 @@ flutter test
 ## 5. Pre-Commit Checklist
 
 - All new user-visible text uses `AppLocalizations`.
-- All 4 ARB files have been updated in sync.
+- Both ARB files (en/zh) have been updated in sync.
 - `flutter gen-l10n` has been executed and generated files match ARB content.
 - If Hive models were touched, `build_runner` has been executed.
 - `dart format` has been executed.

@@ -722,7 +722,6 @@ class _AppLanguageRowState extends State<_AppLanguageRow> {
           final labels = <String>[
             '🖥️ ${AppLocalizations.of(ctx)!.settingsPageSystemMode}',
             '🇨🇳 ${AppLocalizations.of(ctx)!.displaySettingsPageLanguageChineseLabel}',
-            '🇨🇳 ${AppLocalizations.of(ctx)!.languageDisplayTraditionalChinese}',
             '🇺🇸 ${AppLocalizations.of(ctx)!.displaySettingsPageLanguageEnglishLabel}',
           ];
           double maxText = 0;
@@ -784,9 +783,6 @@ class _AppLanguageRowState extends State<_AppLanguageRow> {
     final sp = context.watch<SettingsProvider>();
     String labelFor(Locale l) {
       if (l.languageCode == 'zh') {
-        if ((l.scriptCode ?? '').toLowerCase() == 'hant') {
-          return l10n.languageDisplayTraditionalChinese;
-        }
         return l10n.displaySettingsPageLanguageChineseLabel;
       }
       return l10n.displaySettingsPageLanguageEnglishLabel;
@@ -1105,19 +1101,7 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
           label: l10n.displaySettingsPageLanguageChineseLabel,
           tag: 'zh_CN',
         ),
-        (!sp.isFollowingSystemLocale &&
-            sp.appLocale.languageCode == 'zh' &&
-            (sp.appLocale.scriptCode ?? '').isEmpty),
-      ),
-      (
-        _LangItem(
-          flag: '🇨🇳',
-          label: l10n.languageDisplayTraditionalChinese,
-          tag: 'zh_Hant',
-        ),
-        (!sp.isFollowingSystemLocale &&
-            sp.appLocale.languageCode == 'zh' &&
-            (sp.appLocale.scriptCode ?? '').toLowerCase() == 'hant'),
+        (!sp.isFollowingSystemLocale && sp.appLocale.languageCode == 'zh'),
       ),
       (
         _LangItem(
@@ -1180,16 +1164,6 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
                                   .read<SettingsProvider>()
                                   .setAppLocale(const Locale('zh', 'CN'));
                               break;
-                            case 'zh_Hant':
-                              await context
-                                  .read<SettingsProvider>()
-                                  .setAppLocale(
-                                    const Locale.fromSubtags(
-                                      languageCode: 'zh',
-                                      scriptCode: 'Hant',
-                                    ),
-                                  );
-                              break;
                             case 'en_US':
                               await context
                                   .read<SettingsProvider>()
@@ -1214,7 +1188,7 @@ class _LanguageDropdownState extends State<_LanguageDropdown> {
 class _LangItem {
   final String flag;
   final String label;
-  final String tag; // 'system' | 'zh_CN' | 'zh_Hant' | 'en_US'
+  final String tag; // 'system' | 'zh_CN' | 'en_US'
   const _LangItem({required this.flag, required this.label, required this.tag});
 }
 

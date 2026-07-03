@@ -81,9 +81,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                   final settings = ctx.watch<SettingsProvider>();
                   String labelFor(Locale l) {
                     if (l.languageCode == 'zh') {
-                      if ((l.scriptCode ?? '').toLowerCase() == 'hant') {
-                        return l10n.languageDisplayTraditionalChinese;
-                      }
                       return l10n.displaySettingsPageLanguageChineseLabel;
                     }
                     return l10n.displaySettingsPageLanguageEnglishLabel;
@@ -1012,12 +1009,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
                 _sheetDividerNoIcon(ctx),
                 _sheetOption(
                   ctx,
-                  label: l10n.languageDisplayTraditionalChinese,
-                  onTap: () => Navigator.of(ctx).pop('zh_Hant'),
-                ),
-                _sheetDividerNoIcon(ctx),
-                _sheetOption(
-                  ctx,
                   label: l10n.displaySettingsPageLanguageEnglishLabel,
                   onTap: () => Navigator.of(ctx).pop('en_US'),
                 ),
@@ -1037,11 +1028,6 @@ class _DisplaySettingsPageState extends State<DisplaySettingsPage> {
         break;
       case 'zh_CN':
         await settings.setAppLocale(const Locale('zh', 'CN'));
-        break;
-      case 'zh_Hant':
-        await settings.setAppLocale(
-          const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-        );
         break;
       case 'en_US':
       default:

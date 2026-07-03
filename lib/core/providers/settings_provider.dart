@@ -2187,7 +2187,7 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   // ===== App locale (UI language) =====
-  String? _appLocaleTag; // 'system', 'zh_CN', 'zh_Hant', 'en_US'
+  String? _appLocaleTag; // 'system', 'zh_CN', 'en_US'（老存档里的 'zh_Hant' 兜底回 zh_CN）
   Locale get appLocale => _parseLocaleTag(_appLocaleTag ?? 'en_US');
   bool get isFollowingSystemLocale =>
       (_appLocaleTag == null) || (_appLocaleTag == 'system');
@@ -2211,21 +2211,15 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   String _localeToTag(Locale l) {
-    final lc = l.languageCode.toLowerCase();
-    if (lc == 'zh') {
-      final script = (l.scriptCode ?? '').toLowerCase();
-      if (script == 'hant') return 'zh_Hant';
-      return 'zh_CN';
-    }
+    if (l.languageCode.toLowerCase() == 'zh') return 'zh_CN';
     return 'en_US';
   }
 
   Locale _parseLocaleTag(String tag) {
     switch (tag) {
       case 'zh_CN':
+      case 'zh_Hant': // 繁体词典已移除；老存档选过繁体的落回简体，别掉进英文。
         return const Locale('zh', 'CN');
-      case 'zh_Hant':
-        return const Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant');
       case 'en_US':
       default:
         return const Locale('en', 'US');
