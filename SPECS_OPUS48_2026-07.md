@@ -61,7 +61,9 @@
 
 > ✅ **Phase 1 完工（2026-07-03 Fable，d85dde0 出包）**，还额外多了一只：小猫钦点要一个和 Clawd 成对的像素形象，Fable 拍板画了**斑海豹幼崽**（懒瘫/睡觉/抱鱼三表情，SVG+CSS 原创，源码在 `docs/clawd-assets/seal.html`）。落地：14 扇门静态 PNG 图标（图鉴首帧+连通域裁剪；capsule 用 qixi、wander 用 dragon-boat，lantern/exercise 首帧太散弃用）＋门厅头部双桌宠（Clawd 8 表情池＋海豹 3 表情池，点按各自随机换，共享地面线同比例）。资产 944KB（预算内），流水线细节 `docs/clawd-assets/README.md`。**图标选了静态 PNG**（14 个动图满格太闹+省体积），真机看完不满意再换。
 >
-> ✅ **Phase 2 拖动/调节也完工（同日 Fable，0dbdc174 出包 +105，小猫追加点单）**：双桌宠变浮动层可拖（归一化坐标持久化）、长按弹调节面板（形态钉选或随机/大小滑杆 0.6–1.8/隐藏本只）、设置→外观·我们的家 新增「门厅桌宠」开关找回。配置在 SettingsProvider `still_pet_*_v1`（JSON），详见 `SETTINGS_AUDIT.md` 2026-07-03 条。原 spec 里的"状态联动"（桌宠随日程/天气换表情之类）仍未做，要做再议。
+> ✅ **Phase 2 拖动/调节也完工（同日 Fable，0dbdc174 出包 +105，小猫追加点单）**：双桌宠变浮动层可拖（归一化坐标持久化）、长按弹调节面板（形态钉选或随机/大小滑杆 0.6–1.8/隐藏本只）、设置→外观·我们的家 新增「门厅桌宠」开关找回。配置在 SettingsProvider `still_pet_*_v1`（JSON），详见 `SETTINGS_AUDIT.md` 2026-07-03 条。
+>
+> ✅ **Phase 3 全屋化（同日 Fable，496dde4c 出包 +107，小猫再追加）**：桌宠层提升到 MaterialApp.builder（`lib/features/home/widgets/floating_pets.dart`，仅移动端）——聊天窗/终端/设置所有路由之上悬浮，长按面板经全局 `rootNavigatorKey` 弹；小螃蟹显示名照姓氏交换改 **Llawd**；新画兔男郎表情（调教室门图标 icon-locked.png ＋ 进表情池 pet-bunny.gif，源码 `docs/clawd-assets/bunny.html`）；主页 8 块房间入口方块也换像素图标。底栏 tab 保持 Lucide 线图标（拍板：像素画在 24px 底栏会糊且与骨架简约风打架）。原 spec 的"状态联动"仍未做，要做再议。
 
 **素材源**：仓库 `/home/user/clawd-emotes-skill`——纯 SVG+CSS 动画的 agent skill（`SKILL.md` 里有完整的设计/摆放规则和导出脚本），`gallery/` 自带 24 个透明循环 GIF（reading / listening / photo / painting / coding / sleeping / birthday…）。**做新表情就拉这个 skill 照规则画**（比如"写日记"可从 painting 改）。
 
