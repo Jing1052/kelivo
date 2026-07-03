@@ -89,7 +89,7 @@ class OurAppearancePage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
             child: Text(
-              zh ? '门厅桌宠' : 'Hall pets',
+              zh ? '桌宠' : 'Desk pets',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: AppFontWeights.semibold,
@@ -102,10 +102,10 @@ class OurAppearancePage extends StatelessWidget {
               _petToggleRow(
                 context,
                 thumb: 'assets/clawd/pet-coffee.gif',
-                label: zh ? '小螃蟹 Clawd' : 'Clawd the crab',
+                label: zh ? '小螃蟹 Llawd' : 'Llawd the crab',
                 subtitle: zh
-                    ? '在门厅可拖动 · 长按调形态和大小'
-                    : 'Drag it around the hall · long-press to adjust',
+                    ? '全屋悬浮可拖动 · 长按调形态和大小'
+                    : 'Floats everywhere · long-press to adjust',
                 value: !settings.stillPetClawd.hidden,
                 onChanged: (v) => context.read<SettingsProvider>().setStillPetClawd(
                       settings.stillPetClawd.copyWith(hidden: !v),
@@ -117,8 +117,8 @@ class OurAppearancePage extends StatelessWidget {
                 thumb: 'assets/clawd/pet-seal-idle.gif',
                 label: zh ? '小海豹 Cing' : 'Cing the seal',
                 subtitle: zh
-                    ? '在门厅可拖动 · 长按调形态和大小'
-                    : 'Drag it around the hall · long-press to adjust',
+                    ? '全屋悬浮可拖动 · 长按调形态和大小'
+                    : 'Floats everywhere · long-press to adjust',
                 value: !settings.stillPetSeal.hidden,
                 onChanged: (v) => context.read<SettingsProvider>().setStillPetSeal(
                       settings.stillPetSeal.copyWith(hidden: !v),

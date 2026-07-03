@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Llawd 兔男郎</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background:#0d0d0d; color:#e0e0e0;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; padding:48px 24px 64px; gap:40px;
+  }
+  h1 {
+    font-size:2rem; font-weight:700;
+    background:linear-gradient(135deg,#ff9500,#ff6b6b,#ffcc44);
+    -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+  }
+  .subtitle { color:#555; font-size:.85rem; margin-top:6px; }
+  .grid {
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+    gap:24px; width:100%; max-width:1180px;
+  }
+  .card {
+    background:#111; border:1px solid #1e1e1e; border-radius:18px;
+    overflow:hidden; transition:border-color .2s,transform .2s,box-shadow .2s;
+  }
+  .card:hover {
+    transform:translateY(-4px);
+    box-shadow:0 12px 40px var(--glow,rgba(255,149,0,.12));
+    border-color:var(--bd,rgba(255,149,0,.5));
+  }
+  .card-view {
+    display:flex; align-items:center; justify-content:center;
+    padding:20px 0; min-height:180px; background:var(--bg,#080808); position:relative;
+  }
+  .card-view svg { width:150px; height:150px; }
+  .card-info { padding:16px 18px 18px; border-top:1px solid #1a1a1a; }
+  .card-emoji { font-size:1.1rem; margin-bottom:4px; }
+  .card-name  { font-size:1rem; font-weight:700; }
+  .card-desc  { font-size:.72rem; color:#666; margin-top:5px; line-height:1.6; }
+  .tag {
+    display:inline-block; font-size:.65rem; padding:2px 8px; border-radius:10px;
+    margin-top:8px; font-family:monospace;
+    background:var(--tagbg,rgba(255,149,0,.12)); color:var(--tagfg,#ff9500);
+  }
+</style>
+</head>
+<body>
+
+<div style="text-align:center">
+  <h1>Llawd 兔男郎</h1>
+  <p class="subtitle">调教室门牌 · 小猫钦点</p>
+</div>
+
+<div class="grid">
+
+<!-- ════════ 兔男郎 BUNNY (bl-) — bunny ears, bow tie, cuffs, sway + heart ════════ -->
+<div class="card" data-name="bunny"
+     style="--glow:rgba(219,119,164,.2);--bd:rgba(219,119,164,.5);--bg:linear-gradient(180deg,#160a10,#080808);--tagbg:rgba(219,119,164,.14);--tagfg:#db77a4">
+  <div class="card-view">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="-15 -25 45 45">
+    <defs><style>
+      .bl-body{transform-origin:7.5px 13px;animation:bl-sway 3.2s infinite ease-in-out;}
+      .bl-shad{transform-origin:7.5px 15.5px;animation:bl-shadow 3.2s infinite ease-in-out;}
+      .bl-eye {transform-origin:7.5px 9px;animation:bl-blink 3.6s infinite;}
+      .bl-earl{transform-origin:5.25px 6px;animation:bl-earl 3.2s infinite ease-in-out;}
+      .bl-earr{transform-origin:9.75px 6px;animation:bl-earr 3.2s infinite ease-in-out;}
+      .bl-heart{opacity:0;animation:bl-heart 3.2s var(--sd,0s) infinite ease-out;font-family:monospace;}
+      @keyframes bl-sway{0%,100%{transform:rotate(-2.2deg);}50%{transform:rotate(2.2deg);}}
+      @keyframes bl-shadow{0%,100%{transform:scaleX(.985);opacity:.48;}50%{transform:scaleX(1.005);opacity:.5;}}
+      @keyframes bl-blink{0%,46%,54%,100%{transform:scaleY(1);}50%{transform:scaleY(.1);}}
+      @keyframes bl-earl{0%,100%{transform:rotate(-5deg);}50%{transform:rotate(3deg);}}
+      @keyframes bl-earr{0%,100%{transform:rotate(3deg);}50%{transform:rotate(-5deg);}}
+      @keyframes bl-heart{
+        0%,60%{opacity:0;transform:translate(0,0) scale(.8);}
+        70%{opacity:.85;}
+        100%{opacity:0;transform:translate(1.5px,-5px) scale(1.1);}
+      }
+    </style></defs>
+
+    <rect class="bl-shad" x="3" y="15" width="9" height="1" fill="#000" opacity=".5"/>
+    <g class="bl-body">
+      <g fill="#DE886D">
+        <rect x="3" y="13" width="1" height="2"/><rect x="5" y="13" width="1" height="2"/>
+        <rect x="9" y="13" width="1" height="2"/><rect x="11" y="13" width="1" height="2"/>
+      </g>
+      <!-- bunny ears: bases touch the torso top (y=6), wobble from the base -->
+      <g class="bl-earl">
+        <rect x="4.6" y="1.6" width="1.3" height="4.6" rx=".6" fill="#1c1c1c"/>
+        <rect x="5" y="2.3" width=".5" height="2.6" rx=".25" fill="#e88aa8"/>
+      </g>
+      <g class="bl-earr">
+        <rect x="9.1" y="1.6" width="1.3" height="4.6" rx=".6" fill="#1c1c1c"/>
+        <rect x="9.5" y="2.3" width=".5" height="2.6" rx=".25" fill="#e88aa8"/>
+      </g>
+      <!-- torso -->
+      <rect x="2" y="6" width="11" height="7" fill="#DE886D"/>
+      <!-- arms -->
+      <rect x="0" y="9" width="2" height="2" fill="#DE886D"/>
+      <rect x="13" y="9" width="2" height="2" fill="#DE886D"/>
+      <!-- white cuffs on the wrists -->
+      <rect x="0" y="8.6" width="2" height=".7" rx=".2" fill="#f4f0e8"/>
+      <rect x="13" y="8.6" width="2" height=".7" rx=".2" fill="#f4f0e8"/>
+      <!-- white collar + black bow tie, right under the torso top -->
+      <rect x="5.3" y="6.2" width="4.4" height=".7" rx=".2" fill="#f4f0e8"/>
+      <polygon points="6.1,6.1 6.1,7.5 7.25,6.8" fill="#1c1c1c"/>
+      <polygon points="8.9,6.1 8.9,7.5 7.75,6.8" fill="#1c1c1c"/>
+      <rect x="7.15" y="6.45" width=".7" height=".7" rx=".2" fill="#3a3a3a"/>
+      <!-- eyes / mouth -->
+      <g class="bl-eye" fill="#000">
+        <rect x="4" y="8.4" width="1" height="2"/><rect x="10" y="8.4" width="1" height="2"/>
+      </g>
+      <rect x="6.4" y="11" width="2.2" height="1" rx=".5" fill="#7a2230"/>
+    </g>
+    <!-- floating hearts (outside body so they drift free) -->
+    <g fill="#e86a9a">
+      <text class="bl-heart" style="--sd:0s" x="12.6" y="4.6" font-size="2.4">&#9829;</text>
+      <text class="bl-heart" style="--sd:-1.6s" x="1" y="6" font-size="1.8">&#9829;</text>
+    </g>
+    </svg>
+  </div>
+  <div class="card-info">
+    <div class="card-emoji">🐰</div><div class="card-name">兔男郎</div>
+    <div class="card-desc">黑兔耳 · 领结 · 袖扣<br>晃着晃着就掉小心心</div>
+    <div class="tag">Bunny</div>
+  </div>
+</div>
+
+</div><!-- /grid -->
+
+<p style="color:#2a2a2a;font-size:.7rem;padding-bottom:8px">纯 SVG + CSS · 调教室门牌 · for Llawd</p>
+
+</body>
+</html>

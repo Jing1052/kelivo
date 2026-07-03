@@ -5,6 +5,7 @@ import 'dart:async';
 import 'l10n/app_localizations.dart';
 import 'features/home/pages/home_page.dart';
 import 'features/home/pages/still_here_shell.dart';
+import 'features/home/widgets/floating_pets.dart';
 import 'core/services/ourhome/ourhome_cache.dart';
 import 'desktop/desktop_home_page.dart';
 import 'package:flutter/services.dart';
@@ -382,6 +383,7 @@ class MyApp extends StatelessWidget {
                 theme: themedLight,
                 darkTheme: themedDark,
                 themeMode: settings.themeMode,
+                navigatorKey: rootNavigatorKey,
                 navigatorObservers: <NavigatorObserver>[routeObserver],
                 home: _selectHome(),
                 builder: (ctx, child) {
@@ -467,6 +469,22 @@ class MyApp extends StatelessWidget {
                               ),
                             ),
                           ),
+                        ),
+                      ],
+                    );
+                  }
+                  // Floating desk pets (Llawd + the seal) hover above every
+                  // route — chat, terminal, rooms, settings. Mobile only.
+                  final petsPlatform =
+                      !kIsWeb &&
+                      (defaultTargetPlatform == TargetPlatform.android ||
+                          defaultTargetPlatform == TargetPlatform.iOS);
+                  if (petsPlatform) {
+                    appWithOverlays = Stack(
+                      children: [
+                        appWithOverlays,
+                        const Positioned.fill(
+                          child: SafeArea(child: FloatingPets()),
                         ),
                       ],
                     );

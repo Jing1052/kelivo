@@ -275,3 +275,10 @@
 - 数据：本地 `SettingsProvider`，键 `still_pet_clawd_v1` / `still_pet_seal_v1`（JSON：hidden/scale/posX/posY/emote；posX/posY 归一化 0..1，-1=没挪过用默认位；emote 空串=每次进门随机）。纯客户端外观，与网关无关。
 - 文案照房间规矩内联双语（本页整页如此）。
 - ⚠️ 无 Flutter SDK，未跑 analyze/format/build；CI flutter build ios 是第一道真编译。
+
+## 2026-07-03 · 「门厅桌宠」升级为「桌宠」（全屋悬浮，+106）
+
+- 分组名「门厅桌宠」→「桌宠」，副题改「全屋悬浮可拖动」；小螃蟹显示名 **Clawd → Llawd**（姓氏交换）。开关语义不变（`!hidden`），存储键不变（`still_pet_*_v1`，老配置无缝沿用）。
+- 桌宠实现从 still_rooms_page 页内搬到 `lib/features/home/widgets/floating_pets.dart`，挂 **MaterialApp.builder**（仅 Android/iOS）——聊天窗/终端/设置所有路由之上悬浮；长按面板经新加的全局 `rootNavigatorKey`（MaterialApp.navigatorKey）弹出。
+- Llawd 表情池 +1：pet-bunny.gif（兔男郎）；调教室门图标换 icon-locked.png（同素材首帧）。
+- ⚠️ 无 Flutter SDK，未跑 analyze/format/build；CI flutter build ios 是第一道真编译。

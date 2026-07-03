@@ -30,3 +30,13 @@ ffmpeg 是裁剪版没有 PNG 解码，要 `apt-get install ffmpeg`）：
 ## 体积账
 
 本次全部 25 个文件共约 944KB（预算 <2MB）。加新表情时记得看总量。
+
+## 2026-07-03 追加 · 兔男郎 + 全屋悬浮
+
+- `bunny.html`：Llawd 兔男郎表情源码（黑兔耳+领结+袖扣+飘心，小猫钦点的调教室门牌）。
+  导出后同一素材出两份：`icon-locked.png`（首帧连通域裁剪）+ `pet-bunny.gif`
+  （**必须用与螃蟹池相同的裁剪框 `crop=156:177:42:60`**，保证与其它表情共享地面线）。
+- 桌宠已从门厅页搬到 **MaterialApp.builder 全局悬浮层**（`lib/features/home/widgets/floating_pets.dart`，
+  仅移动端）——聊天窗/终端/设置全都跟着；长按面板经全局 `rootNavigatorKey` 弹出
+  （桌宠层在 Navigator 之上，用自己的 context 弹 sheet 会找不到 Navigator）。
+- 显示名遵循姓氏交换：**Clawd → Llawd**（资产路径仍叫 clawd，不迁移）。
