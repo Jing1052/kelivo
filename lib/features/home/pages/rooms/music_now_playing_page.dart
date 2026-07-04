@@ -8,6 +8,7 @@ import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/eryu/eryu_client.dart';
 import 'package:Kelivo/core/services/eryu/eryu_lyrics.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../icons/lucide_adapter.dart';
@@ -138,6 +139,20 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
     );
   }
 
+  void _saveToHome() {
+    final song = _player?.current;
+    if (song == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) {
+      _showActivity(zh ? '家里的连接还没配好' : 'Home not connected');
+      return;
+    }
+    Haptics.light();
+    unawaited(softFetch(gw.addSong(song.name, song.artist, '', ''), 'add home song'));
+    _showActivity(zh ? '已加进我们家的歌单' : 'Saved to our playlist');
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -203,6 +218,7 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                   if (_showLyrics) _maybeAutoScroll();
                 }),
               ),
+              IosIconButton(icon: Lucide.Bookmark, size: 20, minSize: 44, onTap: _saveToHome),
               IosIconButton(icon: Lucide.Heart, size: 20, minSize: 44, onTap: _openMemory),
             ],
           ),

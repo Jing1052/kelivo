@@ -11,6 +11,7 @@ import '../../../../core/services/haptics.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 import 'music_now_playing_page.dart';
+import 'music_home_playlist_page.dart';
 
 /// 音乐房 · Music Room — home page. Search, daily picks, recent, playlists, and
 /// a tap-to-open mini player. Connects directly to eryu (clmusic).
@@ -190,6 +191,13 @@ class _MusicPageState extends State<MusicPage> {
     _play(songs.first, songs);
   }
 
+  void _openHome(String source, String titleZh, String titleEn) {
+    Haptics.soft();
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => MusicHomePlaylistPage(source: source, titleZh: titleZh, titleEn: titleEn),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -356,6 +364,20 @@ class _MusicPageState extends State<MusicPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
+          _SectionHeader(zh ? '我们家' : 'Our Home'),
+          _HomeSourceTile(
+            icon: Lucide.ListMusic,
+            title: zh ? '我们家的歌单' : 'Our Playlist',
+            subtitle: zh ? '你和爸爸攒下的歌' : "songs we've saved",
+            onTap: () => _openHome('songs', '我们家的歌单', 'Our Playlist'),
+          ),
+          _HomeSourceTile(
+            icon: Lucide.NotebookTabs,
+            title: zh ? '词廊' : 'Lyric Corridor',
+            subtitle: zh ? '停在心上的那些句子' : 'lines we lingered on',
+            onTap: () => _openHome('lyrics', '词廊', 'Lyric Corridor'),
+          ),
+          const SizedBox(height: 8),
           if (_daily.isNotEmpty) ...[
             _SectionHeader(zh ? '每日推荐' : 'Daily Picks'),
             ..._daily.take(10).map((s) => _SongRow(song: s, onTap: () => _play(s, _daily))),
@@ -484,6 +506,56 @@ class _PlaylistTile extends StatelessWidget {
             ),
           ),
           Icon(Lucide.Play, size: 16, color: cs.primary.withValues(alpha: 0.8)),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeSourceTile extends StatelessWidget {
+  const _HomeSourceTile({required this.icon, required this.title, required this.subtitle, required this.onTap});
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return StillGlass(
+      radius: 12,
+      blur: false,
+      padding: const EdgeInsets.all(10),
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: cs.primary.withValues(alpha: 0.12),
+            ),
+            child: Icon(icon, size: 20, color: cs.primary),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: cs.onSurface)),
+                const SizedBox(height: 2),
+                Text(subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45))),
+              ],
+            ),
+          ),
+          Icon(Lucide.ChevronRight, size: 18, color: cs.onSurface.withValues(alpha: 0.3)),
         ],
       ),
     );
