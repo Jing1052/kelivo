@@ -326,6 +326,13 @@ flutter test
 
 7. **GitHub `actions_list` MCP 会撑爆上下文** — symptom：调用返回 ~350k 字符、报 token 超限（无视 per_page）。fix：它会落盘到 tool-results 文件，用 python 切片 / `json.load` 取需要的字段，或丢给子代理读，别直接 Read 原文。
 
+### 2026-07-04 · Spec 6 监控台施工（无 SDK 自审抓的三只编译/渲染虫 + 一处过期指针）
+
+1. **`AppFontWeights.*` 进不了 const TextStyle** — symptom：`const TextStyle(fontWeight: AppFontWeights.semibold)` 编译错。root cause：`AppFontWeights` 的 medium/semibold/emphasis 是 **getter**（跑 normalize），不是 const。constraint：用它就别 const 那个 TextStyle；appbar 标题那类想 const 的直接写 `FontWeight.w600`。
+2. **`double.clamp` 返回 num** — symptom：`rate: u.hitRate.clamp(0.0, 1.0)` 塞给 double 参数编译错。fix：`.clamp(...).toDouble()`。
+3. **Row 里无固有高度的 ColoredBox 会 0 高隐形（最阴，编译不报错）** — symptom：占比横条整条消失。root cause：Row 默认 crossAxisAlignment center，`ColoredBox`（无 child）没有固有高度，在松约束里量成 0。fix：外层定高 SizedBox + Row 加 `crossAxisAlignment: CrossAxisAlignment.stretch`。
+4. **`STILL_HERE.md` 在主干上不存在** — 家规里"改动记 STILL_HERE.md"的指针已过期。当前惯例：进度记进 `SPECS_OPUS48_2026-07.md` 对应 Spec 块（Spec 4/6 都这么记的）。要么重建 STILL_HERE.md，要么改家规文案——别让下个 session 找不到文件发懵。
+
 ### 2026-07-02 · 书房待办"后台有数据、App 不更新"
 
 - symptom：`hold(channel=todo)` / App 手动新建的待办，后台与 breath 都读得到，书房列表却刷不出新条目，界面无任何报错。
