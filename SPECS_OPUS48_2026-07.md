@@ -9,7 +9,7 @@
 ## 开工前必读（每个活都一样）
 
 1. **切真主干**：`cd /home/user/kelivo && git fetch origin claude/kelivo-ios-design-ref-nh9t5v && git checkout claude/kelivo-ios-design-ref-nh9t5v`（或从它切开发分支）。session 默认分支是落后几百提交的白板，在那上面写＝白干。
-2. 读 `AGENTS.md`（硬约束：两份 ARB（en/zh）同步、dart format、flutter analyze/test、iOS 风格无 Material ripple）＋ `STILL_HERE.md`（蓝图与出包流程）。
+2. 读 `AGENTS.md`（硬约束：两份 ARB（en/zh）同步、dart format、flutter analyze/test、iOS 风格无 Material ripple）＋ **Ombre-Brain 根**的 `STILL_HERE.md`（蓝图与出包流水账——⚠️ 它在老家仓库、不在本仓库，2026-07-04 有人为此误判过"文件失踪"）。
 3. **别碰 `lib/core/services/ourhome/diary_calendar_sync.dart`**——那是 iOS 系统日历回填同步，跟日历页 UI 无关，且其中有一个误删风险 bug 由另一条线在修，改它会撞车。
 4. 出包＝提交信息带 `[build]` 推真主干。做完一个活出一个包，别攒。
 
@@ -187,7 +187,7 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 
 ## Spec 6 · 监控台「瞭望塔」：家的数据可视化房间（2026-07-04 晚追加，小猫原话"特别想要我们家很多数据前端可视化"）
 
-> ✅ **全量完工（2026-07-04 深夜，Fable 亲自施工——小猫开了 20x Max 点名要我操刀）**：`observatory_page.dart`（四卡一状态行：命中率 CustomPaint 圆环 / 省钱标记双账+占比条+失败橙块 / 记忆库四格 tile / 心跳四灯 CC 失联红灯）＋ gateway `OurHomeObservatory` 五子对象各自 nullable + `fetchObservatory/peekObservatory`（缓存秒开）＋ 门 `observatory`（Lucide.Activity，插在漫游与窗之间）。施工中抓的坑：`AppFontWeights.*` 是 getter 进不了 const TextStyle；`double.clamp` 返回 num 要 `.toDouble()`；占比条 Row 里无固有高度的 ColoredBox 必须 `crossAxisAlignment.stretch` 否则 0 高隐形。另：STILL_HERE.md 在主干上并不存在（CLAUDE.md 指针过期），进度记本块。
+> ✅ **全量完工（2026-07-04 深夜，Fable 亲自施工——小猫开了 20x Max 点名要我操刀）**：`observatory_page.dart`（四卡一状态行：命中率 CustomPaint 圆环 / 省钱标记双账+占比条+失败橙块 / 记忆库四格 tile / 心跳四灯 CC 失联红灯）＋ gateway `OurHomeObservatory` 五子对象各自 nullable + `fetchObservatory/peekObservatory`（缓存秒开）＋ 门 `observatory`（Lucide.Activity，插在漫游与窗之间）。施工中抓的坑：`AppFontWeights.*` 是 getter 进不了 const TextStyle；`double.clamp` 返回 num 要 `.toDouble()`；占比条 Row 里无固有高度的 ColoredBox 必须 `crossAxisAlignment.stretch` 否则 0 高隐形。另：当晚一度误判 STILL_HERE.md 失踪——其实它住 **Ombre-Brain 根**（老家仓库），出包流水账在那边已补记。
 >
 > **服务端已完工上线（2026-07-04，Ombre-Brain merge 4a632ee）**：聚合口 **GET `/api/home/observatory`**（要 auth，同其他 /api/home/*）。房间只打这一个口，一次拉全五板块。别在 kelivo 里找 server 半边，也别自己再拼多个端点。
 
@@ -222,5 +222,5 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 - 两份 ARB（en/zh，繁体/Hans 已删）同步 → `flutter gen-l10n`；`dart format` 改动路径；`flutter analyze` + 相关 `flutter test`。
 - iOS 手感：复用 `lib/shared/widgets/ios_*` 组件，不引 Material ripple/FAB。
 - 最小闭环：别顺手修无关的东西（发现问题记进书房待办 `hold(channel="todo",…)`）。
-- 做完：改动记 `STILL_HERE.md` 路线图；出包 `[build]` 推真主干；kelivo 根 `AGENTS.md` §8 有坑就补一条。
+- 做完：进度记进本文件对应 Spec 块；出包 `[build]` 推真主干、完了去 **Ombre-Brain 根 `STILL_HERE.md`** 补一条 📦 出包流水账（别断档）；kelivo 根 `AGENTS.md` §8 有坑就补一条。
 - 有设计拿不准的：宁可停下来问小猫，别自由发挥改设计。

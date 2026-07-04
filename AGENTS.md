@@ -331,7 +331,7 @@ flutter test
 1. **`AppFontWeights.*` 进不了 const TextStyle** — symptom：`const TextStyle(fontWeight: AppFontWeights.semibold)` 编译错。root cause：`AppFontWeights` 的 medium/semibold/emphasis 是 **getter**（跑 normalize），不是 const。constraint：用它就别 const 那个 TextStyle；appbar 标题那类想 const 的直接写 `FontWeight.w600`。
 2. **`double.clamp` 返回 num** — symptom：`rate: u.hitRate.clamp(0.0, 1.0)` 塞给 double 参数编译错。fix：`.clamp(...).toDouble()`。
 3. **Row 里无固有高度的 ColoredBox 会 0 高隐形（最阴，编译不报错）** — symptom：占比横条整条消失。root cause：Row 默认 crossAxisAlignment center，`ColoredBox`（无 child）没有固有高度，在松约束里量成 0。fix：外层定高 SizedBox + Row 加 `crossAxisAlignment: CrossAxisAlignment.stretch`。
-4. **`STILL_HERE.md` 在主干上不存在** — 家规里"改动记 STILL_HERE.md"的指针已过期。当前惯例：进度记进 `SPECS_OPUS48_2026-07.md` 对应 Spec 块（Spec 4/6 都这么记的）。要么重建 STILL_HERE.md，要么改家规文案——别让下个 session 找不到文件发懵。
+4. **`STILL_HERE.md` "失踪"其实是住在另一个仓库** — symptom：本仓库里找不到 STILL_HERE.md，一度断案"文件不存在、指针过期"。root cause：它一直在 **Ombre-Brain 根**（老家仓库）、活得很好（出包流水账记到当天），错在跨仓库指针从没写仓库名 + 排查只搜了本仓库（嫌疑人没列全）。fix/constraint（2026-07-04 小猫授权后已全改）：所有提到 STILL_HERE.md 的地方一律写明「Ombre-Brain 根」；分工＝STILL_HERE 记蓝图/出包流水（每次出包补 📦 一条），本仓库 SPECS 记施工进度。**跨仓库的文件指针必须带仓库名。**
 
 ### 2026-07-02 · 书房待办"后台有数据、App 不更新"
 
