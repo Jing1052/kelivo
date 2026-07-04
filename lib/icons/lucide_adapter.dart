@@ -204,6 +204,12 @@ class Lucide {
   static const IconData CloudFog = lucide.LucideIcons.cloudFog;
   static const IconData CloudLightning = lucide.LucideIcons.cloudLightning;
   static const IconData Play = lucide.LucideIcons.play;
+  static const IconData Pause = lucide.LucideIcons.pause;
+  static const IconData Music = lucide.LucideIcons.music;
+  static const IconData ListMusic = lucide.LucideIcons.listMusic;
+  static const IconData SkipForward = lucide.LucideIcons.skipForward;
+  static const IconData SkipBack = lucide.LucideIcons.skipBack;
+  static const IconData Users = lucide.LucideIcons.users;
   static const IconData Gamepad2 = lucide.LucideIcons.gamepad2;
   static const IconData Tv = lucide.LucideIcons.tv;
   static const IconData Send = lucide.LucideIcons.send;

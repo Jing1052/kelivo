@@ -85,6 +85,9 @@ dependencies:
   syncfusion_flutter_sliders: ^31.2.5
   syncfusion_flutter_pdf: ^31.2.5
   audioplayers: ^6.5.1
+  # Music Room (Spec 8) playback — streaming + background audio.
+  just_audio: ^0.9.42
+  audio_session: ^0.1.21
   html: ^0.15.6
   html2md: ^1.2.10
   http_parser: ^4.1.2

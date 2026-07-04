@@ -23,6 +23,7 @@ import 'core/providers/user_provider.dart';
 import 'core/providers/settings_provider.dart';
 import 'core/providers/mcp_provider.dart';
 import 'core/providers/tts_provider.dart';
+import 'core/services/eryu/eryu_player_controller.dart';
 import 'core/providers/assistant_provider.dart';
 import 'core/providers/tag_provider.dart';
 import 'core/providers/update_provider.dart';
@@ -145,6 +146,7 @@ class MyApp extends StatelessWidget {
         ),
         ChangeNotifierProvider(create: (_) => TagProvider()),
         ChangeNotifierProvider(create: (_) => TtsProvider()),
+        ChangeNotifierProvider(create: (_) => EryuPlayerController()),
         ChangeNotifierProvider(create: (_) => UpdateProvider()),
         ChangeNotifierProvider(create: (_) => QuickPhraseProvider()),
         ChangeNotifierProvider(create: (_) => InstructionInjectionProvider()),

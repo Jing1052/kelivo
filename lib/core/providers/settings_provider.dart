@@ -109,6 +109,10 @@ class SettingsProvider extends ChangeNotifier {
   static const String _themePaletteKey = 'theme_palette_v1';
   static const String _customPaletteSeedKey = 'custom_palette_seed_v1';
   static const String _ourhomeTokenKey = 'ourhome_gateway_token_v1';
+  // Music Room (eryu / clmusic) — separate service, separate key from 老家.
+  static const String _eryuTokenKey = 'eryu_auth_token_v1';
+  static const String _eryuBaseUrlKey = 'eryu_base_url_v1';
+  static const String _eryuUserKey = 'eryu_room_user_v1';
   static const String _homeBackgroundsKey = 'home_backgrounds_v1';
   static const String _homeBackgroundActiveKey = 'home_background_active_v1';
   static const String _homeBgAiryKey = 'home_bg_airy_v1';
@@ -406,6 +410,44 @@ class SettingsProvider extends ChangeNotifier {
     SharedPreferences.getInstance().then((p) {
       p.setString(_ourhomeTokenKey, t);
     });
+  }
+
+  // ----- Music Room (eryu / clmusic) connection -----
+  // eryu has its own AUTH_TOKEN (X-Auth-Token), a different key from 老家's.
+  String _eryuToken = '';
+  String get eryuToken => _eryuToken;
+  Future<void> setEryuToken(String token) async {
+    final t = token.trim();
+    if (t == _eryuToken) return;
+    _eryuToken = t;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_eryuTokenKey, t);
+  }
+
+  // Base URL is a constant by default (EryuClient.defaultBase); this override
+  // lets us change domains without shipping a build. Empty = use the default.
+  String _eryuBaseUrl = '';
+  String get eryuBaseUrl => _eryuBaseUrl;
+  Future<void> setEryuBaseUrl(String url) async {
+    final u = url.trim();
+    if (u == _eryuBaseUrl) return;
+    _eryuBaseUrl = u;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_eryuBaseUrlKey, u);
+  }
+
+  // The name shown in the listen-together room; defaults to "Cing".
+  String _eryuUser = '';
+  String get eryuUser => _eryuUser.isEmpty ? 'Cing' : _eryuUser;
+  Future<void> setEryuUser(String name) async {
+    final n = name.trim();
+    if (n == _eryuUser) return;
+    _eryuUser = n;
+    notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_eryuUserKey, n);
   }
 
   // ----- Home background images (uploaded, kept as switchable options) -----
@@ -877,6 +919,9 @@ class SettingsProvider extends ChangeNotifier {
         prefs.getString(_themePaletteKey) ?? 'macaron'; // 我们的家·马卡龙默认
     _customPaletteSeed = prefs.getInt(_customPaletteSeedKey);
     _ourhomeToken = prefs.getString(_ourhomeTokenKey) ?? '';
+    _eryuToken = prefs.getString(_eryuTokenKey) ?? '';
+    _eryuBaseUrl = prefs.getString(_eryuBaseUrlKey) ?? '';
+    _eryuUser = prefs.getString(_eryuUserKey) ?? '';
     _homeBackgrounds =
         prefs.getStringList(_homeBackgroundsKey) ?? const <String>[];
     _homeBackgroundActive = prefs.getString(_homeBackgroundActiveKey) ?? '';

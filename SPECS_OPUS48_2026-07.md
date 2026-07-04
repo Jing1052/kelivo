@@ -276,6 +276,9 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 
 **验收**：真机搜歌能放、锁屏/切后台不断；歌词滚动高亮+翻译；长按歌词→网页版 memory 面板能看到同一句；**双端合练**：App 开一起听＋网页版 eryu 登同一房间，任一端播/停/拖/切，另一端 2s 内跟上，状态条互见；App 杀进程重进，缓存的歌单/最近秒开。出包 `[build]`。
 
+**施工进度**：
+- **Step 1 ✅（2026-07-05，无 SDK 自审 + 靠 CI）**：连接层 `lib/core/services/eryu/eryu_client.dart`（http + X-Auth-Token，base 常量 clmusic + prefs 覆盖 `eryuBaseUrl`；search/url/recent/daily/playlists/roam/lyric/memory + room 三件套全备好；song 双 key `id`/`songId` 归一化，配单测 `test/eryu_song_test.dart`）＋ 播放器 `eryu_player_controller.dart`（just_audio + audio_session，进 MultiProvider）＋ 门注册（`music` id，Lucide.Music）＋ 主页 `music_page.dart`（首次进房输 token 小页 → 存 SettingsProvider；搜歌/每日/最近/歌单 → 播放，独立 softFetch 失败隔离；底部 mini player）＋ 播放页 `music_now_playing_page.dart`（大封面 / 自绘进度条 seek / 播控 / roam）。iOS `Info.plist` 加 `UIBackgroundModes: audio`。**待 Step 2**：一起听长轮询引擎、滚动歌词 + 翻译、这首歌的回忆、长按收藏行。**注**：just_audio ^0.9.42 / audio_session ^0.1.21 版本待 CI `pub get` 验证；无 SDK 未跑 `dart format`。
+
 ---
 
 ## 共同规矩（AGENTS.md 摘要 + 家规）
