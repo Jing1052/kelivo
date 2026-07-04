@@ -247,6 +247,37 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 
 ---
 
+## Spec 8 · 音乐房：eryu 接进家（2026-07-05 凌晨追加，Fable 画图；排 Spec 7 之后）
+
+> 背景：eryu 音乐屋已上线 `clmusic.zeabur.app`（仓库 `jing1052/eryu`，账在 Ombre-Brain HISTORY 2026-07-04 两条）。**2026-07-04 二期刚焊上"一起听"同步房间**——纯 HTTP 长轮询（无 WebSocket），就是为这间原生房准备的接口形态。小猫拍板：**原生 Flutter 页，不搞 webview 套壳**。服务端两边（eryu 本体、一起听协议）全部完工，本 spec 纯 App 半边，别动 eryu 仓库。
+
+**是什么**：房间 tab 新开一间「音乐房」（en: Music Room）——搜歌、歌单、每日推荐、滚动歌词＋翻译，以及灵魂功能**一起听**：她在 App 里放歌，任何端（网页版 eryu、将来 API 爸爸）进同一间房，播放/暂停/进度/切歌实时同步，谁做了什么飘状态条。
+
+**连接层（第一个设计决策，别改）**：App **直连** `https://clmusic.zeabur.app`，不经老家网关代理。鉴权是 eryu 自己的 `AUTH_TOKEN`（`X-Auth-Token` 头），跟老家钥匙不是一把。首次进房弹一次性小页输入 token（样式照老家网关的连接设置页），存本地 prefs；**base URL 写死常量但留 prefs 覆盖口**（万一换域名不用出包）。新文件 `lib/core/services/eryu/eryu_client.dart`——别塞进 `ourhome_gateway.dart`，两个服务两把钥匙，混了将来疼。
+
+**API 契约（全部现成，实测过）**：
+- 搜歌 `GET /music/search?q=` → `{songs:[{id,name,artist,album,cover}]}`；播放地址 `GET /music/url?id=` → `{url:"/music/file/<id>.mp3"}`（**相对路径，拼 base**；文件端点本身免鉴权、支持 Range，seek 没问题）。
+- 歌词 `GET /music/lyric?id=` → `{lrc,tlyric}`（LRC 格式＋中文翻译轨，App 端解析照网页版 `parseLrc` 的正则逻辑）。
+- 歌单 `GET /music/playlists` / `GET /music/playlists/songs?id=`；喜欢 `POST /music/playlist/add`；每日推荐 `GET /music/daily`；最近 `GET /music/recent`＋上报 `POST /music/recent/add`；漫游 `GET /music/roam`。
+- 歌曲记忆 `GET /music/memory?id=`（feeling/notes/favoriteLines/listenCount/togetherCount，只读展示进"这首歌的回忆"小页）；听完上报 `POST /music/listen-complete`（一起听且有伴时带 `source:"together"`——喂 togetherCount，别漏）。
+- **一起听三件套**：`GET /music/room?user=` 快照（state＋users）；`GET /music/room/poll?since=N&user=`（25s 长轮询，有事秒回）；`POST /music/room/event` `{user,type,song?,position?,line?}`。type ∈ track/play/pause/seek（驱动共享状态）＋ hello/bye/heart/quote（纯动态流）。
+
+**播放层（第二个设计决策）**：引 `just_audio` ＋ `audio_session`（pub 上的标准组合，别手搓平台通道）。iOS `Info.plist` 加 `UIBackgroundModes: [audio]`（锁屏继续放）。**锁屏控制中心卡片（audio_service）是二期**——一期先能后台播；别为它把一期拖大。播放器状态收进单例 `EryuPlayerController extends ChangeNotifier`（当前歌/队列/进度/roam/together 状态全在这，页面只订阅）。
+
+**一起听引擎（照抄网页版逻辑，别重新发明）**：eryu `client/index.html` 的 together 模块是参考实现，防回声机制**原样移植**：`muteUntil`（应用远端事件后 1.2~5s 内不发布）＋ `softMuteUntil`（本地切歌后 1s 内不发布 play/pause/seek）＋ 双端同时自动切歌去重（同 songId 且播放中且 <8s 就跳过）。长轮询循环：await poll → 应用 events（过滤自己 user）→ 更新 partners → 立即下一轮；网络错误 sleep 3s 重试；退房发 bye。**user 名**用小猫在音乐房设置里填的名字，默认 "Cing"。房间号默认 main（`?room=` 参数已支持，App 一期不做私密房 UI）。
+
+**页面结构**（门照家规两处注册进 `still_rooms_page.dart`，图标音符线条 SVG，寄语口吻照其他门；文案内联双语，不走 ARB）：
+1. **主页**：搜索条＋每日推荐＋最近播放＋歌单入口（列表复用 ios_* 组件，贴 study 那路卡片语言）。
+2. **播放页**：大封面＋滚动歌词（当前句高亮＋翻译小字、点句 seek——seek 记得发布 room 事件）＋进度条＋播控。**长按歌词句**→ `POST /music/memory {action:"fav_line", line}` 收藏进这首歌的回忆（服务端已去重）＋发布 quote 事件。
+3. **一起听**：播放页顶栏双人图标开关（照网页版：off 灰/on 主题色/有伴加绿点）；开了之后房间动态走 SnackBar 或轻 toast（"Llaude ▶ 温柔"、"Llaude 收藏了一句歌词"）。进房时房里有人在放 → 弹底部确认条"加入 TA 正在听的歌？"（**这里跟网页版不同**：网页版直接跳歌，App 端她可能正戴耳机听别的，给个确认更体贴——就这一处允许改）。
+4. **这首歌的回忆**：播放页角落入口，只读展示 memory（feeling 高亮块/notes/favoriteLines 引用条/听过 N 次·一起听过 N 次），样式照网页版 memory 面板。
+
+**不做**（边界）：不做频谱分析 UI（那是给爸爸"听歌"的，App 不用）；不做歌曲离线缓存（服务器已经缓存 mp3，App 一期流播）；不做 `/music/remote` 轮询——**爸爸推歌的正道升级为：爸爸以 "Llaude" 身份进房发 track 事件**，一起听引擎顺手就把这条路接了；不做私密房 UI；不引歌词/图表第三方库。
+
+**验收**：真机搜歌能放、锁屏/切后台不断；歌词滚动高亮+翻译；长按歌词→网页版 memory 面板能看到同一句；**双端合练**：App 开一起听＋网页版 eryu 登同一房间，任一端播/停/拖/切，另一端 2s 内跟上，状态条互见；App 杀进程重进，缓存的歌单/最近秒开。出包 `[build]`。
+
+---
+
 ## 共同规矩（AGENTS.md 摘要 + 家规）
 
 - 两份 ARB（en/zh，繁体/Hans 已删）同步 → `flutter gen-l10n`；`dart format` 改动路径；`flutter analyze` + 相关 `flutter test`。
