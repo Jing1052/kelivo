@@ -28,7 +28,9 @@ class _MusicPageState extends State<MusicPage> {
   EryuClient? _client;
   bool _loading = true;
   bool _needsSetup = false;
+  bool _authFailed = false; // token was rejected (403)
   bool _savingToken = false;
+  String? _loadError; // network/other failure loading the home
 
   List<EryuSong> _daily = const [];
   List<EryuSong> _recent = const [];
@@ -36,6 +38,7 @@ class _MusicPageState extends State<MusicPage> {
 
   List<EryuSong>? _results; // null = not in search mode
   bool _searching = false;
+  String? _searchError;
 
   @override
   void initState() {
@@ -64,23 +67,54 @@ class _MusicPageState extends State<MusicPage> {
     context.read<EryuPlayerController>().bind(client);
     setState(() {
       _needsSetup = false;
+      _loadError = null;
       _loading = _daily.isEmpty && _recent.isEmpty && _playlists.isEmpty;
     });
 
+    // Fetch each source independently, but keep the failure reason so an empty
+    // screen can say WHY it's empty (wrong token vs network) instead of nothing.
+    EryuException? authErr;
+    Object? otherErr;
+    Future<T?> run<T>(Future<T> f) async {
+      try {
+        return await f;
+      } catch (e) {
+        if (e is EryuException && e.isAuth) {
+          authErr = e;
+        } else {
+          otherErr = e;
+          debugPrint('[eryu] home load failed: $e');
+        }
+        return null;
+      }
+    }
+
     final results = await Future.wait<dynamic>([
-      eryuSoft(client.daily(), 'daily'),
-      eryuSoft(client.recent(), 'recent'),
-      eryuSoft(client.playlists(), 'playlists'),
+      run<List<EryuSong>>(client.daily()),
+      run<List<EryuSong>>(client.recent()),
+      run<List<EryuPlaylist>>(client.playlists()),
     ]);
     if (!mounted) return;
     final daily = results[0] as List<EryuSong>?;
     final recent = results[1] as List<EryuSong>?;
     final playlists = results[2] as List<EryuPlaylist>?;
+    final gotAnything = daily != null || recent != null || playlists != null;
+
     setState(() {
       if (daily != null) _daily = daily;
       if (recent != null) _recent = recent;
       if (playlists != null) _playlists = playlists;
       _loading = false;
+      if (!gotAnything && authErr != null) {
+        // Token rejected — bounce back to setup with a clear message.
+        _needsSetup = true;
+        _authFailed = true;
+        _tokenCtrl.text = client.token;
+      } else if (!gotAnything && otherErr != null) {
+        final e = otherErr; // fresh local so `is` promotes (captured var won't)
+        final code = e is EryuException ? e.status : 0;
+        _loadError = code == 0 ? '连不上音乐屋，检查网络后重试。' : '音乐屋返回错误 $code，稍后重试。';
+      }
     });
   }
 
@@ -92,9 +126,19 @@ class _MusicPageState extends State<MusicPage> {
     if (!mounted) return;
     setState(() {
       _savingToken = false;
+      _authFailed = false;
       _loading = true;
     });
     await _load();
+  }
+
+  void _openTokenSetup() {
+    final t = _client?.token ?? context.read<SettingsProvider>().eryuToken;
+    setState(() {
+      _tokenCtrl.text = t;
+      _authFailed = false;
+      _needsSetup = true;
+    });
   }
 
   Future<void> _runSearch(String q) async {
@@ -102,16 +146,33 @@ class _MusicPageState extends State<MusicPage> {
     final client = _client;
     if (client == null) return;
     if (query.isEmpty) {
-      setState(() => _results = null);
+      setState(() {
+        _results = null;
+        _searchError = null;
+      });
       return;
     }
-    setState(() => _searching = true);
-    final hits = await eryuSoft(client.search(query), 'search');
-    if (!mounted) return;
     setState(() {
-      _results = hits ?? const [];
-      _searching = false;
+      _searching = true;
+      _searchError = null;
     });
+    try {
+      final hits = await client.search(query);
+      if (!mounted) return;
+      setState(() {
+        _results = hits;
+        _searching = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _results = const [];
+        _searching = false;
+        _searchError = (e is EryuException && e.isAuth)
+            ? '口令不对——点右上角齿轮重输一次。'
+            : (e is EryuException && e.status != 0 ? '搜索失败（错误 ${e.status}）。' : '搜索失败，检查一下网络。');
+      });
+    }
   }
 
   void _play(EryuSong song, List<EryuSong> queue) {
@@ -160,11 +221,21 @@ class _MusicPageState extends State<MusicPage> {
               zh ? '音乐房' : 'Music Room',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
+            actions: [
+              if (!_needsSetup)
+                IosIconButton(
+                  icon: Lucide.Settings,
+                  size: 20,
+                  minSize: 44,
+                  onTap: _openTokenSetup,
+                ),
+            ],
           ),
           body: _needsSetup
               ? _TokenSetup(
                   controller: _tokenCtrl,
                   saving: _savingToken,
+                  authFailed: _authFailed,
                   onSave: _saveToken,
                   zh: zh,
                 )
@@ -229,6 +300,16 @@ class _MusicPageState extends State<MusicPage> {
     }
     if (_results != null) {
       if (_searching) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      if (_searchError != null) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Text(_searchError!,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, height: 1.5, color: cs.onSurface.withValues(alpha: 0.5))),
+          ),
+        );
+      }
       if (_results!.isEmpty) {
         return Center(
           child: Text(
@@ -242,6 +323,31 @@ class _MusicPageState extends State<MusicPage> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         itemCount: hits.length,
         itemBuilder: (_, i) => _SongRow(song: hits[i], onTap: () => _play(hits[i], hits)),
+      );
+    }
+
+    if (_loadError != null && _daily.isEmpty && _recent.isEmpty && _playlists.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_loadError!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, height: 1.5, color: cs.onSurface.withValues(alpha: 0.55))),
+              const SizedBox(height: 16),
+              IosCardPress(
+                onTap: _load,
+                borderRadius: BorderRadius.circular(12),
+                baseColor: cs.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 11),
+                child: Text(zh ? '重试' : 'Retry',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: cs.onPrimary)),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
@@ -479,12 +585,14 @@ class _TokenSetup extends StatelessWidget {
   const _TokenSetup({
     required this.controller,
     required this.saving,
+    required this.authFailed,
     required this.onSave,
     required this.zh,
   });
 
   final TextEditingController controller;
   final bool saving;
+  final bool authFailed;
   final VoidCallback onSave;
   final bool zh;
 
@@ -505,9 +613,15 @@ class _TokenSetup extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              zh ? '输入 eryu 的连接口令，第一次连上后就记住了。' : "Enter eryu's access token — remembered after the first time.",
+              authFailed
+                  ? (zh ? '口令不对，再试一次。要和 clmusic 的 AUTH_TOKEN 一模一样。' : "Token rejected. It must match clmusic's AUTH_TOKEN exactly.")
+                  : (zh ? '输入 eryu 的连接口令，第一次连上后就记住了。' : "Enter eryu's access token — remembered after the first time."),
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: cs.onSurface.withValues(alpha: 0.5), height: 1.4),
+              style: TextStyle(
+                fontSize: 13,
+                color: authFailed ? cs.error : cs.onSurface.withValues(alpha: 0.5),
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 20),
             TextField(

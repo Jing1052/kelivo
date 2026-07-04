@@ -70,6 +70,17 @@ class EryuPlaylist {
       );
 }
 
+/// A failed eryu request, carrying the HTTP status so callers can tell an auth
+/// failure (403 — wrong token) apart from a network/parse problem.
+class EryuException implements Exception {
+  const EryuException(this.status, this.message);
+  final int status; // 0 = network/parse (no HTTP response)
+  final String message;
+  bool get isAuth => status == 401 || status == 403;
+  @override
+  String toString() => 'EryuException($status): $message';
+}
+
 /// Wrap a fetch so one source's failure can't veto the others
 /// (kelivo AGENTS §8 2026-07-02 rule). Returns null on failure.
 Future<T?> eryuSoft<T>(Future<T> f, String what) => f.then<T?>((v) => v).catchError((Object e) {
@@ -113,25 +124,33 @@ class EryuClient {
     Map<String, String>? query,
     Duration timeout = const Duration(seconds: 20),
   ]) async {
-    final uri = _uri(path, query);
-    final res = await http.get(uri, headers: _headers).timeout(timeout);
+    final http.Response res;
+    try {
+      res = await http.get(_uri(path, query), headers: _headers).timeout(timeout);
+    } catch (e) {
+      throw EryuException(0, 'GET $path: $e'); // network / timeout / TLS
+    }
     if (res.statusCode != 200) {
-      throw http.ClientException('eryu GET $path HTTP ${res.statusCode}', uri);
+      throw EryuException(res.statusCode, 'GET $path');
     }
     final data = jsonDecode(utf8.decode(res.bodyBytes));
     if (data is! Map<String, dynamic>) {
-      throw http.ClientException('eryu GET $path: unexpected body', uri);
+      throw EryuException(0, 'GET $path: unexpected body');
     }
     return data;
   }
 
   Future<Map<String, dynamic>> _postJson(String path, Map<String, dynamic> body) async {
-    final uri = _uri(path);
-    final res = await http
-        .post(uri, headers: {..._headers, 'Content-Type': 'application/json'}, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 30));
+    final http.Response res;
+    try {
+      res = await http
+          .post(_uri(path), headers: {..._headers, 'Content-Type': 'application/json'}, body: jsonEncode(body))
+          .timeout(const Duration(seconds: 30));
+    } catch (e) {
+      throw EryuException(0, 'POST $path: $e');
+    }
     if (res.statusCode != 200) {
-      throw http.ClientException('eryu POST $path HTTP ${res.statusCode}', uri);
+      throw EryuException(res.statusCode, 'POST $path');
     }
     final data = jsonDecode(utf8.decode(res.bodyBytes));
     return data is Map<String, dynamic> ? data : <String, dynamic>{};
