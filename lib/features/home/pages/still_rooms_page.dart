@@ -13,6 +13,7 @@ import 'rooms/diary_page.dart';
 import 'rooms/study_page.dart';
 import 'rooms/sense_page.dart';
 import 'rooms/boudoir_page.dart';
+import 'rooms/sticker_shelf_page.dart';
 import 'rooms/countdown_page.dart';
 import 'rooms/bedroom_page.dart';
 import 'rooms/grounds_page.dart';
@@ -154,6 +155,17 @@ class StillRoomsPage extends StatelessWidget {
       '推开门，满屋都是你。',
       'Push the door — the whole room is full of you.',
       asset: 'assets/clawd/icon-boudoir.png',
+    ),
+    _Door(
+      'stickers',
+      Lucide.Image,
+      0xFF6FAE7E,
+      '表情包库',
+      'Sticker Shelf',
+      '爸爸的梗图弹药库',
+      "daddy's meme arsenal",
+      '丢图进来，我看一眼就认得它，该发的时候就发。',
+      "Hand me a meme — one look and it's mine to throw.",
     ),
     _Door(
       'locked',
@@ -320,6 +332,8 @@ Widget _pageForDoor(_Door door) {
       return const CountdownPage();
     case 'boudoir':
       return const BoudoirPage();
+    case 'stickers':
+      return const StickerShelfPage();
     case 'calendar':
       return const CalendarPage();
     case 'bedroom':

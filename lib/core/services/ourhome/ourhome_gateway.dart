@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
@@ -263,6 +264,25 @@ class OurHomePhoto {
   final String by;
   final String time;
   final String album;
+}
+
+/// One sticker on the shelf — daddy's meme arsenal. The name is the reference
+/// key he writes as `[[表情:名字]]`; desc is what he wrote when he first (and
+/// only ever) looked at the image.
+class OurHomeSticker {
+  const OurHomeSticker({
+    required this.name,
+    required this.desc,
+    required this.url,
+    required this.added,
+    required this.by,
+  });
+
+  final String name;
+  final String desc;
+  final String url;
+  final String added;
+  final String by;
 }
 
 /// A memory in the garden (non-feel). Titles/preview only.
@@ -1127,6 +1147,114 @@ class OurHomeGateway {
       return photos.whereType<Map<String, dynamic>>().map(_photoFromJson).toList();
     } catch (_) {
       return const <OurHomePhoto>[];
+    }
+  }
+
+  /// Sticker shelf, server order. Throws on error.
+  Future<List<OurHomeSticker>> fetchStickers() async {
+    final res = await http
+        .get(Uri.parse('$base/api/stickers'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'stickers HTTP ${res.statusCode}',
+        Uri.parse('$base/api/stickers'),
+      );
+    }
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
+    final items = (data is Map) ? data['stickers'] : null;
+    if (items is! List) return const <OurHomeSticker>[];
+    OurHomeCache.put('/api/stickers', body);
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(_stickerFromJson)
+        .toList();
+  }
+
+  OurHomeSticker _stickerFromJson(Map<String, dynamic> j) {
+    final path = (j['url'] ?? '').toString();
+    return OurHomeSticker(
+      name: (j['name'] ?? '').toString(),
+      desc: (j['desc'] ?? '').toString(),
+      url: path.startsWith('http') ? path : '$base$path',
+      added: (j['added'] ?? '').toString(),
+      by: (j['by'] ?? '').toString(),
+    );
+  }
+
+  /// Last-seen sticker shelf from cache (instant, before the network).
+  List<OurHomeSticker> peekStickers() {
+    final body = OurHomeCache.peek('/api/stickers');
+    if (body == null || body.isEmpty) return const <OurHomeSticker>[];
+    try {
+      final data = jsonDecode(body);
+      final items = (data is Map) ? data['stickers'] : null;
+      if (items is! List) return const <OurHomeSticker>[];
+      return items
+          .whereType<Map<String, dynamic>>()
+          .map(_stickerFromJson)
+          .toList();
+    } catch (_) {
+      return const <OurHomeSticker>[];
+    }
+  }
+
+  /// Upload one sticker image. Empty [name]/[desc] → daddy looks at it once
+  /// server-side and names it himself (that call can take a while — generous
+  /// timeout). Returns the server's human message (which name got assigned);
+  /// throws with the server's message on failure so the caller can show it.
+  Future<String> uploadSticker(
+    Uint8List bytes,
+    String ext, {
+    String name = '',
+    String desc = '',
+  }) async {
+    final mime = switch (ext.toLowerCase()) {
+      'jpg' || 'jpeg' => 'jpeg',
+      'webp' => 'webp',
+      'gif' => 'gif',
+      _ => 'png',
+    };
+    final uri = Uri.parse('$base/api/stickers/upload');
+    final res = await http
+        .post(
+          uri,
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'data_url': 'data:image/$mime;base64,${base64Encode(bytes)}',
+            'name': name,
+            'desc': desc,
+            'by': 'cing',
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+    String msg = '';
+    try {
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      if (data is Map) msg = (data['message'] ?? data['error'] ?? '').toString();
+    } catch (_) {}
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        msg.isEmpty ? 'sticker upload HTTP ${res.statusCode}' : msg,
+        uri,
+      );
+    }
+    return msg;
+  }
+
+  /// Remove a sticker (by its reference name) from the shelf.
+  Future<void> deleteSticker(String name) async {
+    final uri = Uri.parse('$base/api/stickers/delete');
+    final res = await http
+        .post(
+          uri,
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode({'name': name}),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('sticker delete HTTP ${res.statusCode}', uri);
     }
   }
 
