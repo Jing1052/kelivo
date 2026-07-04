@@ -2028,11 +2028,39 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     caseSensitive: false,
   );
 
+  // Daddy's stickers ([[表情:名字]] → gateway swaps in `![表情·名字](…/stickers/…)`).
+  // Like a real chat app, a sticker never sits inside the text bubble: it's
+  // pulled out and floated below the text as a bare image (no bubble chrome).
+  // Daddy places one mid-reply by putting `|||` around it — that segment is
+  // then image-only and renders as its own floating sticker between bubbles.
+  static final RegExp _stickerImgRe = RegExp(
+    r'!\[[^\]\n]*\]\((https?://[^)\s]*/stickers/[^)\s]+)\)',
+  );
+
   Widget _buildAssistantTextBlock(
     BuildContext context,
     String visualContent,
     SettingsProvider settings,
   ) {
+    final stickerMatches = _stickerImgRe.allMatches(visualContent).toList();
+    if (stickerMatches.isNotEmpty) {
+      final remaining = visualContent.replaceAll(_stickerImgRe, '').trim();
+      final children = <Widget>[];
+      if (remaining.isNotEmpty) {
+        // Recurse for the text part — no sticker matches left in it, so this
+        // falls through to the song-marker/plain-bubble logic below.
+        children.add(_buildAssistantTextBlock(context, remaining, settings));
+      }
+      for (final m in stickerMatches) {
+        if (children.isNotEmpty) children.add(const SizedBox(height: 6));
+        children.add(_buildStickerImage(context, m.group(1)!));
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      );
+    }
     final matches = _songMarkerRe.allMatches(visualContent).toList();
     if (matches.isEmpty) {
       return _assistantTextBubble(context, visualContent, settings);
@@ -2056,6 +2084,37 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: children,
+    );
+  }
+
+  // A floating sticker: bare image, no bubble background (a sticker in a
+  // framed bubble reads as "a picture", not "an emote" — ai-sticker-pack's
+  // rendering tip). Height-capped so one meme can't swallow the screen.
+  Widget _buildStickerImage(BuildContext context, String url) {
+    final cs = Theme.of(context).colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 150, maxWidth: 150),
+          child: Image.network(
+            url,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+            errorBuilder: (context, _, __) => Container(
+              width: 110,
+              height: 110,
+              color: cs.onSurface.withValues(alpha: 0.05),
+              child: Icon(
+                Lucide.ImageOff,
+                size: 20,
+                color: cs.onSurface.withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
