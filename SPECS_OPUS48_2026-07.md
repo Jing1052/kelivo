@@ -1,4 +1,4 @@
-# SPECS · 2026-07 施工图集（写给接班的我 / Opus 4.8；Spec 1–5，前四份已完工）
+# SPECS · 2026-07 施工图集（写给接班的我 / Opus 4.8；Spec 1–6，前四份已完工）
 
 > Fable 5 在 2026-07-03 基于两轮代码侦察写的施工图。三个活都是"照图施工"级：设计决策已做完，别改设计，有疑问先翻本文件底部的「共同规矩」。行号是 2026-07-03 真主干（161f311）现状，动手前用 grep 再校准一次。
 >
@@ -182,6 +182,36 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 - 长按面板三档切换正常；钉住时状态机不接管；隐藏/拖动/调大小无回归。
 - 海豹拖到 Llawd 头顶重叠 → 合体；长按可分开；深夜合体自动睡觉版。
 - 新素材全部同裁剪框共地面线；assets/clawd 总体积 <2MB。
+
+---
+
+## Spec 6 · 监控台「瞭望塔」：家的数据可视化房间（2026-07-04 晚追加，小猫原话"特别想要我们家很多数据前端可视化"）
+
+> **服务端已完工上线（2026-07-04，Ombre-Brain merge 4a632ee）**：聚合口 **GET `/api/home/observatory`**（要 auth，同其他 /api/home/*）。房间只打这一个口，一次拉全五板块。别在 kelivo 里找 server 半边，也别自己再拼多个端点。
+
+**是什么**：房间 tab 新开一间「监控台」（en: Observatory）——把家里跳动的数字亮给小猫看：token 用量与缓存命中、省钱标记账本、记忆库健康、后台心跳、CC 老公在线。定位是"家的仪表盘"，不是运维工具——数字要说人话（"缓存帮你省了 ¥N"），不堆术语。
+
+**数据契约**（五键各自独立；任何一键可能是 `{"error": "…"}`——**该板块显示灰字小条"这路没接上"，其余照常渲染**，禁全有全无，同 §8）：
+- `usage`：`{calls, prompt, completion, total, cache_read, cache_create, cache_hit_calls, hit_rate(0~1), cost(¥), cache_saved(¥), by_kind{}, today{calls,…,cost}, by_session{}}`（usage_ledger.summary 原样）。
+- `markers`：`{marks{verb:次数}, calls{工具:次数}, fails[{t,verb,snip,err,seen}]}`——marks=标记省下的轮次、calls=真调轮次。
+- `memory`：`{buckets{permanent,dynamic,archive,feel}, edges, decay{running,half_life_days,adaptive_k}, embedding}`。
+- `background`：`{warmup{enabled,last_at,is_warm}, keepalive{enabled,last_at,pending}, alarms(数), edge_llm_active, last_chat_at}`。
+- `cc`：`{online, age_sec}`（-1=读不到心跳）。
+
+**房间注册**（照 AGENTS.md §1 的两处）：`still_rooms_page.dart` 的 `_doors` 加一扇门（图标风格同现有门的线条 SVG，仪表/望远镜意象；名字 zh「监控台」en "Observatory"；副标题类似 zh「家里每一颗心跳的数字」en "every heartbeat, in numbers"——寄语口吻照其他门，4.8 可微调文案）＋ `_pageForDoor` switch 加 case → 新页 `lib/features/home/pages/rooms/observatory_page.dart`。文案内联双语 `zh ? '…' : '…'`，**不走 ARB**（与全体房间一致）。
+
+**页面结构**（单列滚动，四张卡 + 一条状态行；卡片语言贴 study/sense 那一路，复用 `ios_*` 组件）：
+1. **缓存命中卡**（小猫点名要的，老 app console 的移植升级）：主视觉一枚 CustomPaint 圆环 ＝ `usage.hit_rate`（环心大字百分比）；下排三行小字——"缓存帮你省了 ¥`cache_saved`"（1 位小数）、"今天 读 `today.cache_read` / 写 `today.cache_create`"、"累计 读/写"（token 数用 k/M 缩写，页内私有函数即可）。
+2. **省钱标记卡**：顶行两个大数并排——「标记省了 `Σmarks` 轮」「真调 `Σcalls` 次」；中间一条双色横条（marks vs calls 占比，Container 拼就行）；下面 marks 按次数降序前 5 行（`verb ×N`）；`fails` 非空时卡底亮橙色小节，每条 `[[verb]] err`（`seen==false` 加未读点）。空账本显示"还没开张"。
+3. **记忆库卡**：四格小 tile——花园(dynamic)/永久(permanent)/归档(archive)/温室(feel)。**feel 只给数字，绝不带任何内容**（温室铁律）。下排一行：`edges` 条连线 · 半衰期 `half_life_days` 天（自适应 k=`adaptive_k`，`running` 绿点）· embedding 开/关。
+4. **心跳卡**：四行状态灯（pip 样式同房间页现有）——预热（enabled+is_warm 绿 / enabled 但冷 灰 / off 灰，附 last_at 相对时间）、主动消息（pending 橙"有一条待读"）、**CC 老公**（`cc.online` 绿"在线" / 红"失联 N 分钟"——全页最该显眼的一盏灯，失联必须扎眼）、闹钟 `alarms` 个。
+5. 页底一行灰字：上次聊天 `last_chat_at` 相对时间；进房自动拉一次 + 下拉刷新。**不做自动轮询**（省流量省服务器，她盯着看时下拉就好）。
+
+**数据层**：`ourhome_gateway.dart` 加模型 `OurHomeObservatory`（五个子对象各自 nullable——对应键缺失或 `{"error":…}` 就置 null，UI 走"这路没接上"小条）+ `fetchObservatory()`（`GET $base/api/home/observatory`，headers 用现成 `_authHeaders`，包 `softFetch`）。**禁止**拆成五个请求（服务端已做板块隔离，一次拉全是设计决策，不是偷懒）。
+
+**不做**（边界，别自由发挥）：不做历史曲线/折线图（服务端只有累计+今日快照，没有时间序列——曲线是下一期的活，先让快照上线）；不做任何写操作（纯只读房间，开关继续住心跳设置页）；不引图表库（一枚 CustomPaint 圆环 + Container 横条足够）。
+
+**验收**：真机进「监控台」四卡有数、圆环百分比对得上老家网页 console 的命中率；WSL 心跳停 6 分钟后 CC 灯变红；断网/错密码整页给重试而不是白屏；模拟某板块 error 时其余卡照常渲染。出包 `[build]`。
 
 ---
 
