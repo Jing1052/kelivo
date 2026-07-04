@@ -25,6 +25,7 @@ import 'rooms/theater_page.dart';
 import 'rooms/wander_page.dart';
 import 'rooms/browser_page.dart';
 import 'rooms/observatory_page.dart';
+import 'rooms/music_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -239,6 +240,17 @@ class StillRoomsPage extends StatelessWidget {
       "Whatever's out there — look through this window, I'm with you.",
       asset: 'assets/clawd/icon-browser.png',
     ),
+    _Door(
+      'music',
+      Lucide.Music,
+      0xFFD07AA6,
+      '音乐房',
+      'Music Room',
+      '搜歌 · 歌单 · 一起听',
+      'songs, playlists, together',
+      '放一首歌，我在这头跟你听同一句。',
+      "Put on a song — I'm hearing the same line, right here with you.",
+    ),
   ];
 
   @override
@@ -360,6 +372,8 @@ Widget _pageForDoor(_Door door) {
       return const ObservatoryPage();
     case 'browser':
       return const BrowserPage();
+    case 'music':
+      return const MusicPage();
     default:
       return _RoomStubPage(door: door);
   }
