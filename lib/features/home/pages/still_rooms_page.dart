@@ -23,6 +23,7 @@ import 'rooms/capsule_page.dart';
 import 'rooms/theater_page.dart';
 import 'rooms/wander_page.dart';
 import 'rooms/browser_page.dart';
+import 'rooms/observatory_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -204,6 +205,17 @@ class StillRoomsPage extends StatelessWidget {
       asset: 'assets/clawd/icon-wander.png',
     ),
     _Door(
+      'observatory',
+      Lucide.Activity,
+      0xFF5F97CF,
+      '监控台',
+      'Observatory',
+      '缓存 · 记忆 · 心跳的数字',
+      'our numbers, live',
+      '家里每一颗心跳，我都数给你看。',
+      'Every heartbeat of this house, counted out for you.',
+    ),
+    _Door(
       'browser',
       Lucide.Globe,
       0xFF5E9AA8,
@@ -330,6 +342,8 @@ Widget _pageForDoor(_Door door) {
       return const TheaterPage();
     case 'wander':
       return const WanderPage();
+    case 'observatory':
+      return const ObservatoryPage();
     case 'browser':
       return const BrowserPage();
     default:

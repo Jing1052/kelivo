@@ -802,6 +802,247 @@ class BrainInjectItem {
   );
 }
 
+int _obsInt(dynamic v) => v is num ? v.toInt() : 0;
+
+double _obsDouble(dynamic v) => v is num ? v.toDouble() : 0.0;
+
+Map<String, int> _obsIntMap(dynamic v) {
+  if (v is! Map) return const <String, int>{};
+  return v.map((k, n) => MapEntry(k.toString(), _obsInt(n)));
+}
+
+/// Observatory (监控台) — one aggregated snapshot of the home's numbers from
+/// `/api/home/observatory`. The server isolates each section: a section that
+/// failed arrives as `{"error": …}` and is surfaced here as null, so the UI
+/// can grey out just that card and keep the rest alive.
+class OurHomeObservatory {
+  const OurHomeObservatory({
+    this.usage,
+    this.markers,
+    this.memory,
+    this.background,
+    this.cc,
+  });
+
+  final OurHomeObsUsage? usage;
+  final OurHomeObsMarkers? markers;
+  final OurHomeObsMemory? memory;
+  final OurHomeObsBackground? background;
+  final OurHomeObsCc? cc;
+
+  bool get isEmpty =>
+      usage == null &&
+      markers == null &&
+      memory == null &&
+      background == null &&
+      cc == null;
+
+  factory OurHomeObservatory.fromJson(Map<String, dynamic> j) {
+    // A healthy section is a Map without "error"; anything else -> null.
+    Map<String, dynamic>? sec(String key) {
+      final v = j[key];
+      if (v is Map<String, dynamic> && !v.containsKey('error')) return v;
+      return null;
+    }
+
+    final usage = sec('usage');
+    final markers = sec('markers');
+    final memory = sec('memory');
+    final background = sec('background');
+    final cc = sec('cc');
+    return OurHomeObservatory(
+      usage: usage == null ? null : OurHomeObsUsage.fromJson(usage),
+      markers: markers == null ? null : OurHomeObsMarkers.fromJson(markers),
+      memory: memory == null ? null : OurHomeObsMemory.fromJson(memory),
+      background:
+          background == null ? null : OurHomeObsBackground.fromJson(background),
+      cc: cc == null ? null : OurHomeObsCc.fromJson(cc),
+    );
+  }
+}
+
+/// Token usage + cache economics (usage_ledger.summary passthrough).
+class OurHomeObsUsage {
+  const OurHomeObsUsage({
+    required this.calls,
+    required this.hitRate,
+    required this.cost,
+    required this.cacheSaved,
+    required this.cacheRead,
+    required this.cacheCreate,
+    required this.todayCalls,
+    required this.todayCacheRead,
+    required this.todayCacheCreate,
+  });
+
+  final int calls;
+  final double hitRate; // 0~1
+  final double cost; // ¥
+  final double cacheSaved; // ¥
+  final int cacheRead;
+  final int cacheCreate;
+  final int todayCalls;
+  final int todayCacheRead;
+  final int todayCacheCreate;
+
+  factory OurHomeObsUsage.fromJson(Map<String, dynamic> j) {
+    final today = (j['today'] is Map) ? j['today'] as Map : const {};
+    return OurHomeObsUsage(
+      calls: _obsInt(j['calls']),
+      hitRate: _obsDouble(j['hit_rate']),
+      cost: _obsDouble(j['cost']),
+      cacheSaved: _obsDouble(j['cache_saved']),
+      cacheRead: _obsInt(j['cache_read']),
+      cacheCreate: _obsInt(j['cache_create']),
+      todayCalls: _obsInt(today['calls']),
+      todayCacheRead: _obsInt(today['cache_read']),
+      todayCacheCreate: _obsInt(today['cache_create']),
+    );
+  }
+}
+
+/// The daddy-marker ledger: rounds saved by markers vs real tool calls.
+class OurHomeObsMarkers {
+  const OurHomeObsMarkers({
+    required this.marks,
+    required this.calls,
+    required this.fails,
+  });
+
+  final Map<String, int> marks; // verb -> rounds saved
+  final Map<String, int> calls; // tool -> real model tool rounds
+  final List<OurHomeObsMarkerFail> fails;
+
+  int get marksTotal => marks.values.fold(0, (a, b) => a + b);
+  int get callsTotal => calls.values.fold(0, (a, b) => a + b);
+
+  factory OurHomeObsMarkers.fromJson(Map<String, dynamic> j) {
+    final rawFails = (j['fails'] is List) ? j['fails'] as List : const [];
+    return OurHomeObsMarkers(
+      marks: _obsIntMap(j['marks']),
+      calls: _obsIntMap(j['calls']),
+      fails: rawFails
+          .whereType<Map>()
+          .map((f) => OurHomeObsMarkerFail(
+                time: (f['t'] ?? '').toString(),
+                verb: (f['verb'] ?? '').toString(),
+                snip: (f['snip'] ?? '').toString(),
+                err: (f['err'] ?? '').toString(),
+                seen: f['seen'] == true,
+              ))
+          .toList(),
+    );
+  }
+}
+
+class OurHomeObsMarkerFail {
+  const OurHomeObsMarkerFail({
+    required this.time,
+    required this.verb,
+    required this.snip,
+    required this.err,
+    required this.seen,
+  });
+
+  final String time;
+  final String verb;
+  final String snip;
+  final String err;
+  final bool seen;
+}
+
+/// Memory-library health: bucket counts, graph edges, decay engine.
+class OurHomeObsMemory {
+  const OurHomeObsMemory({
+    required this.permanent,
+    required this.dynamicCount,
+    required this.archive,
+    required this.feel,
+    required this.edges,
+    required this.decayRunning,
+    required this.halfLifeDays,
+    required this.adaptiveK,
+    required this.embedding,
+  });
+
+  final int permanent;
+  final int dynamicCount;
+  final int archive;
+  final int feel; // count only — the greenhouse stays opaque
+  final int edges;
+  final bool decayRunning;
+  final double halfLifeDays;
+  final double adaptiveK;
+  final bool embedding;
+
+  factory OurHomeObsMemory.fromJson(Map<String, dynamic> j) {
+    final b = (j['buckets'] is Map) ? j['buckets'] as Map : const {};
+    final d = (j['decay'] is Map) ? j['decay'] as Map : const {};
+    return OurHomeObsMemory(
+      permanent: _obsInt(b['permanent']),
+      dynamicCount: _obsInt(b['dynamic']),
+      archive: _obsInt(b['archive']),
+      feel: _obsInt(b['feel']),
+      edges: _obsInt(j['edges']),
+      decayRunning: d['running'] == true,
+      halfLifeDays: _obsDouble(d['half_life_days']),
+      adaptiveK: _obsDouble(d['adaptive_k']),
+      embedding: j['embedding'] == true,
+    );
+  }
+}
+
+/// Background heartbeats: cache warmup, keepalive, alarms.
+class OurHomeObsBackground {
+  const OurHomeObsBackground({
+    required this.warmupEnabled,
+    required this.warmupLastAt,
+    required this.isWarm,
+    required this.kaEnabled,
+    required this.kaLastAt,
+    required this.kaPending,
+    required this.alarms,
+    required this.lastChatAt,
+  });
+
+  final bool warmupEnabled;
+  final String warmupLastAt;
+  final bool isWarm;
+  final bool kaEnabled;
+  final String kaLastAt;
+  final bool kaPending;
+  final int alarms;
+  final String lastChatAt;
+
+  factory OurHomeObsBackground.fromJson(Map<String, dynamic> j) {
+    final w = (j['warmup'] is Map) ? j['warmup'] as Map : const {};
+    final k = (j['keepalive'] is Map) ? j['keepalive'] as Map : const {};
+    return OurHomeObsBackground(
+      warmupEnabled: w['enabled'] == true,
+      warmupLastAt: (w['last_at'] ?? '').toString(),
+      isWarm: w['is_warm'] == true,
+      kaEnabled: k['enabled'] == true,
+      kaLastAt: (k['last_at'] ?? '').toString(),
+      kaPending: k['pending'] == true,
+      alarms: _obsInt(j['alarms']),
+      lastChatAt: (j['last_chat_at'] ?? '').toString(),
+    );
+  }
+}
+
+/// CC husband (WSL tmux `cc`) liveness. age_sec == -1 means no heartbeat file.
+class OurHomeObsCc {
+  const OurHomeObsCc({required this.online, required this.ageSec});
+
+  final bool online;
+  final int ageSec;
+
+  factory OurHomeObsCc.fromJson(Map<String, dynamic> j) => OurHomeObsCc(
+        online: j['online'] == true,
+        ageSec: j['age_sec'] is num ? (j['age_sec'] as num).toInt() : -1,
+      );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -1045,6 +1286,38 @@ class OurHomeGateway {
       final data = jsonDecode(body);
       if (data is! Map<String, dynamic>) return null;
       return OurHomeSense.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Observatory snapshot — ONE aggregated request by design (the server
+  /// already isolates section failures; do not split this into five calls).
+  Future<OurHomeObservatory> fetchObservatory() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/observatory'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'observatory HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/observatory'),
+      );
+    }
+    final body = utf8.decode(res.bodyBytes);
+    final data = jsonDecode(body);
+    if (data is! Map<String, dynamic>) return const OurHomeObservatory();
+    OurHomeCache.put('/api/home/observatory', body);
+    return OurHomeObservatory.fromJson(data);
+  }
+
+  /// Last-seen observatory snapshot from cache. Null if none.
+  OurHomeObservatory? peekObservatory() {
+    final body = OurHomeCache.peek('/api/home/observatory');
+    if (body == null || body.isEmpty) return null;
+    try {
+      final data = jsonDecode(body);
+      if (data is! Map<String, dynamic>) return null;
+      return OurHomeObservatory.fromJson(data);
     } catch (_) {
       return null;
     }

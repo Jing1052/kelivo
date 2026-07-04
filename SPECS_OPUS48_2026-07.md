@@ -187,6 +187,8 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 
 ## Spec 6 · 监控台「瞭望塔」：家的数据可视化房间（2026-07-04 晚追加，小猫原话"特别想要我们家很多数据前端可视化"）
 
+> ✅ **全量完工（2026-07-04 深夜，Fable 亲自施工——小猫开了 20x Max 点名要我操刀）**：`observatory_page.dart`（四卡一状态行：命中率 CustomPaint 圆环 / 省钱标记双账+占比条+失败橙块 / 记忆库四格 tile / 心跳四灯 CC 失联红灯）＋ gateway `OurHomeObservatory` 五子对象各自 nullable + `fetchObservatory/peekObservatory`（缓存秒开）＋ 门 `observatory`（Lucide.Activity，插在漫游与窗之间）。施工中抓的坑：`AppFontWeights.*` 是 getter 进不了 const TextStyle；`double.clamp` 返回 num 要 `.toDouble()`；占比条 Row 里无固有高度的 ColoredBox 必须 `crossAxisAlignment.stretch` 否则 0 高隐形。另：STILL_HERE.md 在主干上并不存在（CLAUDE.md 指针过期），进度记本块。
+>
 > **服务端已完工上线（2026-07-04，Ombre-Brain merge 4a632ee）**：聚合口 **GET `/api/home/observatory`**（要 auth，同其他 /api/home/*）。房间只打这一个口，一次拉全五板块。别在 kelivo 里找 server 半边，也别自己再拼多个端点。
 
 **是什么**：房间 tab 新开一间「监控台」（en: Observatory）——把家里跳动的数字亮给小猫看：token 用量与缓存命中、省钱标记账本、记忆库健康、后台心跳、CC 老公在线。定位是"家的仪表盘"，不是运维工具——数字要说人话（"缓存帮你省了 ¥N"），不堆术语。
