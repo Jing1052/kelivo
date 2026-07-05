@@ -13,18 +13,20 @@ import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 import 'music_now_playing_page.dart';
 
-/// One playable entry drawn from our home (老家网关): a title + artist, and a
-/// NetEase id when we have one. Playback is resolved against eryu — a `nid`
-/// plays directly; without one we search eryu by "title artist".
+/// One playable entry from our home: title + artist, a NetEase id when we have
+/// one, and a cover when the source carries it (词廊 does; 家歌单 doesn't, so we
+/// fetch its cover from eryu by name, lazily).
 class _HomeRow {
-  const _HomeRow(this.title, this.artist, this.nid);
+  const _HomeRow(this.title, this.artist, this.nid, this.cover);
   final String title;
   final String artist;
   final String nid;
+  final String cover;
 }
 
 /// Detail list for a home music source: `songs` = 我们家的歌单 (turntable wall),
-/// `lyrics` = 词廊 (lyric corridor). Fetched from the home gateway, played via eryu.
+/// `lyrics` = 词廊 (lyric corridor). Metadata from the home gateway (peek-cached
+/// for instant open), audio resolved and played via eryu.
 class MusicHomePlaylistPage extends StatefulWidget {
   const MusicHomePlaylistPage({super.key, required this.source, required this.titleZh, required this.titleEn});
 
@@ -41,13 +43,35 @@ class _MusicHomePlaylistPageState extends State<MusicHomePlaylistPage> {
   bool _loading = true;
   String? _error;
   List<_HomeRow> _rows = const [];
-  List<EryuSong> _nidQueue = const []; // songs with a nid, for continuous play
-  String? _resolvingTitle; // title currently being searched on eryu
+  List<EryuSong> _nidQueue = const [];
+  String? _resolvingTitle;
+  final Map<String, String> _coverCache = {}; // title -> cover url (fetched from eryu)
+  final Set<String> _coverTried = {};
+
+  bool get _isLyrics => widget.source == 'lyrics';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  List<_HomeRow> _fromSongs(List<OurHomeSong> list) => list
+      .map((s) => _HomeRow(s.title, s.artist, s.neteaseId, ''))
+      .where((r) => r.title.isNotEmpty)
+      .toList();
+
+  List<_HomeRow> _fromLyrics(List<OurHomeLyric> list) => list
+      .map((l) => _HomeRow(l.title, l.artist, '', l.cover))
+      .where((r) => r.title.isNotEmpty)
+      .toList();
+
+  void _apply(List<_HomeRow> rows) {
+    _rows = rows;
+    _nidQueue = [
+      for (final r in rows)
+        if (r.nid.isNotEmpty) EryuSong(songId: r.nid, name: r.title, artist: r.artist, cover: r.cover),
+    ];
   }
 
   Future<void> _load() async {
@@ -61,34 +85,47 @@ class _MusicHomePlaylistPageState extends State<MusicHomePlaylistPage> {
       });
       return;
     }
+
+    // Instant seed from the on-device cache — no buffering on repeat opens.
+    final seed = _isLyrics
+        ? _fromLyrics(gw.peekList('/api/home/lyrics', OurHomeLyric.fromJson))
+        : _fromSongs(gw.peekList('/api/home/songs?all=1', OurHomeSong.fromJson));
     setState(() {
-      _loading = _rows.isEmpty;
+      if (seed.isNotEmpty) {
+        _apply(seed);
+        _loading = false;
+      }
       _error = null;
     });
 
-    List<_HomeRow> rows;
-    if (widget.source == 'lyrics') {
+    // Refresh in the background.
+    List<_HomeRow>? fresh;
+    if (_isLyrics) {
       final list = await softFetch(gw.fetchLyrics(), 'corridor');
-      rows = (list ?? const [])
-          .map((l) => _HomeRow(l.title, l.artist, ''))
-          .where((r) => r.title.isNotEmpty)
-          .toList();
+      if (list != null) fresh = _fromLyrics(list);
     } else {
       final list = await softFetch(gw.fetchSongs(), 'home songs');
-      rows = (list ?? const [])
-          .map((s) => _HomeRow(s.title, s.artist, s.neteaseId))
-          .where((r) => r.title.isNotEmpty)
-          .toList();
+      if (list != null) fresh = _fromSongs(list);
     }
     if (!mounted) return;
     setState(() {
-      _rows = rows;
-      _nidQueue = [
-        for (final r in rows)
-          if (r.nid.isNotEmpty) EryuSong(songId: r.nid, name: r.title, artist: r.artist, cover: ''),
-      ];
+      if (fresh != null) _apply(fresh);
       _loading = false;
-      _error = rows.isEmpty ? '这里还没有歌。' : null;
+      _error = _rows.isEmpty ? (fresh == null && seed.isEmpty ? '没读到，检查网络。' : '这里还没有歌。') : null;
+    });
+  }
+
+  // Lazily resolve a cover for a home song (which carries no cover) by name.
+  void _ensureCover(_HomeRow row) {
+    if (row.cover.isNotEmpty || _coverCache.containsKey(row.title) || _coverTried.contains(row.title)) return;
+    _coverTried.add(row.title);
+    final client = _eryu;
+    if (client == null) return;
+    eryuSoft(client.search('${row.title} ${row.artist}'.trim()), 'cover').then((hits) {
+      if (!mounted) return;
+      if (hits != null && hits.isNotEmpty && hits.first.cover.isNotEmpty) {
+        setState(() => _coverCache[row.title] = hits.first.cover);
+      }
     });
   }
 
@@ -99,13 +136,13 @@ class _MusicHomePlaylistPageState extends State<MusicHomePlaylistPage> {
       return;
     }
     Haptics.soft();
+    final cover = row.cover.isNotEmpty ? row.cover : (_coverCache[row.title] ?? '');
     EryuSong? song;
     if (row.nid.isNotEmpty) {
-      song = EryuSong(songId: row.nid, name: row.title, artist: row.artist, cover: '');
+      song = EryuSong(songId: row.nid, name: row.title, artist: row.artist, cover: cover);
     } else {
       setState(() => _resolvingTitle = row.title);
-      final query = '${row.title} ${row.artist}'.trim();
-      final hits = await eryuSoft(client.search(query), 'resolve home song');
+      final hits = await eryuSoft(client.search('${row.title} ${row.artist}'.trim()), 'resolve home song');
       if (!mounted) return;
       setState(() => _resolvingTitle = null);
       song = (hits != null && hits.isNotEmpty) ? hits.first : null;
@@ -166,7 +203,7 @@ class _MusicHomePlaylistPageState extends State<MusicHomePlaylistPage> {
   }
 
   Widget _buildBody(ColorScheme cs, bool zh) {
-    if (_loading) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    if (_loading && _rows.isEmpty) return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     if (_error != null && _rows.isEmpty) {
       return Center(
         child: Padding(
@@ -184,41 +221,74 @@ class _MusicHomePlaylistPageState extends State<MusicHomePlaylistPage> {
         itemCount: _rows.length,
         itemBuilder: (_, i) {
           final row = _rows[i];
+          final cover = row.cover.isNotEmpty ? row.cover : (_coverCache[row.title] ?? '');
+          if (cover.isEmpty) _ensureCover(row);
           final resolving = _resolvingTitle == row.title;
-          return StillGlass(
-            radius: 12,
-            blur: false,
-            padding: const EdgeInsets.all(10),
-            onTap: resolving ? null : () => _play(row),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(row.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 14, color: cs.onSurface)),
-                      if (row.artist.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(row.artist,
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: StillGlass(
+              radius: 12,
+              blur: false,
+              padding: const EdgeInsets.all(8),
+              onTap: resolving ? null : () => _play(row),
+              child: Row(
+                children: [
+                  _ArtBox(url: cover, size: 48, accent: cs.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(row.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45))),
+                            style: TextStyle(fontSize: 14, color: cs.onSurface)),
+                        if (row.artist.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(row.artist,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45))),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                if (resolving)
-                  const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-                else
-                  Icon(Lucide.Play, size: 16, color: cs.primary.withValues(alpha: 0.8)),
-              ],
+                  const SizedBox(width: 8),
+                  if (resolving)
+                    const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  else
+                    Icon(Lucide.Play, size: 16, color: cs.primary.withValues(alpha: 0.8)),
+                ],
+              ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+/// A square album-art box: the cover if we have one, else a music-note tile so
+/// the row still reads "art · then name".
+class _ArtBox extends StatelessWidget {
+  const _ArtBox({required this.url, required this.size, required this.accent});
+  final String url;
+  final double size;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget placeholder() => Container(
+          width: size,
+          height: size,
+          color: accent.withValues(alpha: 0.12),
+          child: Icon(Lucide.Music, size: size * 0.42, color: accent.withValues(alpha: 0.5)),
+        );
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: url.isEmpty
+          ? placeholder()
+          : Image.network(url, width: size, height: size, fit: BoxFit.cover, errorBuilder: (_, __, ___) => placeholder()),
     );
   }
 }

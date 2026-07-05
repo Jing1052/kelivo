@@ -330,7 +330,10 @@ class _MusicPageState extends State<MusicPage> {
       return ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         itemCount: hits.length,
-        itemBuilder: (_, i) => _SongRow(song: hits[i], onTap: () => _play(hits[i], hits)),
+        itemBuilder: (_, i) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _SongRow(song: hits[i], onTap: () => _play(hits[i], hits)),
+        ),
       );
     }
 
@@ -371,6 +374,7 @@ class _MusicPageState extends State<MusicPage> {
             subtitle: zh ? '你和爸爸攒下的歌' : "songs we've saved",
             onTap: () => _openHome('songs', '我们家的歌单', 'Our Playlist'),
           ),
+          const SizedBox(height: 8),
           _HomeSourceTile(
             icon: Lucide.NotebookTabs,
             title: zh ? '词廊' : 'Lyric Corridor',
@@ -380,17 +384,26 @@ class _MusicPageState extends State<MusicPage> {
           const SizedBox(height: 8),
           if (_daily.isNotEmpty) ...[
             _SectionHeader(zh ? '每日推荐' : 'Daily Picks'),
-            ..._daily.take(10).map((s) => _SongRow(song: s, onTap: () => _play(s, _daily))),
+            ..._daily.take(10).map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SongRow(song: s, onTap: () => _play(s, _daily)),
+                )),
             const SizedBox(height: 8),
           ],
           if (_recent.isNotEmpty) ...[
             _SectionHeader(zh ? '最近播放' : 'Recently Played'),
-            ..._recent.take(20).map((s) => _SongRow(song: s, onTap: () => _play(s, _recent))),
+            ..._recent.take(20).map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SongRow(song: s, onTap: () => _play(s, _recent)),
+                )),
             const SizedBox(height: 8),
           ],
           if (_playlists.isNotEmpty) ...[
             _SectionHeader(zh ? '歌单' : 'Playlists'),
-            ..._playlists.map((pl) => _PlaylistTile(playlist: pl, onTap: () => _openPlaylist(pl))),
+            ..._playlists.map((pl) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _PlaylistTile(playlist: pl, onTap: () => _openPlaylist(pl)),
+                )),
           ],
           if (_daily.isEmpty && _recent.isEmpty && _playlists.isEmpty)
             Padding(

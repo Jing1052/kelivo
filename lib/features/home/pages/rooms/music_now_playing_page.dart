@@ -105,11 +105,16 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
   void _toggleTogether() {
     final p = _player;
     if (p == null) return;
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
     Haptics.soft();
     if (p.togetherOn) {
       p.leaveTogether();
+      _showActivity(zh ? '离开了一起听' : 'Left listen-together');
     } else {
       p.enterTogether(context.read<SettingsProvider>().eryuUser);
+      _showActivity(zh
+          ? (p.hasPartner ? '进来一起听了' : '房间开着了 · 等 TA 进来一起听')
+          : (p.hasPartner ? 'Listening together' : 'Room open — waiting for someone'));
     }
   }
 
