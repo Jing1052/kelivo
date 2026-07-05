@@ -48,6 +48,7 @@ import '../../assistant/widgets/mcp_assistant_sheet.dart';
 import '../../quick_phrase/pages/quick_phrases_page.dart';
 import '../../quick_phrase/widgets/quick_phrase_menu.dart';
 import '../widgets/chat_input_bar.dart';
+import '../widgets/chat_music_card.dart';
 import '../widgets/mini_map_sheet.dart';
 import '../widgets/instruction_injection_sheet.dart';
 import '../widgets/world_book_sheet.dart';
@@ -1332,9 +1333,12 @@ class _HomePageState extends State<HomePage>
 
   Widget _buildForegroundOverlay(BuildContext context) {
     final editState = _controller.userMessageEditState;
+    final showMusicCard = editState == null && !_controller.selecting;
     return Stack(
       fit: StackFit.expand,
       children: [
+        if (showMusicCard)
+          ChatMusicCard(bottomInset: _controller.inputBarHeight + 12),
         _buildScrollButtons(),
         UserMessageEditOverlay(
           visible: editState != null && !_controller.selecting,

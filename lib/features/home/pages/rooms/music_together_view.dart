@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:Kelivo/core/providers/user_provider.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
 import 'package:Kelivo/features/home/widgets/still_glass.dart';
+import 'package:Kelivo/shared/widgets/ios_form_text_field.dart';
+import 'package:Kelivo/shared/widgets/ios_tactile.dart';
 import 'package:Kelivo/shared/widgets/user_profile_editor.dart';
 
 import '../../../../icons/lucide_adapter.dart';
