@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'eryu_client.dart';
 
@@ -13,6 +14,30 @@ class EryuRoomJoin {
   final EryuSong song;
   final Duration position;
   final bool playing;
+}
+
+/// One line in the shared room's activity/chat timeline — a track change, a
+/// heart, a saved lyric, a hello/bye, or a "边听边说" chat message. Mirrors the
+/// eryu web client's feed entries so the native companion panel reads the same.
+class RoomFeedEntry {
+  const RoomFeedEntry({
+    required this.ts,
+    required this.user,
+    required this.type,
+    required this.mine,
+    this.songName = '',
+    this.cover = '',
+    this.line = '',
+    this.text = '',
+  });
+  final int ts;
+  final String user;
+  final String type;
+  final bool mine;
+  final String songName;
+  final String cover;
+  final String line;
+  final String text;
 }
 
 /// Single source of truth for music playback AND the listen-together room.
@@ -206,11 +231,23 @@ class EryuPlayerController extends ChangeNotifier {
   String _controlledBy = '';
   EryuRoomJoin? _joinCandidate;
 
+  // Companion panel state: the activity/chat timeline + accumulated together-time.
+  static const String _secsKey = 'music_tg_secs_v1';
+  static const Set<String> _feedTypes = {
+    'track', 'play', 'pause', 'heart', 'quote', 'hello', 'bye', 'say',
+  };
+  final List<RoomFeedEntry> _feed = <RoomFeedEntry>[];
+  int _togetherSecs = 0;
+  Timer? _tick;
+
   bool get togetherOn => _togetherOn;
   List<String> get partners => List.unmodifiable(_partners);
   bool get hasPartner => _partners.isNotEmpty;
   String get controlledBy => _controlledBy;
   EryuRoomJoin? get joinCandidate => _joinCandidate;
+  List<RoomFeedEntry> get feed => List.unmodifiable(_feed);
+  int get togetherSecs => _togetherSecs;
+  String get roomUser => _user;
 
   /// Room-activity feed for the page to surface (SnackBar/toast). Set by the
   /// page in initState, cleared in dispose.
@@ -221,7 +258,7 @@ class EryuPlayerController extends ChangeNotifier {
   bool _canPubTransport() => _canPub() && _nowMs() >= _softMuteUntil;
   double _positionSecs() => _player.position.inMilliseconds / 1000.0;
 
-  void _publish(String type, {EryuSong? song, double? position, String? line}) {
+  void _publish(String type, {EryuSong? song, double? position, String? line, String? text}) {
     final client = _client;
     if (client == null || !_togetherOn) return;
     final event = <String, dynamic>{
@@ -230,8 +267,30 @@ class EryuPlayerController extends ChangeNotifier {
       if (song != null) 'song': song.toJson(),
       if (position != null) 'position': position,
       if (line != null) 'line': line,
+      if (text != null) 'text': text,
     };
+    if (_feedTypes.contains(type)) {
+      final s = song ?? (type == 'say' ? null : current);
+      _logFeed(_user, type, mine: true, song: s, line: line ?? '', text: text ?? '');
+    }
     unawaited(eryuSoft(client.roomEvent(event), 'room $type'));
+  }
+
+  void _logFeed(String user, String type,
+      {required bool mine, EryuSong? song, String line = '', String text = ''}) {
+    if (!_feedTypes.contains(type)) return;
+    _feed.add(RoomFeedEntry(
+      ts: _nowMs(),
+      user: user,
+      type: type,
+      mine: mine,
+      songName: song?.name ?? '',
+      cover: song?.cover ?? '',
+      line: line,
+      text: text,
+    ));
+    if (_feed.length > 80) _feed.removeRange(0, _feed.length - 80);
+    notifyListeners();
   }
 
   /// Send a heart / a saved lyric line to the room (used by the player page).
@@ -243,6 +302,16 @@ class EryuPlayerController extends ChangeNotifier {
     if (_canPub()) _publish('quote', song: current, line: line);
   }
 
+  /// "边听边说" — a free-text chat line into the room. Returns false if the room
+  /// isn't open (so the page can nudge "先开一间房").
+  bool sendChat(String text) {
+    final t = text.trim();
+    if (t.isEmpty) return false;
+    if (!_togetherOn) return false;
+    _publish('say', text: t);
+    return true;
+  }
+
   Future<void> enterTogether(String user) async {
     final client = _client;
     if (client == null || _togetherOn) return;
@@ -251,6 +320,8 @@ class EryuPlayerController extends ChangeNotifier {
     _muteUntil = 0;
     _softMuteUntil = 0;
     _controlledBy = '';
+    _feed.clear();
+    _startTick();
     notifyListeners();
 
     final info = await eryuSoft(client.roomInfo(_user), 'room info');
@@ -283,7 +354,35 @@ class EryuPlayerController extends ChangeNotifier {
     _partners = const <String>[];
     _controlledBy = '';
     _joinCandidate = null;
+    _stopTick(persist: true);
     notifyListeners();
+  }
+
+  // Accumulate shared-listening seconds only while a partner is actually in the
+  // room; persist every 15s (and on leave) so "一起听了 X" survives restarts.
+  void _startTick() {
+    _tick?.cancel();
+    unawaited(SharedPreferences.getInstance().then((p) {
+      _togetherSecs = p.getInt(_secsKey) ?? 0;
+      notifyListeners();
+    }));
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_togetherOn || _partners.isEmpty) return;
+      _togetherSecs++;
+      if (_togetherSecs % 15 == 0) _persistSecs();
+      notifyListeners();
+    });
+  }
+
+  void _stopTick({bool persist = false}) {
+    _tick?.cancel();
+    _tick = null;
+    if (persist) _persistSecs();
+  }
+
+  void _persistSecs() {
+    final secs = _togetherSecs;
+    unawaited(SharedPreferences.getInstance().then((p) => p.setInt(_secsKey, secs)));
   }
 
   Future<void> acceptJoin() async {
@@ -343,6 +442,20 @@ class EryuPlayerController extends ChangeNotifier {
       _controlledBy = who;
     }
 
+    if (_feedTypes.contains(type)) {
+      EryuSong? feedSong;
+      if (songJson is Map) {
+        try {
+          feedSong = EryuSong.fromJson(songJson.cast<String, dynamic>());
+        } catch (_) {}
+      }
+      _logFeed(who, type,
+          mine: false,
+          song: feedSong ?? (type == 'say' ? null : current),
+          line: (e['line'] ?? '').toString(),
+          text: (e['text'] ?? '').toString());
+    }
+
     switch (type) {
       case 'track':
         if (songJson is Map) {
@@ -390,6 +503,9 @@ class EryuPlayerController extends ChangeNotifier {
       case 'bye':
         _activity('$who 离开了');
         break;
+      case 'say':
+        _activity('$who：${(e['text'] ?? '').toString()}');
+        break;
     }
     notifyListeners();
   }
@@ -399,6 +515,7 @@ class EryuPlayerController extends ChangeNotifier {
   @override
   void dispose() {
     _togetherOn = false;
+    _stopTick(persist: true);
     _player.dispose();
     super.dispose();
   }

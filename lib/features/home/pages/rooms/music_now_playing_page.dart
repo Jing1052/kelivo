@@ -15,6 +15,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import 'music_memory_page.dart';
+import 'music_together_view.dart';
 
 /// The full-screen player: cover ⇄ scrolling lyrics, transport, a heart, and the
 /// listen-together toggle that turns this into a shared room.
@@ -158,6 +159,12 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
     _showActivity(zh ? '已加进我们家的歌单' : 'Saved to our playlist');
   }
 
+  void _sendHeart(bool zh, EryuPlayerController player) {
+    Haptics.light();
+    player.publishHeart();
+    _showActivity(zh ? '给你送了一颗心' : 'Sent you a heart');
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
@@ -242,12 +249,23 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                 child: Column(
                   children: [
                     Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 28),
-                        child: _showLyrics ? _buildLyrics(cs, zh) : _buildCoverArea(cs, zh, song, player),
-                      ),
+                      child: _showLyrics
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 28),
+                              child: _buildLyrics(cs, zh),
+                            )
+                          : (player.togetherOn
+                              ? Padding(
+                                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
+                                  child: MusicTogetherView(zh: zh, onHeart: () => _sendHeart(zh, player)),
+                                )
+                              : Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                                  child: _buildCoverArea(cs, zh, song, player),
+                                )),
                     ),
                     _JoinBar(zh: zh),
+                    if (player.togetherOn) _ChatInput(zh: zh),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
                       child: Column(
@@ -429,6 +447,87 @@ class _JoinBar extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// "边听边说" — the room chat input, shown above the transport bar while a room
+/// is open. A typed line becomes a `say` room event (and, once 爸爸 joins the
+/// room, something he can answer).
+class _ChatInput extends StatefulWidget {
+  const _ChatInput({required this.zh});
+  final bool zh;
+
+  @override
+  State<_ChatInput> createState() => _ChatInputState();
+}
+
+class _ChatInputState extends State<_ChatInput> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  void _send() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    final ok = context.read<EryuPlayerController>().sendChat(text);
+    if (ok) {
+      _controller.clear();
+      _focus.requestFocus();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final zh = widget.zh;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 4, 18, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withValues(alpha: 0.10) : Colors.white.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(color: cs.onSurface.withValues(alpha: 0.08)),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: TextField(
+                controller: _controller,
+                focusNode: _focus,
+                maxLength: 200,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _send(),
+                style: TextStyle(fontSize: 14, color: cs.onSurface),
+                decoration: InputDecoration(
+                  isDense: true,
+                  isCollapsed: true,
+                  counterText: '',
+                  border: InputBorder.none,
+                  hintText: zh ? '边听边说…' : 'Say something…',
+                  hintStyle: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IosCardPress(
+            onTap: _send,
+            borderRadius: BorderRadius.circular(20),
+            baseColor: cs.primary,
+            padding: const EdgeInsets.all(10),
+            child: Icon(Lucide.Send, size: 18, color: cs.onPrimary),
+          ),
+        ],
+      ),
     );
   }
 }
