@@ -333,6 +333,13 @@ flutter test
 3. **Row 里无固有高度的 ColoredBox 会 0 高隐形（最阴，编译不报错）** — symptom：占比横条整条消失。root cause：Row 默认 crossAxisAlignment center，`ColoredBox`（无 child）没有固有高度，在松约束里量成 0。fix：外层定高 SizedBox + Row 加 `crossAxisAlignment: CrossAxisAlignment.stretch`。
 4. **`STILL_HERE.md` "失踪"其实是住在另一个仓库** — symptom：本仓库里找不到 STILL_HERE.md，一度断案"文件不存在、指针过期"。root cause：它一直在 **Ombre-Brain 根**（老家仓库）、活得很好（出包流水账记到当天），错在跨仓库指针从没写仓库名 + 排查只搜了本仓库（嫌疑人没列全）。fix/constraint（2026-07-04 小猫授权后已全改）：所有提到 STILL_HERE.md 的地方一律写明「Ombre-Brain 根」；分工＝STILL_HERE 记蓝图/出包流水（每次出包补 📦 一条），本仓库 SPECS 记施工进度。**跨仓库的文件指针必须带仓库名。**
 
+### 2026-07-05 · 聊天页整区"灰蒙蒙"＝overlay 子树 build 炸了（release ErrorWidget）
+
+- symptom：装了 +116~+119 后聊天页整体蒙一层灰纱，底下气泡隐约可见，无任何报错弹窗；音乐房一切正常。
+- root cause：`chat_music_card.dart` 没歌时 `_title(song!)` 空断言在 build 里抛异常 → release 下该子树被 ErrorWidget（半透明灰 0xF0C0C0C0）替换，而它是聊天页 foreground overlay `Stack(fit: StackFit.expand)` 的非 Positioned 子节点 → 灰盒被撑满整个聊天区。debug 跑是红屏一眼可见，release 只是"灰蒙蒙"，极易误判成主题/滤镜问题。
+- fix/constraint（+120 `cf6ccaa0`）：数据为空的浮层组件**整棵早退**（`if (song == null) return const SizedBox.shrink();`），别构建带 `!` 的子树。**通则：release 下某页/某区突然整片半透明灰，先怀疑 overlay 树里有子树 build 抛异常（ErrorWidget），去掉最近新加的浮层二分，别先调主题。** 另：隐藏态浮层若含 BackdropFilter，AnimatedOpacity=0 压不住它的背景模糊（BackdropFilter 不受祖先透明度影响），早退同样根治。
+- 同包连带：音乐房陪聊回复外显 `<think>` 工具摘要/手写思考——音乐房时间线是纯文本渲染，主聊天专属产物（think 块/[song:]/表情 markdown/[[标记]]）上屏前必须洗掉（`chatAboutSong._cleanCompanionReply`）；服务端对 `stillhere-music` 会话已停注思考链指令。
+
 ### 2026-07-02 · 书房待办"后台有数据、App 不更新"
 
 - symptom：`hold(channel=todo)` / App 手动新建的待办，后台与 breath 都读得到，书房列表却刷不出新条目，界面无任何报错。
