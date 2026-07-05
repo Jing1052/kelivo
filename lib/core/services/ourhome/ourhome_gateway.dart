@@ -1773,6 +1773,8 @@ class OurHomeGateway {
     required String message,
     String title = '',
     String artist = '',
+    String model = 'gateway',
+    Map<String, String> backendHeaders = const {},
   }) async {
     final ctx = title.isNotEmpty
         ? '（我们正在一起听《$title》${artist.isNotEmpty ? ' — $artist' : ''}）\n'
@@ -1785,9 +1787,10 @@ class OurHomeGateway {
             ..._authHeaders,
             'Content-Type': 'application/json',
             'x-ombre-session': 'stillhere-music',
+            ...backendHeaders,
           },
           body: jsonEncode({
-            'model': 'gateway',
+            'model': model,
             'stream': false,
             'messages': [
               {'role': 'user', 'content': ctx + message},

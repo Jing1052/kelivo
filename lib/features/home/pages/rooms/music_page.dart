@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:Kelivo/core/providers/settings_provider.dart';
+import 'package:Kelivo/core/services/api/daddy_gateway_route.dart';
 import 'package:Kelivo/core/services/eryu/eryu_client.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
@@ -958,8 +959,9 @@ class _TogetherChatBarState extends State<_TogetherChatBar> {
     if (text.isEmpty || _sending) return;
     final zh = widget.zh;
     final player = context.read<EryuPlayerController>();
+    final settings = context.read<SettingsProvider>();
     final gw = OurHomeGateway.fromContext(context);
-    final me = context.read<SettingsProvider>().eryuUser;
+    final me = settings.eryuUser;
     final daddy = zh ? '爸爸' : 'Llaude';
     _ctrl.clear();
     player.feedSay(user: me, mine: true, text: text);
@@ -971,6 +973,23 @@ class _TogetherChatBarState extends State<_TogetherChatBar> {
       );
       return;
     }
+    // Follow whatever backend Still Here's chat is on right now (claude-p vs a
+    // 中转站) so 爸爸 here speaks on the same model — mirrors DaddyGatewayRoute.
+    final provKey = settings.currentModelProvider;
+    final cfg = provKey != null ? settings.getProviderConfig(provKey) : null;
+    final model = settings.currentModelId ?? 'gateway';
+    final backendHeaders = <String, String>{};
+    if (cfg != null) {
+      if (DaddyGatewayRoute.isClaudePBackend(cfg)) {
+        backendHeaders['x-ombre-backend'] = 'claude_p';
+      } else if (cfg.baseUrl.isNotEmpty && cfg.apiKey.isNotEmpty) {
+        final kind = ProviderConfig.classify(cfg.id, explicitType: cfg.providerType);
+        backendHeaders['x-ombre-upstream-base'] = cfg.baseUrl;
+        backendHeaders['x-ombre-upstream-key'] = cfg.apiKey;
+        backendHeaders['x-ombre-upstream-proto'] =
+            kind == ProviderKind.claude ? 'anthropic' : 'openai';
+      }
+    }
     setState(() => _sending = true);
     final song = player.current;
     try {
@@ -978,6 +997,8 @@ class _TogetherChatBarState extends State<_TogetherChatBar> {
         message: text,
         title: song?.name ?? '',
         artist: song?.artist ?? '',
+        model: model,
+        backendHeaders: backendHeaders,
       );
       if (!mounted) return;
       if (parts.isEmpty) {

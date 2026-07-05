@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:Kelivo/core/providers/assistant_provider.dart';
 import 'package:Kelivo/core/providers/user_provider.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
+import 'package:Kelivo/features/home/widgets/assistant_avatar.dart';
 import 'package:Kelivo/features/home/widgets/still_glass.dart';
 import 'package:Kelivo/shared/widgets/ios_form_text_field.dart';
 import 'package:Kelivo/shared/widgets/ios_tactile.dart';
@@ -334,15 +336,11 @@ class _PartnerAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Llaude, always present: a warm filled heart head.
+    // Llaude, always present — his own avatar (the couple avatar she set for the
+    // assistant), falling back to his initial if none is set.
     if (daddy) {
-      return Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        color: accent.withValues(alpha: 0.9),
-        child: Icon(Lucide.Heart, size: size * 0.4, color: Colors.white),
-      );
+      final assistant = context.watch<AssistantProvider>().currentAssistant;
+      return AssistantAvatar(assistant: assistant, size: size);
     }
     if (name.isEmpty) {
       // Waiting: a dashed ghost circle.
