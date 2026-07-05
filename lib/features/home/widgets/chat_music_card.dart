@@ -30,58 +30,48 @@ class ChatMusicCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final player = context.watch<EryuPlayerController>();
     final song = player.current;
+    // 没歌就彻底不进树：这里若带着 null song 构建（旧版 `song!`），release 下
+    // build 一炸，ErrorWidget 的半透明灰盒会被 StackFit.expand 撑满整个聊天区
+    // （2026-07-05 小猫的「灰蒙蒙」）。顺带避免隐藏态 BackdropFilter 仍在底部糊一条。
+    if (song == null) return const SizedBox.shrink();
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
-
-    final visible = song != null;
 
     return Align(
       alignment: Alignment.bottomCenter,
       child: SafeArea(
         top: false,
-        child: IgnorePointer(
-          ignoring: !visible,
-          child: AnimatedSlide(
-            offset: visible ? Offset.zero : const Offset(0, 1.4),
-            duration: const Duration(milliseconds: 240),
-            curve: Curves.easeOutCubic,
-            child: AnimatedOpacity(
-              opacity: visible ? 1 : 0,
-              duration: const Duration(milliseconds: 200),
-              child: Padding(
-                padding: EdgeInsets.only(left: 16, right: 16, bottom: bottomInset + 8),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onTap: () => _open(context),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(8, 7, 6, 7),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.08)
-                              : Colors.white.withValues(alpha: 0.72),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: isDark
-                                ? Colors.white.withValues(alpha: 0.10)
-                                : Colors.white.withValues(alpha: 0.6),
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            _cover(song, cs),
-                            const SizedBox(width: 10),
-                            Expanded(child: _title(song!, player, cs, zh)),
-                            const SizedBox(width: 6),
-                            _PlayToggle(player: player, accent: cs.primary),
-                          ],
-                        ),
-                      ),
+        child: Padding(
+          padding: EdgeInsets.only(left: 16, right: 16, bottom: bottomInset + 8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => _open(context),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(8, 7, 6, 7),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.white.withValues(alpha: 0.6),
                     ),
+                  ),
+                  child: Row(
+                    children: [
+                      _cover(song, cs),
+                      const SizedBox(width: 10),
+                      Expanded(child: _title(song, player, cs, zh)),
+                      const SizedBox(width: 6),
+                      _PlayToggle(player: player, accent: cs.primary),
+                    ],
                   ),
                 ),
               ),

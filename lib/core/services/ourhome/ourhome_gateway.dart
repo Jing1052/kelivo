@@ -1808,11 +1808,31 @@ class OurHomeGateway {
       final msg = (choices.first as Map)['message'];
       if (msg is Map) content = (msg['content'] ?? '').toString();
     }
-    return content
+    return _cleanCompanionReply(content)
         .split('|||')
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
+  }
+
+  /// The music-room timeline renders plain text, so main-chat-only artifacts
+  /// must be stripped before feeding bubbles: `<think>`/`<thinking>` blocks
+  /// (the gateway's non-stream path returns handwritten thinking and the
+  /// `🔧 顺手做了` tool trace inline — main chat folds them into the pill,
+  /// here they'd leak raw), `[song:…]` cards, sticker markdown images, and
+  /// leftover `[[…]]` markers. Split on `|||` AFTER cleaning — a thinking
+  /// block may itself contain `|||`.
+  static String _cleanCompanionReply(String raw) {
+    var s = raw;
+    s = s.replaceAll(RegExp(r'<think(?:ing)?>[\s\S]*?</think(?:ing)?>'), '');
+    // Unclosed opening tag: everything after it is thinking, drop it.
+    final open = s.indexOf(RegExp(r'<think(?:ing)?>'));
+    if (open >= 0) s = s.substring(0, open);
+    s = s.replaceAll(RegExp(r'</?think(?:ing)?>'), '');
+    s = s.replaceAll(RegExp(r'\[song:[^\]]*\]'), '');
+    s = s.replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), '');
+    s = s.replaceAll(RegExp(r'\[\[[^\]]*\]\]'), '');
+    return s;
   }
 
   /// Add a song to the lyric corridor (词廊; POST action=add). [title]/[artist]
