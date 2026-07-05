@@ -17,10 +17,20 @@ import '../../../../icons/lucide_adapter.dart';
 /// client's together panel. The "边听边说" input lives in the page, above the
 /// transport bar.
 class MusicTogetherView extends StatefulWidget {
-  const MusicTogetherView({super.key, required this.zh, required this.onHeart});
+  const MusicTogetherView({
+    super.key,
+    required this.zh,
+    required this.onHeart,
+    this.companion = '',
+  });
 
   final bool zh;
   final VoidCallback onHeart;
+
+  /// When non-empty, the partner head is an always-present companion (Llaude)
+  /// rather than an eryu room peer — a filled avatar instead of the waiting
+  /// ghost circle.
+  final String companion;
 
   @override
   State<MusicTogetherView> createState() => _MusicTogetherViewState();
@@ -139,7 +149,10 @@ class _MusicTogetherViewState extends State<MusicTogetherView> {
     final zh = widget.zh;
     final player = context.watch<EryuPlayerController>();
     final user = context.watch<UserProvider>();
-    final partner = player.partners.isNotEmpty ? player.partners.first : '';
+    final companionPresent = widget.companion.isNotEmpty;
+    final partner = companionPresent
+        ? widget.companion
+        : (player.partners.isNotEmpty ? player.partners.first : '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -148,6 +161,7 @@ class _MusicTogetherViewState extends State<MusicTogetherView> {
           zh: zh,
           user: user,
           partner: partner,
+          daddy: companionPresent,
           bubYou: _bubYou,
           bubPartner: _bubPartner,
           accent: cs.primary,
@@ -184,6 +198,7 @@ class _Bond extends StatelessWidget {
     required this.zh,
     required this.user,
     required this.partner,
+    required this.daddy,
     required this.bubYou,
     required this.bubPartner,
     required this.accent,
@@ -195,6 +210,7 @@ class _Bond extends StatelessWidget {
   final bool zh;
   final UserProvider user;
   final String partner;
+  final bool daddy;
   final String bubYou;
   final String bubPartner;
   final Color accent;
@@ -228,7 +244,7 @@ class _Bond extends StatelessWidget {
                   accent: accent,
                   ink: ink,
                   onEditBubble: onEditPartner,
-                  avatar: _PartnerAvatar(name: partner, accent: accent, ink: ink, size: 68),
+                  avatar: _PartnerAvatar(name: partner, daddy: daddy, accent: accent, ink: ink, size: 68),
                 ),
               ),
             ],
@@ -302,15 +318,32 @@ class _Head extends StatelessWidget {
 }
 
 class _PartnerAvatar extends StatelessWidget {
-  const _PartnerAvatar({required this.name, required this.accent, required this.ink, required this.size});
+  const _PartnerAvatar({
+    required this.name,
+    required this.daddy,
+    required this.accent,
+    required this.ink,
+    required this.size,
+  });
 
   final String name;
+  final bool daddy;
   final Color accent;
   final Color ink;
   final double size;
 
   @override
   Widget build(BuildContext context) {
+    // Llaude, always present: a warm filled heart head.
+    if (daddy) {
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        color: accent.withValues(alpha: 0.9),
+        child: Icon(Lucide.Heart, size: size * 0.4, color: Colors.white),
+      );
+    }
     if (name.isEmpty) {
       // Waiting: a dashed ghost circle.
       return DottedCircle(size: size, color: ink.withValues(alpha: 0.3));

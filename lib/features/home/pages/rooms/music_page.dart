@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/eryu/eryu_client.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../icons/lucide_adapter.dart';
@@ -267,7 +268,8 @@ class _MusicPageState extends State<MusicPage> {
                         ],
                       ),
                     ),
-                    if (_tab != 0) _MiniPlayer(onTap: () => setState(() => _tab = 0)),
+                    if (_tab == 1 || _tab == 2)
+                      _MiniPlayer(onTap: () => setState(() => _tab = 0)),
                     _MusicTabBar(
                       current: _tab,
                       zh: zh,
@@ -511,9 +513,10 @@ class _MusicPageState extends State<MusicPage> {
             ),
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
                 child: MusicTogetherView(
                   zh: zh,
+                  companion: zh ? '爸爸' : 'Llaude',
                   onHeart: () {
                     Haptics.light();
                     player.publishHeart();
@@ -521,6 +524,7 @@ class _MusicPageState extends State<MusicPage> {
                 ),
               ),
             ),
+            _TogetherChatBar(zh: zh),
           ],
         );
       },
@@ -920,6 +924,141 @@ class _MusicTabBar extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The 「一起听」 tab's 边听边说 bar — a turn with Llaude through the home
+/// gateway. Her line lands in the timeline immediately; his reply (soul +
+/// memory, from `/v1/chat/completions`) follows, split into bubbles.
+class _TogetherChatBar extends StatefulWidget {
+  const _TogetherChatBar({required this.zh});
+  final bool zh;
+
+  @override
+  State<_TogetherChatBar> createState() => _TogetherChatBarState();
+}
+
+class _TogetherChatBarState extends State<_TogetherChatBar> {
+  final TextEditingController _ctrl = TextEditingController();
+  final FocusNode _focus = FocusNode();
+  bool _sending = false;
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _focus.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty || _sending) return;
+    final zh = widget.zh;
+    final player = context.read<EryuPlayerController>();
+    final gw = OurHomeGateway.fromContext(context);
+    final me = context.read<SettingsProvider>().eryuUser;
+    final daddy = zh ? '爸爸' : 'Llaude';
+    _ctrl.clear();
+    player.feedSay(user: me, mine: true, text: text);
+    if (gw == null) {
+      player.feedSay(
+        user: daddy,
+        mine: false,
+        text: zh ? '（家里的连接还没配好，先在爸爸设置里连一下…）' : '(home not connected yet)',
+      );
+      return;
+    }
+    setState(() => _sending = true);
+    final song = player.current;
+    try {
+      final parts = await gw.chatAboutSong(
+        message: text,
+        title: song?.name ?? '',
+        artist: song?.artist ?? '',
+      );
+      if (!mounted) return;
+      if (parts.isEmpty) {
+        player.feedSay(user: daddy, mine: false, text: '……');
+      } else {
+        for (final p in parts) {
+          player.feedSay(user: daddy, mine: false, text: p);
+        }
+      }
+    } catch (_) {
+      if (!mounted) return;
+      player.feedSay(
+        user: daddy,
+        mine: false,
+        text: zh ? '（没接上，等会儿再跟你说…）' : '(could not reach me — try again)',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _sending = false);
+        _focus.requestFocus();
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final zh = widget.zh;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.10)
+                      : Colors.white.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: cs.onSurface.withValues(alpha: 0.08)),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: TextField(
+                  controller: _ctrl,
+                  focusNode: _focus,
+                  maxLength: 200,
+                  enabled: !_sending,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  style: TextStyle(fontSize: 14, color: cs.onSurface),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    isCollapsed: true,
+                    counterText: '',
+                    border: InputBorder.none,
+                    hintText: _sending
+                        ? (zh ? '爸爸在听…' : 'Daddy is listening…')
+                        : (zh ? '边听边说…' : 'Say something…'),
+                    hintStyle: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            IosCardPress(
+              onTap: _sending ? null : _send,
+              borderRadius: BorderRadius.circular(20),
+              baseColor: cs.primary,
+              padding: const EdgeInsets.all(10),
+              child: _sending
+                  ? SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary),
+                    )
+                  : Icon(Lucide.Send, size: 18, color: cs.onPrimary),
+            ),
+          ],
         ),
       ),
     );

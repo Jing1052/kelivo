@@ -236,7 +236,7 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 28),
                         child: _buildLyrics(cs, zh),
                       )
-                    : (player.togetherOn
+                    : ((player.togetherOn && !widget.embedded)
                         ? Padding(
                             padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
                             child: MusicTogetherView(zh: zh, onHeart: () => _sendHeart(zh, player)),
@@ -246,8 +246,8 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                             child: _buildCoverArea(cs, zh, song, player),
                           )),
               ),
-              _JoinBar(zh: zh),
-              if (player.togetherOn) _ChatInput(zh: zh),
+              if (!widget.embedded) _JoinBar(zh: zh),
+              if (player.togetherOn && !widget.embedded) _ChatInput(zh: zh),
               Padding(
                 padding: EdgeInsets.fromLTRB(28, 8, 28, widget.embedded ? 12 : 24),
                 child: Column(

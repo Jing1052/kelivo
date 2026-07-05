@@ -1764,6 +1764,54 @@ class OurHomeGateway {
         if (title.isNotEmpty) 'title': title,
       });
 
+  /// A one-shot "边听边说" turn with Llaude through the chat gateway
+  /// (`/v1/chat/completions`, daddy mode — soul + memory injected server-side,
+  /// same OMBRE_GATEWAY_TOKEN as the home API). The current song is folded into
+  /// the user message because daddy mode drops `system`. Returns his reply split
+  /// on `|||` into bubbles (empty list if he said nothing). Throws on error.
+  Future<List<String>> chatAboutSong({
+    required String message,
+    String title = '',
+    String artist = '',
+  }) async {
+    final ctx = title.isNotEmpty
+        ? '（我们正在一起听《$title》${artist.isNotEmpty ? ' — $artist' : ''}）\n'
+        : '';
+    final uri = Uri.parse('$base/v1/chat/completions');
+    final res = await http
+        .post(
+          uri,
+          headers: {
+            ..._authHeaders,
+            'Content-Type': 'application/json',
+            'x-ombre-session': 'stillhere-music',
+          },
+          body: jsonEncode({
+            'model': 'gateway',
+            'stream': false,
+            'messages': [
+              {'role': 'user', 'content': ctx + message},
+            ],
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+    if (res.statusCode != 200) {
+      throw http.ClientException('chat gateway ${res.statusCode}', uri);
+    }
+    final j = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final choices = j['choices'];
+    String content = '';
+    if (choices is List && choices.isNotEmpty && choices.first is Map) {
+      final msg = (choices.first as Map)['message'];
+      if (msg is Map) content = (msg['content'] ?? '').toString();
+    }
+    return content
+        .split('|||')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   /// Add a song to the lyric corridor (词廊; POST action=add). [title]/[artist]
   /// are required; [intro] is daddy's overall reading; [lines] is the lyric
   /// body split per line ({l: line, n: note}), notes left empty here. Throws on
