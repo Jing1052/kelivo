@@ -198,7 +198,10 @@ class EryuClient {
   Future<void> favLine(String songId, String line) =>
       _postJson('/music/memory', {'songId': songId, 'action': 'fav_line', 'line': line});
 
-  Future<void> recentAdd(EryuSong song) => _postJson('/music/recent/add', song.toJson());
+  // 服务端 _handle_music_recent_add 要 {"song": {...}} 嵌套结构；发扁平的会被当成空、
+  // 静默 return（最近播放列表 + 听歌次数统计永远为空）。
+  Future<void> recentAdd(EryuSong song) =>
+      _postJson('/music/recent/add', {'song': song.toJson()});
 
   Future<void> listenComplete(String songId, {bool together = false}) => _postJson(
         '/music/listen-complete',

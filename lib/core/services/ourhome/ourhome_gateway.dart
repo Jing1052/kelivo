@@ -1932,9 +1932,11 @@ class OurHomeGateway {
   }
 
   /// Comment-thread key for a lyric line — mirrors the server's
-  /// `_lyric_cmt_key`: title.toLowerCase() concatenated with the raw line.
+  /// `_lyric_cmt_key`: title.toLowerCase() + '\x01' + raw line. The `\x01`
+  /// separator is load-bearing: drop it and the key never matches the
+  /// server's map, so批注 threads render empty even though POST succeeds.
   static String lyricCommentKey(String title, String line) =>
-      title.trim().toLowerCase() + line.trim();
+      '${title.trim().toLowerCase()}\x01${line.trim()}';
 
   /// Last-cached morning-brief flag, read synchronously from the local
   /// heartbeat cache (instant, no network) so 此刻 can show it without buffering.
