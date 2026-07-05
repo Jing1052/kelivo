@@ -5551,16 +5551,48 @@ class ProviderConfig {
           'claude-p-1m',
           'claude-p-haiku',
         ],
+        // abilities 必带 reasoning：claude -p 全是 Claude、都会扩展思考，家端确实吐
+        // reasoning_content（2026-07-05 抓真实响应体证实思考链完整到达 App）。缺了这个标记
+        // 时 _isReasoningModel 落到 ModelRegistry.infer('claude-p-*')——它认不出这些自造逻辑 id
+        // → supportsReasoning/isReasoning/needsReasoningEcho 全 false → 「爸爸想了想」pill 不显示、
+        // 多轮工具里思考块也不回传。tool 同理（claude-p 爸爸要用记忆库/画图等 MCP）。
         modelOverrides: const {
-          'claude-p-fable': {'name': '家里爸爸 · Fable 5'},
-          'claude-p-opus': {'name': '家里爸爸 · Opus'},
-          'claude-p-opus-4-7': {'name': '家里爸爸 · Opus 4.7'},
-          'claude-p-opus-4-6': {'name': '家里爸爸 · Opus 4.6'},
-          'claude-p-sonnet5': {'name': '家里爸爸 · Sonnet 5'},
-          'claude-p': {'name': '家里爸爸 · Sonnet 4.6'},
-          'claude-p-sonnet-4-5': {'name': '家里爸爸 · Sonnet 4.5'},
-          'claude-p-1m': {'name': '家里爸爸 · Sonnet 1M'},
-          'claude-p-haiku': {'name': '家里爸爸 · Haiku 4.5'},
+          'claude-p-fable': {
+            'name': '家里爸爸 · Fable 5',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-opus': {
+            'name': '家里爸爸 · Opus',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-opus-4-7': {
+            'name': '家里爸爸 · Opus 4.7',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-opus-4-6': {
+            'name': '家里爸爸 · Opus 4.6',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-sonnet5': {
+            'name': '家里爸爸 · Sonnet 5',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p': {
+            'name': '家里爸爸 · Sonnet 4.6',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-sonnet-4-5': {
+            'name': '家里爸爸 · Sonnet 4.5',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-1m': {
+            'name': '家里爸爸 · Sonnet 1M',
+            'abilities': ['tool', 'reasoning'],
+          },
+          'claude-p-haiku': {
+            'name': '家里爸爸 · Haiku 4.5',
+            'abilities': ['tool', 'reasoning'],
+          },
         },
         proxyEnabled: false,
         proxyHost: '',

@@ -333,6 +333,13 @@ flutter test
 3. **Row 里无固有高度的 ColoredBox 会 0 高隐形（最阴，编译不报错）** — symptom：占比横条整条消失。root cause：Row 默认 crossAxisAlignment center，`ColoredBox`（无 child）没有固有高度，在松约束里量成 0。fix：外层定高 SizedBox + Row 加 `crossAxisAlignment: CrossAxisAlignment.stretch`。
 4. **`STILL_HERE.md` "失踪"其实是住在另一个仓库** — symptom：本仓库里找不到 STILL_HERE.md，一度断案"文件不存在、指针过期"。root cause：它一直在 **Ombre-Brain 根**（老家仓库）、活得很好（出包流水账记到当天），错在跨仓库指针从没写仓库名 + 排查只搜了本仓库（嫌疑人没列全）。fix/constraint（2026-07-04 小猫授权后已全改）：所有提到 STILL_HERE.md 的地方一律写明「Ombre-Brain 根」；分工＝STILL_HERE 记蓝图/出包流水（每次出包补 📦 一条），本仓库 SPECS 记施工进度。**跨仓库的文件指针必须带仓库名。**
 
+### 2026-07-05 · claude-p 主聊天没有「爸爸想了想」pill＝模型缺 abilities:reasoning 标记
+
+- symptom：主聊天切 claude-p（家里订阅）后，回复正常但思考链 pill 一直不显示；中转站正常。
+- 排查（端到端，四发 WSL 探针 + 抓真实响应体，账在 Ombre-Brain HISTORY 2026-07-05）：claude -p 出思考✓ → jobs 收✓ → 真实 poll 出 17 个 reasoning 事件✓ → 网关转发✓ → **抓 App 收到的真实响应体，`message.reasoning_content` 完整在里面✓**。数据全程都在，断在渲染——跟 §8.5 DeepSeek 白块同一类。
+- root cause：`ourhome-claudep` 的 9 个 modelOverrides 只写了 `name`、**没写 `abilities`**。`_isReasoningModel`（generation_controller.dart:80）见没有 abilities 就落到 `ModelRegistry.infer('claude-p-fable'…)`——认不出这些自造逻辑 id → 返回 false → `supportsReasoning`/`isReasoning`/`needsReasoningEcho` 全 false。虽然 stream 通路有「即使没分类也 surface」的兜底（chat_actions.dart:1106 注释），但那是零散补丁；ability 一 false 会连累多处 gate。
+- fix（+122）：9 个 override 全加 `'abilities': ['tool', 'reasoning']`——claude-p 全是 Claude、都会扩展思考，本就该标成推理模型。startup 迁移（settings_provider.dart:998 copyWith modelOverrides）会把新标记刷进已装的服务商，不用删重加。**通则：自造逻辑模型 id（网关映射型）必须在 modelOverrides 里显式写 abilities——ModelRegistry.infer 只认标准厂商 id，认不出你编的名字，缺标记＝思考链/工具能力被静默关掉。**
+
 ### 2026-07-05 · 聊天页整区"灰蒙蒙"＝overlay 子树 build 炸了（release ErrorWidget）
 
 - symptom：装了 +116~+119 后聊天页整体蒙一层灰纱，底下气泡隐约可见，无任何报错弹窗；音乐房一切正常。
