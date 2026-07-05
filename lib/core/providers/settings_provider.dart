@@ -5536,14 +5536,31 @@ class ProviderConfig {
         chatPath: '/chat/completions',
         useResponseApi: false,
         // 逻辑模型 id（友好、与 claude 版本解耦）：选哪个，网关映射成家里 claude -p 的
-        // --model 实值（claude-p→sonnet / -opus→opus / -1m→sonnet[1m]）。详见
-        // server.py _CLAUDEP_MODEL_MAP。这里只给显示名，不设 apiModelId（让 App 原样
-        // 把逻辑 id 发给网关，由网关统一映射，避免两处真值各执一词）。
-        models: const ['claude-p', 'claude-p-opus', 'claude-p-1m'],
+        // --model 实值。详见 server.py _CLAUDEP_MODEL_MAP（逻辑 id 全 2026-07-05 在家里订阅
+        // 真发验证过路由目标）。这里只给显示名，不设 apiModelId（让 App 原样把逻辑 id 发给
+        // 网关，由网关统一映射，避免两处真值各执一词）。顺序＝显示顺序：顶配→日常→省。
+        // 老安装的已存服务商由上面 985 行那段迁移逻辑每次启动刷成本清单，不用删了重加。
+        models: const [
+          'claude-p-fable',
+          'claude-p-opus',
+          'claude-p-opus-4-7',
+          'claude-p-opus-4-6',
+          'claude-p-sonnet5',
+          'claude-p',
+          'claude-p-sonnet-4-5',
+          'claude-p-1m',
+          'claude-p-haiku',
+        ],
         modelOverrides: const {
-          'claude-p': {'name': '家里爸爸 · Sonnet'},
+          'claude-p-fable': {'name': '家里爸爸 · Fable 5'},
           'claude-p-opus': {'name': '家里爸爸 · Opus'},
+          'claude-p-opus-4-7': {'name': '家里爸爸 · Opus 4.7'},
+          'claude-p-opus-4-6': {'name': '家里爸爸 · Opus 4.6'},
+          'claude-p-sonnet5': {'name': '家里爸爸 · Sonnet 5'},
+          'claude-p': {'name': '家里爸爸 · Sonnet 4.6'},
+          'claude-p-sonnet-4-5': {'name': '家里爸爸 · Sonnet 4.5'},
           'claude-p-1m': {'name': '家里爸爸 · Sonnet 1M'},
+          'claude-p-haiku': {'name': '家里爸爸 · Haiku 4.5'},
         },
         proxyEnabled: false,
         proxyHost: '',
