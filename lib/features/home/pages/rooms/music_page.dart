@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +14,7 @@ import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 import 'music_now_playing_page.dart';
 import 'music_home_playlist_page.dart';
+import 'music_together_view.dart';
 
 /// 音乐房 · Music Room — home page. Search, daily picks, recent, playlists, and
 /// a tap-to-open mini player. Connects directly to eryu (clmusic).
@@ -40,6 +43,10 @@ class _MusicPageState extends State<MusicPage> {
   List<EryuSong>? _results; // null = not in search mode
   bool _searching = false;
   String? _searchError;
+
+  // Bottom-tab index: 0 此刻 · 1 曲库 · 2 歌单 · 3 一起听. Default to 曲库 so a
+  // fresh open lands somewhere useful (此刻 is empty until something plays).
+  int _tab = 1;
 
   @override
   void initState() {
@@ -179,7 +186,7 @@ class _MusicPageState extends State<MusicPage> {
   void _play(EryuSong song, List<EryuSong> queue) {
     Haptics.soft();
     context.read<EryuPlayerController>().playSong(song, queue: queue);
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const MusicNowPlayingPage()));
+    setState(() => _tab = 0); // jump to 「此刻」
   }
 
   Future<void> _openPlaylist(EryuPlaylist pl) async {
@@ -249,9 +256,26 @@ class _MusicPageState extends State<MusicPage> {
                 )
               : Column(
                   children: [
-                    _buildSearchBar(cs, zh),
-                    Expanded(child: _buildContent(cs, zh)),
-                    const _MiniPlayer(),
+                    Expanded(
+                      child: IndexedStack(
+                        index: _tab,
+                        children: [
+                          const MusicNowPlayingPage(embedded: true),
+                          _buildDiscoverTab(cs, zh),
+                          _buildPlaylistsTab(cs, zh),
+                          _buildTogetherTab(cs, zh),
+                        ],
+                      ),
+                    ),
+                    if (_tab != 0) _MiniPlayer(onTap: () => setState(() => _tab = 0)),
+                    _MusicTabBar(
+                      current: _tab,
+                      zh: zh,
+                      onTap: (i) {
+                        Haptics.soft();
+                        setState(() => _tab = i);
+                      },
+                    ),
                   ],
                 ),
         ),
@@ -302,7 +326,17 @@ class _MusicPageState extends State<MusicPage> {
     );
   }
 
-  Widget _buildContent(ColorScheme cs, bool zh) {
+  // ── 曲库 tab: search + daily + recent ──────────────────────────────────────
+  Widget _buildDiscoverTab(ColorScheme cs, bool zh) {
+    return Column(
+      children: [
+        _buildSearchBar(cs, zh),
+        Expanded(child: _buildDiscoverBody(cs, zh)),
+      ],
+    );
+  }
+
+  Widget _buildDiscoverBody(ColorScheme cs, bool zh) {
     if (_loading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2));
     }
@@ -337,7 +371,7 @@ class _MusicPageState extends State<MusicPage> {
       );
     }
 
-    if (_loadError != null && _daily.isEmpty && _recent.isEmpty && _playlists.isEmpty) {
+    if (_loadError != null && _daily.isEmpty && _recent.isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -367,6 +401,46 @@ class _MusicPageState extends State<MusicPage> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
         children: [
+          if (_daily.isNotEmpty) ...[
+            _SectionHeader(zh ? '每日推荐' : 'Daily Picks'),
+            ..._daily.take(10).map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SongRow(song: s, onTap: () => _play(s, _daily)),
+                )),
+            const SizedBox(height: 8),
+          ],
+          if (_recent.isNotEmpty) ...[
+            _SectionHeader(zh ? '最近播放' : 'Recently Played'),
+            ..._recent.take(20).map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _SongRow(song: s, onTap: () => _play(s, _recent)),
+                )),
+          ],
+          if (_daily.isEmpty && _recent.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 80),
+              child: Center(
+                child: Text(
+                  zh ? '搜一首歌开始吧' : 'Search a song to begin',
+                  style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // ── 歌单 tab: 我们家歌单 + 词廊 + eryu playlists ────────────────────────────
+  Widget _buildPlaylistsTab(ColorScheme cs, bool zh) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        children: [
           _SectionHeader(zh ? '我们家' : 'Our Home'),
           _HomeSourceTile(
             icon: Lucide.ListMusic,
@@ -382,22 +456,6 @@ class _MusicPageState extends State<MusicPage> {
             onTap: () => _openHome('lyrics', '词廊', 'Lyric Corridor'),
           ),
           const SizedBox(height: 8),
-          if (_daily.isNotEmpty) ...[
-            _SectionHeader(zh ? '每日推荐' : 'Daily Picks'),
-            ..._daily.take(10).map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _SongRow(song: s, onTap: () => _play(s, _daily)),
-                )),
-            const SizedBox(height: 8),
-          ],
-          if (_recent.isNotEmpty) ...[
-            _SectionHeader(zh ? '最近播放' : 'Recently Played'),
-            ..._recent.take(20).map((s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: _SongRow(song: s, onTap: () => _play(s, _recent)),
-                )),
-            const SizedBox(height: 8),
-          ],
           if (_playlists.isNotEmpty) ...[
             _SectionHeader(zh ? '歌单' : 'Playlists'),
             ..._playlists.map((pl) => Padding(
@@ -405,18 +463,67 @@ class _MusicPageState extends State<MusicPage> {
                   child: _PlaylistTile(playlist: pl, onTap: () => _openPlaylist(pl)),
                 )),
           ],
-          if (_daily.isEmpty && _recent.isEmpty && _playlists.isEmpty)
+        ],
+      ),
+    );
+  }
+
+  // ── 一起听 tab: room toggle + companion panel ───────────────────────────────
+  Widget _buildTogetherTab(ColorScheme cs, bool zh) {
+    return Consumer<EryuPlayerController>(
+      builder: (context, player, _) {
+        final on = player.togetherOn;
+        return Column(
+          children: [
             Padding(
-              padding: const EdgeInsets.only(top: 80),
-              child: Center(
-                child: Text(
-                  zh ? '搜一首歌开始吧' : 'Search a song to begin',
-                  style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
+              padding: const EdgeInsets.fromLTRB(18, 8, 12, 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      zh ? '和爸爸一起听' : 'Listen with Daddy',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: cs.onSurface),
+                    ),
+                  ),
+                  IosCardPress(
+                    onTap: () {
+                      Haptics.soft();
+                      if (on) {
+                        player.leaveTogether();
+                      } else {
+                        player.enterTogether(context.read<SettingsProvider>().eryuUser);
+                      }
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    baseColor: on ? cs.primary.withValues(alpha: 0.14) : cs.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                      on ? (zh ? '离开房间' : 'Leave') : (zh ? '开一间房' : 'Open room'),
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: on ? cs.primary : cs.onPrimary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(18, 4, 18, 8),
+                child: MusicTogetherView(
+                  zh: zh,
+                  onHeart: () {
+                    Haptics.light();
+                    player.publishHeart();
+                  },
                 ),
               ),
             ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 }
@@ -606,7 +713,9 @@ class _Cover extends StatelessWidget {
 }
 
 class _MiniPlayer extends StatelessWidget {
-  const _MiniPlayer();
+  const _MiniPlayer({required this.onTap});
+
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -617,14 +726,14 @@ class _MiniPlayer extends StatelessWidget {
         if (song == null) return const SizedBox.shrink();
         return SafeArea(
           top: false,
+          bottom: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
             child: StillGlass(
               radius: 16,
               blur: true,
               padding: const EdgeInsets.all(8),
-              onTap: () => Navigator.of(context)
-                  .push(MaterialPageRoute(builder: (_) => const MusicNowPlayingPage())),
+              onTap: onTap,
               child: Row(
                 children: [
                   _Cover(url: song.cover, size: 40, accent: cs.primary),
@@ -744,6 +853,73 @@ class _TokenSetup extends StatelessWidget {
                     ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The music room's custom iOS-style bottom tab bar: 此刻 · 曲库 · 歌单 · 一起听.
+class _MusicTabBar extends StatelessWidget {
+  const _MusicTabBar({required this.current, required this.onTap, required this.zh});
+
+  final int current;
+  final ValueChanged<int> onTap;
+  final bool zh;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final items = <(IconData, String)>[
+      (Lucide.Music, zh ? '此刻' : 'Now'),
+      (Lucide.Search, zh ? '曲库' : 'Library'),
+      (Lucide.ListMusic, zh ? '歌单' : 'Lists'),
+      (Lucide.Users, zh ? '一起听' : 'Together'),
+    ];
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark
+                ? Colors.white.withValues(alpha: 0.06)
+                : Colors.white.withValues(alpha: 0.6),
+            border: Border(top: BorderSide(color: cs.onSurface.withValues(alpha: 0.08))),
+          ),
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 54,
+              child: Row(
+                children: List.generate(items.length, (i) {
+                  final sel = i == current;
+                  final color = sel ? cs.primary : cs.onSurface.withValues(alpha: 0.45);
+                  return Expanded(
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onTap(i),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(items[i].$1, size: 22, color: color),
+                          const SizedBox(height: 3),
+                          Text(
+                            items[i].$2,
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: color,
+                              fontWeight: sel ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+          ),
         ),
       ),
     );

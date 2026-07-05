@@ -20,7 +20,12 @@ import 'music_together_view.dart';
 /// The full-screen player: cover ⇄ scrolling lyrics, transport, a heart, and the
 /// listen-together toggle that turns this into a shared room.
 class MusicNowPlayingPage extends StatefulWidget {
-  const MusicNowPlayingPage({super.key});
+  const MusicNowPlayingPage({super.key, this.embedded = false});
+
+  /// When embedded as the 「此刻」 tab in the music room shell: drop the
+  /// full-screen backdrop + app bar (the shell supplies the backdrop) and put
+  /// the transport controls into a compact top row instead of an app bar.
+  final bool embedded;
 
   @override
   State<MusicNowPlayingPage> createState() => _MusicNowPlayingPageState();
@@ -165,12 +170,129 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
     _showActivity(zh ? '给你送了一颗心' : 'Sent you a heart');
   }
 
+  Widget _togetherButton(ColorScheme cs) {
+    return Consumer<EryuPlayerController>(
+      builder: (context, player, _) => IosIconButton(
+        minSize: 44,
+        onTap: _toggleTogether,
+        builder: (color) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Icon(Lucide.Users, size: 20, color: player.togetherOn ? cs.primary : color),
+            if (player.hasPartner)
+              Positioned(
+                right: -1,
+                top: -1,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF34C759)),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _controlButtons(ColorScheme cs) {
+    return [
+      _togetherButton(cs),
+      IosIconButton(
+        icon: Lucide.ListMusic,
+        size: 20,
+        minSize: 44,
+        color: _showLyrics ? cs.primary : null,
+        onTap: () => setState(() {
+          _showLyrics = !_showLyrics;
+          _activeLine = -1;
+          if (_showLyrics) _maybeAutoScroll();
+        }),
+      ),
+      IosIconButton(icon: Lucide.Bookmark, size: 20, minSize: 44, onTap: _saveToHome),
+      IosIconButton(icon: Lucide.Heart, size: 20, minSize: 44, onTap: _openMemory),
+    ];
+  }
+
+  Widget _bodyConsumer(ColorScheme cs, bool zh) {
+    return Consumer<EryuPlayerController>(
+      builder: (context, player, _) {
+        final song = player.current;
+        if (song == null) {
+          return Center(
+            child: Text(
+              zh ? '还没有在放的歌' : 'Nothing playing yet',
+              style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
+            ),
+          );
+        }
+        return SafeArea(
+          top: !widget.embedded,
+          child: Column(
+            children: [
+              Expanded(
+                child: _showLyrics
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 28),
+                        child: _buildLyrics(cs, zh),
+                      )
+                    : (player.togetherOn
+                        ? Padding(
+                            padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
+                            child: MusicTogetherView(zh: zh, onHeart: () => _sendHeart(zh, player)),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 28),
+                            child: _buildCoverArea(cs, zh, song, player),
+                          )),
+              ),
+              _JoinBar(zh: zh),
+              if (player.togetherOn) _ChatInput(zh: zh),
+              Padding(
+                padding: EdgeInsets.fromLTRB(28, 8, 28, widget.embedded ? 12 : 24),
+                child: Column(
+                  children: [
+                    _SeekBar(
+                      position: player.position,
+                      duration: player.duration,
+                      accent: cs.primary,
+                      onSeek: player.seek,
+                    ),
+                    const SizedBox(height: 18),
+                    _Controls(player: player, accent: cs.primary, onColor: cs.onPrimary, ink: cs.onSurface),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
-    final settings = context.watch<SettingsProvider>();
 
+    // Embedded as the 「此刻」 tab: no backdrop, no app bar — a compact control
+    // row sits above the shared player body.
+    if (widget.embedded) {
+      return Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: _controlButtons(cs),
+            ),
+          ),
+          Expanded(child: _bodyConsumer(cs, zh)),
+        ],
+      );
+    }
+
+    final settings = context.watch<SettingsProvider>();
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -196,96 +318,9 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
               zh ? '正在播放' : 'Now Playing',
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
-            actions: [
-              Consumer<EryuPlayerController>(
-                builder: (context, player, _) => IosIconButton(
-                  minSize: 44,
-                  onTap: _toggleTogether,
-                  builder: (color) => Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      Icon(Lucide.Users, size: 20, color: player.togetherOn ? cs.primary : color),
-                      if (player.hasPartner)
-                        Positioned(
-                          right: -1,
-                          top: -1,
-                          child: Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFF34C759)),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              IosIconButton(
-                icon: Lucide.ListMusic,
-                size: 20,
-                minSize: 44,
-                color: _showLyrics ? cs.primary : null,
-                onTap: () => setState(() {
-                  _showLyrics = !_showLyrics;
-                  _activeLine = -1;
-                  if (_showLyrics) _maybeAutoScroll();
-                }),
-              ),
-              IosIconButton(icon: Lucide.Bookmark, size: 20, minSize: 44, onTap: _saveToHome),
-              IosIconButton(icon: Lucide.Heart, size: 20, minSize: 44, onTap: _openMemory),
-            ],
+            actions: _controlButtons(cs),
           ),
-          body: Consumer<EryuPlayerController>(
-            builder: (context, player, _) {
-              final song = player.current;
-              if (song == null) {
-                return Center(
-                  child: Text(
-                    zh ? '还没有在放的歌' : 'Nothing playing yet',
-                    style: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
-                  ),
-                );
-              }
-              return SafeArea(
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: _showLyrics
-                          ? Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 28),
-                              child: _buildLyrics(cs, zh),
-                            )
-                          : (player.togetherOn
-                              ? Padding(
-                                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 0),
-                                  child: MusicTogetherView(zh: zh, onHeart: () => _sendHeart(zh, player)),
-                                )
-                              : Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 28),
-                                  child: _buildCoverArea(cs, zh, song, player),
-                                )),
-                    ),
-                    _JoinBar(zh: zh),
-                    if (player.togetherOn) _ChatInput(zh: zh),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(28, 8, 28, 24),
-                      child: Column(
-                        children: [
-                          _SeekBar(
-                            position: player.position,
-                            duration: player.duration,
-                            accent: cs.primary,
-                            onSeek: player.seek,
-                          ),
-                          const SizedBox(height: 18),
-                          _Controls(player: player, accent: cs.primary, onColor: cs.onPrimary, ink: cs.onSurface),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
+          body: _bodyConsumer(cs, zh),
         ),
       ],
     );
