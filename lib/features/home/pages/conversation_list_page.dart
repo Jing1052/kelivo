@@ -15,6 +15,7 @@ import '../../../shared/widgets/ios_tactile.dart';
 import '../../assistant/widgets/assistant_select_sheet.dart';
 import '../widgets/assistant_avatar.dart';
 import '../../cc/pages/cc_chat_page.dart';
+import '../../cc/pages/group_chat_page.dart';
 import 'home_page.dart';
 
 /// Full-screen conversation list — the root of the Still Here "Chat" tab.
@@ -41,6 +42,13 @@ class ConversationListPage extends StatelessWidget {
     Haptics.soft();
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => const CcChatPage()),
+    );
+  }
+
+  void _openGroup(BuildContext context) {
+    Haptics.soft();
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const GroupChatPage()),
     );
   }
 
@@ -124,7 +132,12 @@ class ConversationListPage extends StatelessWidget {
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                  child: _CcEntryTile(onTap: () => _openCc(context)),
+                  child: Column(
+                    children: [
+                      _CcEntryTile(onTap: () => _openCc(context)),
+                      _GroupEntryTile(onTap: () => _openGroup(context)),
+                    ],
+                  ),
                 ),
                 Expanded(
                   child: _EmptyState(
@@ -137,6 +150,7 @@ class ConversationListPage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 4, 12, 24),
               children: [
                 _CcEntryTile(onTap: () => _openCc(context)),
+                _GroupEntryTile(onTap: () => _openGroup(context)),
                 if (pinned.isNotEmpty) ...[
                   _SectionHeader(label: l10n.sideDrawerPinnedLabel),
                   for (final c in pinned)
@@ -502,6 +516,76 @@ class _CcEntryTile extends StatelessWidget {
               ),
               const SizedBox(width: 6),
             ],
+            Icon(
+              Lucide.ChevronRight,
+              size: 18,
+              color: cs.onSurface.withValues(alpha: 0.35),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Entry tile for the multi-agent workgroup (code-review group chat), sitting
+/// under the CC tile. Same server as the CC bridge, so no per-tile status —
+/// the page itself resolves connection state on open.
+class _GroupEntryTile extends StatelessWidget {
+  const _GroupEntryTile({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: IosCardPress(
+        borderRadius: BorderRadius.circular(14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        onTap: onTap,
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Lucide.Users, size: 20, color: cs.primary),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l10n.groupChatTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    l10n.groupChatEntrySubtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: cs.onSurface.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
             Icon(
               Lucide.ChevronRight,
               size: 18,
