@@ -1560,6 +1560,18 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
         final reasoningForTools =
             (msg['reasoning_content'] ?? msg['reasoning'])?.toString() ?? '';
         final reasoningDetailsForTools = msg['reasoning_details'];
+        // 非流式整包响应的思考链要上屏：此前只进工具回声缓冲、从不 yield，
+        // message.reasoning_content 全程到了 App 却永远不显示（家里 claude-p
+        // 关流式时正是这条路，2026-07-06 破案）。每轮（含最终轮）都在这里发一次。
+        if (reasoningForTools.isNotEmpty) {
+          yield ChatStreamChunk(
+            content: '',
+            reasoning: reasoningForTools,
+            isDone: false,
+            totalTokens: aggUsage?.totalTokens ?? 0,
+            usage: aggUsage,
+          );
+        }
         final tcs = (msg['tool_calls'] as List?) ?? const <dynamic>[];
         if (tcs.isNotEmpty && onToolCall != null) {
           final calls = <Map<String, dynamic>>[];
@@ -2100,10 +2112,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                     if (message != null) {
                       final rcMsg =
                           message['reasoning_content'] ?? message['reasoning'];
-                      if (rcMsg is String &&
-                          rcMsg.isNotEmpty &&
-                          needsReasoningEcho) {
-                        reasoningAccum += rcMsg;
+                      if (rcMsg is String && rcMsg.isNotEmpty) {
+                        if (needsReasoningEcho) reasoningAccum += rcMsg;
+                        // 同非流式路：message 级思考链也要上屏，不能只进回声。
+                        yield ChatStreamChunk(
+                          content: '',
+                          reasoning: rcMsg,
+                          isDone: false,
+                          totalTokens: 0,
+                          usage: usage,
+                        );
                       }
                     }
                     if (preserveReasoningDetails) {
@@ -3596,10 +3614,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                     if (message != null) {
                       final rcMsg =
                           message['reasoning_content'] ?? message['reasoning'];
-                      if (rcMsg is String &&
-                          rcMsg.isNotEmpty &&
-                          needsReasoningEcho) {
-                        reasoningAccum += rcMsg;
+                      if (rcMsg is String && rcMsg.isNotEmpty) {
+                        if (needsReasoningEcho) reasoningAccum += rcMsg;
+                        // 同非流式路：message 级思考链也要上屏，不能只进回声。
+                        yield ChatStreamChunk(
+                          content: '',
+                          reasoning: rcMsg,
+                          isDone: false,
+                          totalTokens: 0,
+                          usage: usage,
+                        );
                       }
                     }
                     if (preserveReasoningDetails) {
@@ -4117,10 +4141,16 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
                           final rcMsg =
                               message['reasoning_content'] ??
                               message['reasoning'];
-                          if (rcMsg is String &&
-                              rcMsg.isNotEmpty &&
-                              needsReasoningEcho) {
-                            reasoningAccum += rcMsg;
+                          if (rcMsg is String && rcMsg.isNotEmpty) {
+                            if (needsReasoningEcho) reasoningAccum += rcMsg;
+                            // 同非流式路：message 级思考链也要上屏，不能只进回声。
+                            yield ChatStreamChunk(
+                              content: '',
+                              reasoning: rcMsg,
+                              isDone: false,
+                              totalTokens: 0,
+                              usage: usage,
+                            );
                           }
                         }
                         if (preserveReasoningDetails) {
