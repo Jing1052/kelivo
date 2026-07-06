@@ -359,6 +359,12 @@ flutter test
 - root cause（结构性）：`study_page.dart` 的 `_load()` 把待办/书柜/共读书架三个请求捆在**一个 `Future.wait`** 里——任何一个抛错整批作废，页面留在旧缓存（有缓存时）或整页报错（无缓存时），到底哪个请求挂了完全不可见。
 - fix/constraint（+92）：三个请求各自 `catchError` 返回 null、各自更新各自的列表，失败的那路保留旧数据并 `debugPrint` 点名；`_error` 只在三路全挂时才整页报错。**约束：房间页多数据源刷新一律独立失败，禁止单个 `Future.wait` 全有全无。**
 
+### 2026-07-06 · 安卓出包线开通 + 提交正文里的字面 "[build]" 会误触发 iOS 出包
+
+- 背景：国庆签名方案——安卓版为主力（APK 签名永不过期）。新增 `ourhome-android.yml`（推真主干＋提交带 **`[build-android]`** 触发，tag 同 `stillhere-<8位短码>`，与同提交 iOS 包共用一个 Release）；`build.gradle.kts` 无 key.properties 时显式回退 debug 签名（fork 不继承上游签名 secrets，原逻辑产未签名 APK 装不上）。首包 `stillhere-556c3cc1` 三 ABI 验收通过。
+- 坑：出包 workflow 的触发条件是 `contains(github.event.head_commit.message, '[build]')`——检查的是**整条提交信息（含正文）**。本次提交正文里写了句"标记与 iOS 的 [build] 分开"，字面 `[build]` 命中 → iOS 构建被误触发白跑一趟 macOS。**约束：提交信息正文里不要出现字面 `[build]` / `[build-android]` 字样，提及标记时写「build 标记」或拆开写；出包标记只放在标题、且只在真要出包时放。**
+- 遗留（书房待办）：debug 签名每次 CI 换钥匙，覆盖升级会要求卸载重装——正式长用前配 `SIGN_KEYSTORE_BASE64` 等 4 个 secrets 定死签名身份。
+
 ## Appendix: Skills Usage Rules
 
 - Before starting a task, scan available skill documents in `/.agents/skills/`.
