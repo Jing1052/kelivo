@@ -1,0 +1,89 @@
+name: Still Here · Android auto (push)
+
+# 我们的小家专用：往真主干推代码、且提交信息带 [build-android] 时，
+# 自动构建 Android APK 并发到 Release（直链下载，华为机直接装）。
+# 标记与 iOS 的 [build] 分开，出 iOS 包不会白跑 Android 构建。
+# 签名：仓库没配 keystore secrets 时回退 debug 签名（见 build.gradle.kts），
+# APK 可装可用；长期固定签名身份待配 SIGN_KEYSTORE_BASE64 等 secrets。
+on:
+  push:
+    branches:
+      - claude/kelivo-ios-design-ref-nh9t5v
+
+env:
+  FLUTTER_VERSION: '3.44.1'
+
+jobs:
+  android:
+    if: contains(github.event.head_commit.message, '[build-android]')
+    name: 构建 Android APK → Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: 📦 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: ☕ 配置 Java 环境
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: 🐦 安装 Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: 📝 注入 fallback（占位/CI 密钥，沿用现有构建流）
+        shell: bash
+        run: |
+          mkdir -p lib/secrets
+          cat > lib/secrets/fallback.dart <<'EOF'
+          const String siliconflowFallbackKey = '${{ secrets.SILICONFLOW_KEY }}';
+          EOF
+
+      - name: 🔑 写入签名密钥（配了 secrets 才执行）
+        if: ${{ env.SIGN_KEYSTORE_BASE64 != '' }}
+        env:
+          SIGN_KEYSTORE_BASE64: ${{ secrets.SIGN_KEYSTORE_BASE64 }}
+        run: |
+          echo "$SIGN_KEYSTORE_BASE64" | base64 --decode > android/app/key.jks
+          echo "storeFile=key.jks" >> android/key.properties
+          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "✅ 签名配置已写入"
+
+      - name: 🏷️ 版本号与标签
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          BASE=$(grep 'version:' pubspec.yaml | sed 's/version: //' | tr -d ' ')
+          echo "VERSION=${BASE}_${SHORT_SHA}" >> $GITHUB_ENV
+          echo "TAG=stillhere-${SHORT_SHA}" >> $GITHUB_ENV
+
+      - name: 🏗️ 构建 APK（按 ABI 拆分）
+        run: flutter build apk --release --split-per-abi
+
+      - name: 📦 重命名 APK
+        run: |
+          cd build/app/outputs/flutter-apk
+          for file in app-*-release.apk; do
+            abi=$(echo "$file" | sed -E 's/app-(.*)-release\.apk/\1/')
+            mv "$file" "StillHere_android_${VERSION}_${abi}.apk"
+          done
+          ls -la StillHere_android_*.apk
+
+      - name: 🚀 发到 Release（直链 .apk，与同提交的 iOS 包共用 tag）
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Still Here · ${{ env.TAG }}
+          prerelease: true
+          files: build/app/outputs/flutter-apk/StillHere_android_*.apk
