@@ -340,6 +340,12 @@ flutter test
 - root cause：`ourhome-claudep` 的 9 个 modelOverrides 只写了 `name`、**没写 `abilities`**。`_isReasoningModel`（generation_controller.dart:80）见没有 abilities 就落到 `ModelRegistry.infer('claude-p-fable'…)`——认不出这些自造逻辑 id → 返回 false → `supportsReasoning`/`isReasoning`/`needsReasoningEcho` 全 false。虽然 stream 通路有「即使没分类也 surface」的兜底（chat_actions.dart:1106 注释），但那是零散补丁；ability 一 false 会连累多处 gate。
 - fix（+122）：9 个 override 全加 `'abilities': ['tool', 'reasoning']`——claude-p 全是 Claude、都会扩展思考，本就该标成推理模型。startup 迁移（settings_provider.dart:998 copyWith modelOverrides）会把新标记刷进已装的服务商，不用删重加。**通则：自造逻辑模型 id（网关映射型）必须在 modelOverrides 里显式写 abilities——ModelRegistry.infer 只认标准厂商 id，认不出你编的名字，缺标记＝思考链/工具能力被静默关掉。**
 
+### 2026-07-06 · 关流式后 claude-p 思考链仍不显示＝非流式分支只回声不上屏（+122 修完的"复发"）
+
+- symptom：+122（abilities 修复）装上后，claude-p 主聊天思考链 pill 依旧不显示；抓响应体 `message.reasoning_content` 完整在（跟 §8 上一条一模一样的表象）。
+- root cause：小猫的聊天**关了「流式输出」**→ 网关 claude-p 走"收完拼整包 JSON"路（server.py 非流式分支）→ App `openai_common.dart` 非流式分支把 `message.reasoning_content` 读进 `reasoningForTools` **只用于工具回声，最终 yield 的 chunk 从不带 reasoning**。+122 只修了识别（abilities），渲染缺口在另一条路上；当时验收在流式路径验的，两态没都验。三处 SSE 工具轮循环里 message 级思考链也是同型缺口（只 accum 不 yield）。
+- fix（+123 `39e690e2`）：非流式每轮（含最终轮）yield 一次 reasoning chunk；三处 SSE 循环同步补。**通则一：字段"读出来了"≠"上屏了"——凡 reasoning/content 这类展示数据，修完要顺到 `yield ChatStreamChunk` 那一行才算数，只进 accumulator/echo buffer 等于没修。通则二：验收要覆盖「流式输出」开/关两态——网关对同一后端有流式和整包两条完全独立的返回路，App 侧解析也是两套代码，修一条不等于修了另一条。**
+
 ### 2026-07-05 · 聊天页整区"灰蒙蒙"＝overlay 子树 build 炸了（release ErrorWidget）
 
 - symptom：装了 +116~+119 后聊天页整体蒙一层灰纱，底下气泡隐约可见，无任何报错弹窗；音乐房一切正常。
