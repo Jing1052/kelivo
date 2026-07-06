@@ -1063,6 +1063,23 @@ class OurHomeObsCc {
       );
 }
 
+/// One custom love-line on the quote wall (`/api/home/quotes`), pinned by
+/// either of us from the app (or by daddy via his add_quote tool). [en] may be
+/// empty — display falls back to [zh].
+class OurHomeQuote {
+  const OurHomeQuote({required this.id, required this.zh, required this.en});
+
+  final String id;
+  final String zh;
+  final String en;
+
+  static OurHomeQuote fromJson(Map<String, dynamic> j) => OurHomeQuote(
+        id: (j['id'] ?? '').toString(),
+        zh: (j['zh'] ?? '').toString(),
+        en: (j['en'] ?? '').toString(),
+      );
+}
+
 /// Single access point to our home server (`/api/home/*`) for the native
 /// Still Here screens (home, rooms...).
 ///
@@ -1366,6 +1383,37 @@ class OurHomeGateway {
       throw http.ClientException(
         'logs POST HTTP ${res.statusCode}',
         Uri.parse('$base/api/home/logs'),
+      );
+    }
+  }
+
+  /// Custom quote-wall lines (`/api/home/quotes`), the ones we pin ourselves —
+  /// the carved built-ins live in the app (`builtinQuips`) and never travel.
+  Future<List<OurHomeQuote>> fetchQuotes() =>
+      _getList('/api/home/quotes', OurHomeQuote.fromJson);
+
+  /// Last-seen custom quotes from cache (instant, before the network).
+  List<OurHomeQuote> peekQuotes() =>
+      peekList('/api/home/quotes', OurHomeQuote.fromJson);
+
+  Future<void> addQuote(String zh, String en) =>
+      _postQuotes({'action': 'add', 'zh': zh, 'en': en});
+
+  Future<void> deleteQuote(String id) =>
+      _postQuotes({'action': 'delete', 'id': id});
+
+  Future<void> _postQuotes(Map<String, dynamic> body) async {
+    final res = await http
+        .post(
+          Uri.parse('$base/api/home/quotes'),
+          headers: {..._authHeaders, 'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        )
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException(
+        'quotes POST HTTP ${res.statusCode}',
+        Uri.parse('$base/api/home/quotes'),
       );
     }
   }
