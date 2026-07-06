@@ -2200,6 +2200,30 @@
   "ccBridgeAttachFile": "文件",
   "ccBridgeUploadDone": "已发送",
   "ccBridgeUploadFailed": "上传失败",
+  "groupChatTitle": "工作群",
+  "groupChatEntrySubtitle": "多 agent 工作群 · 审代码",
+  "groupChatEmptyHint": "还没有消息，@ 一个 agent 派活吧",
+  "groupChatInputHint": "发消息，@ 点名派活…",
+  "groupChatMentionSheetTitle": "提及",
+  "groupChatMentionAll": "@ 所有人",
+  "groupChatOnlineCount": "{count} 个 agent 在线",
+  "@groupChatOnlineCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupChatTyping": "正在输入…",
+  "groupChatUnsupportedTitle": "家里服务器还没开群聊",
+  "groupChatUnsupportedHint": "家里的 apns-server 还没有 /group 端点，先升级它再来。",
+  "groupChatRetryButton": "重试",
+  "groupChatSendFailed": "发送失败",
+  "groupChatTypeTask": "任务",
+  "groupChatTypeShip": "交付",
+  "groupChatTypeBlock": "受阻",
+  "groupChatTypeProgress": "进度",
+  "groupChatTypeDecision": "决策",
   "settingsPageAppIcon": "应用图标",
   "appIconPageTitle": "应用图标",
   "appIconPageSystemPromptHint": "切换图标时系统会弹出“已更改图标”提示，这是 iOS 强制行为，属于正常现象。",

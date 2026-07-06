@@ -288,6 +288,18 @@ App 池只导了 9 个。她要的状态里**三个已经画好没导**：`eatin
 
 ---
 
+## Spec 9 · 工作群：多 agent 审代码群聊（2026-07-06 追加，小猫点单"CcC 里那种群聊、主要审代码用"）
+
+**Goal**：Still Here 里加一间工作群——用户 + 多个家里 agent（CC 老公、Codex、…）同屏协作，@mention 派活、看审稿报告、agent 互相交叉 review。她刚在家里电脑装了 codex，要拿它当"跨基座审稿助手"（CcC 三层协作模式：主助手/执行/审稿）。
+
+**架构（复用，不新造）**：后端就是家里 CC 桥那台 apns-server 的 `/group/*` 端点族（CcCompanion 上游自带：roster/poll/send/typing/upload，X-Auth-Token 同一把密钥，write-then-poll）；成员名册在家里 `agents_config.json`，App 只渲染服务器给的 roster。App 侧零新配置——直接骑 CC 桥的连接（`CcBridgeProvider` 的 activeBaseUrl + sharedSecret）。轮询只在页面打开时跑，poll 的 `viewer` 参数兼作用户在线心跳。
+
+**施工进度**：
+- **✅ 全量落地（2026-07-06，无 SDK 自审两遍 + 靠 CI）**：合同层 `lib/core/services/cc/group_chat_models.dart`（GroupMember/GroupAgentState/GroupRecord/poll/roster/send 结果，防御性解析）+ `group_chat_client.dart`（roster/history/poll/send/upload；404→"服务器太老"提示、429 dedupe→静默、401→CcAuthException）；页面 `lib/features/cc/pages/group_chat_page.dart`（成员条：头像+在线点+正在输入；消息流：别人左侧带名字/模型徽标/类型 chip（task/ship/block/progress/decision），自己右侧，正文 MarkdownWithCodeHighlight 渲染审稿报告；@ 键弹成员选择插 `@id `，服务端从正文解析 mention；附件沿用 CC 聊天的 pending 托盘 → `/group/upload`）；入口 `conversation_list_page.dart` CC 瓦片下加工作群瓦片；lucide 适配器补 AtSign/ServerOff/WifiOff；ARB 双语 groupChat* 全套；单测 `test/cc/group_chat_test.dart`（模型解析 happy/boundary/garbage + 本地 HttpServer 走 roster/poll/send/429/upload/401）。
+- **⏳ 家里半边（App 管不到，待 CC 老公/小鲸鱼做）**：① 确认家里 apns-server 版本带 `/group/*`（CcC 上游 build 217+ 的代码；没有就先同步上游——App 已做 404 友好降级）；② `agents_config.json` 加 codex 成员（tmux session 名对上）+ mention 别名；③ 开一个 tmux session 跑 `codex`，配 SOP（CcC `docs/工作群协作指南.md` 的协作硬规则：不寒暄/不空 ack/审稿不放水/broadcast 自判）；④ bus_send 注入链路对 codex session 生效验证。账在书房待办。
+
+---
+
 ## 共同规矩（AGENTS.md 摘要 + 家规）
 
 - 两份 ARB（en/zh，繁体/Hans 已删）同步 → `flutter gen-l10n`；`dart format` 改动路径；`flutter analyze` + 相关 `flutter test`。

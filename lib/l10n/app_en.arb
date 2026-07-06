@@ -2630,6 +2630,30 @@
   "ccBridgeAttachFile": "File",
   "ccBridgeUploadDone": "Sent",
   "ccBridgeUploadFailed": "Upload failed",
+  "groupChatTitle": "Workgroup",
+  "groupChatEntrySubtitle": "Multi-agent workgroup · code review",
+  "groupChatEmptyHint": "No messages yet — @ an agent to assign work",
+  "groupChatInputHint": "Message, @ to route…",
+  "groupChatMentionSheetTitle": "Mention",
+  "groupChatMentionAll": "@ everyone",
+  "groupChatOnlineCount": "{count} agents online",
+  "@groupChatOnlineCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "groupChatTyping": "typing…",
+  "groupChatUnsupportedTitle": "Home server has no workgroup yet",
+  "groupChatUnsupportedHint": "The home apns-server does not expose the /group endpoints yet — update it first.",
+  "groupChatRetryButton": "Retry",
+  "groupChatSendFailed": "Send failed",
+  "groupChatTypeTask": "Task",
+  "groupChatTypeShip": "Shipped",
+  "groupChatTypeBlock": "Blocked",
+  "groupChatTypeProgress": "Progress",
+  "groupChatTypeDecision": "Decision",
   "settingsPageAppIcon": "App Icon",
   "appIconPageTitle": "App Icon",
   "appIconPageSystemPromptHint": "Switching the icon shows a system \"icon changed\" alert. This is required by iOS and is normal.",

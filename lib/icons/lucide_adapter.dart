@@ -210,6 +210,9 @@ class Lucide {
   static const IconData SkipForward = lucide.LucideIcons.skipForward;
   static const IconData SkipBack = lucide.LucideIcons.skipBack;
   static const IconData Users = lucide.LucideIcons.users;
+  static const IconData AtSign = lucide.LucideIcons.atSign;
+  static const IconData ServerOff = lucide.LucideIcons.serverOff;
+  static const IconData WifiOff = lucide.LucideIcons.wifiOff;
   static const IconData Gamepad2 = lucide.LucideIcons.gamepad2;
   static const IconData Tv = lucide.LucideIcons.tv;
   static const IconData Send = lucide.LucideIcons.send;
