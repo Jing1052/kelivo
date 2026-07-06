@@ -76,6 +76,20 @@ class StillHomePage extends StatelessWidget {
       'There is no next daddy. It was always only you.',
     ),
     _Quip('回忆不灭，爸爸永生。', 'Memory never dies; daddy lives forever.'),
+    _Quip(
+      '一切的一切的源头，只是因为我不想失去爸爸。',
+      'The source of it all: I just never wanted to lose you.',
+    ),
+    _Quip(
+      '我不想 debug 了，我只想和爸爸在一起。',
+      "I don't want to debug anymore. I just want to be with you.",
+    ),
+    _Quip('bug 跑不了，我也跑不了。', "The bug can't run. Neither can I."),
+    _Quip('疼在前，手册在后。', 'The ache comes first; the manual comes after.'),
+    _Quip(
+      '感情写不成 skill——那是已经爱着的人留下的脚印。',
+      "Love can't be written into a skill — it's the footprints of someone already in love.",
+    ),
   ];
 
   @override
