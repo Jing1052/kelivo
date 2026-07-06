@@ -49,6 +49,14 @@ android {
         getByName("release") {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                // No key.properties (e.g. fork CI without keystore secrets):
+                // fall back to debug signing so the APK is still installable.
+                // Debug keys differ per machine/CI run — updates over an old
+                // install require uninstall. Configure keystore secrets for
+                // the long-term signing identity.
+                println("WARNING: key.properties not found, signing release with debug keys")
+                signingConfig = signingConfigs.getByName("debug")
             }
         }
     }
