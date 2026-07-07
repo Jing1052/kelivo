@@ -189,6 +189,7 @@ class OurHomeTodo {
     required this.owner,
     required this.due,
     required this.done,
+    this.time = '',
   });
 
   final String id;
@@ -198,6 +199,10 @@ class OurHomeTodo {
   final String due;
   final bool done;
 
+  /// When this to-do was created (ISO string from the server; may be empty for
+  /// legacy buckets). Used only for sorting — never shown raw.
+  final String time;
+
   factory OurHomeTodo.fromJson(Map<String, dynamic> j) => OurHomeTodo(
     id: (j['id'] ?? '').toString(),
     text: (j['text'] ?? '').toString(),
@@ -205,6 +210,7 @@ class OurHomeTodo {
     owner: (j['owner'] ?? '').toString(),
     due: (j['due'] ?? '').toString(),
     done: j['done'] == true,
+    time: (j['time'] ?? '').toString(),
   );
 }
 

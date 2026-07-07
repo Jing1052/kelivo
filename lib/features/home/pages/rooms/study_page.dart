@@ -39,6 +39,13 @@ class _StudyPageState extends State<StudyPage> {
   bool _uploading = false;
   int _tab = 0; // 0 = todos, 1 = bookshelf
 
+  // To-do list controls. _todoNewestFirst = sort by time descending (newest on
+  // top) when true, ascending (oldest on top) when false. _todoQuery filters
+  // the list by a case-insensitive substring of the todo text.
+  bool _todoNewestFirst = true;
+  final TextEditingController _search = TextEditingController();
+  String _todoQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -49,14 +56,28 @@ class _StudyPageState extends State<StudyPage> {
   void dispose() {
     _input.dispose();
     _focus.dispose();
+    _search.dispose();
     super.dispose();
   }
 
-  List<OurHomeTodo> get _sortedTodos {
-    final list = [..._todos];
+  /// The visible to-dos: filtered by the search query, then sorted. Unfinished
+  /// items always stay above finished ones; within each group we order by
+  /// creation time (newest- or oldest-first per [_todoNewestFirst]). Buckets
+  /// with no time fall back to a stable id compare so the order never jitters.
+  List<OurHomeTodo> get _visibleTodos {
+    final q = _todoQuery.trim().toLowerCase();
+    final list = q.isEmpty
+        ? [..._todos]
+        : _todos.where((t) => t.text.toLowerCase().contains(q)).toList();
+    int byTime(OurHomeTodo a, OurHomeTodo b) {
+      final cmp = a.time.compareTo(b.time);
+      if (cmp != 0) return _todoNewestFirst ? -cmp : cmp;
+      return a.id.compareTo(b.id);
+    }
+
     list.sort((a, b) {
       if (a.done != b.done) return a.done ? 1 : -1;
-      return 0;
+      return byTime(a, b);
     });
     return list;
   }
@@ -122,6 +143,7 @@ class _StudyPageState extends State<StudyPage> {
                     owner: t.owner,
                     due: t.due,
                     done: !t.done,
+                    time: t.time,
                   )
                 : t,
           )
@@ -585,18 +607,116 @@ class _StudyPageState extends State<StudyPage> {
         text: zh ? '还没有待办。\n想做的事，写在下面。' : 'No to-dos yet.',
       );
     }
-    final items = _sortedTodos;
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-        itemCount: items.length,
-        itemBuilder: (context, i) => _TodoRow(
-          todo: items[i],
-          zh: zh,
-          onToggle: _toggle,
-          onDelete: _delete,
+    final items = _visibleTodos;
+    return Column(
+      children: [
+        _todoControls(zh, cs),
+        Expanded(
+          child: items.isEmpty
+              ? RoomStateHint(
+                  icon: Lucide.Search,
+                  text: zh ? '没找到相关待办。' : 'No matching to-dos.',
+                )
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                    itemCount: items.length,
+                    itemBuilder: (context, i) => _TodoRow(
+                      todo: items[i],
+                      zh: zh,
+                      onToggle: _toggle,
+                      onDelete: _delete,
+                    ),
+                  ),
+                ),
         ),
+      ],
+    );
+  }
+
+  /// Search box + newest/oldest sort toggle, shown above the to-do list.
+  Widget _todoControls(bool zh, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: cs.onSurface.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Icon(
+                    Lucide.Search,
+                    size: 17,
+                    color: cs.onSurface.withValues(alpha: 0.4),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _search,
+                      style: const TextStyle(fontSize: 14.5),
+                      textInputAction: TextInputAction.search,
+                      onChanged: (v) => setState(() => _todoQuery = v),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        border: InputBorder.none,
+                        hintText: zh ? '搜待办…' : 'search to-dos…',
+                        contentPadding: const EdgeInsets.symmetric(vertical: 9),
+                      ),
+                    ),
+                  ),
+                  if (_todoQuery.isNotEmpty)
+                    IosIconButton(
+                      icon: Lucide.X,
+                      size: 15,
+                      minSize: 30,
+                      color: cs.onSurface.withValues(alpha: 0.4),
+                      onTap: () {
+                        _search.clear();
+                        _focus.unfocus();
+                        setState(() => _todoQuery = '');
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          IosCardPress(
+            borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+            onTap: () {
+              Haptics.soft();
+              setState(() => _todoNewestFirst = !_todoNewestFirst);
+            },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _todoNewestFirst ? Lucide.ArrowDown : Lucide.ArrowUp,
+                  size: 15,
+                  color: cs.onSurface.withValues(alpha: 0.65),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  _todoNewestFirst
+                      ? (zh ? '最新' : 'Newest')
+                      : (zh ? '最早' : 'Oldest'),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: AppFontWeights.medium,
+                    color: cs.onSurface.withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
