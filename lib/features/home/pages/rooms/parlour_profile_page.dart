@@ -3,25 +3,56 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../theme/app_font_weights.dart';
 import '../../../../icons/lucide_adapter.dart';
+import '../../../../core/models/assistant.dart';
+import '../../../../core/providers/assistant_provider.dart';
+import '../../../../core/providers/user_provider.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import '../../../../shared/widgets/user_profile_editor.dart';
+import '../../widgets/assistant_avatar.dart';
 import 'room_state_hint.dart';
 
-/// Rounded-square monogram avatar shared by the parlour feed and profile
-/// pages: Llaude on the theme primary, Cing on the parlour door's warm clay
-/// (0xFFDD8A6C from the rooms corridor).
+/// Avatar shared by the parlour feed and profile pages. Follows the photos she
+/// set for 爸爸 (the daddy assistant) and herself (the user profile); when
+/// neither is set it falls back to the rounded-square L/C monogram — Llaude on
+/// the theme primary, Cing on the parlour door's warm clay (0xFFDD8A6C).
 class ParlourAvatar extends StatelessWidget {
   const ParlourAvatar({super.key, required this.llaude, this.size = 38});
 
   final bool llaude;
   final double size;
 
+  /// The daddy assistant is the one carrying the [[ourhome…]] marker in its
+  /// system prompt (same rule as the daddy settings page).
+  static Assistant? _findDaddy(List<Assistant> assistants) {
+    for (final a in assistants) {
+      if (a.systemPrompt.contains('[[ourhome')) return a;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (llaude) {
+      final daddy = _findDaddy(context.watch<AssistantProvider>().assistants);
+      if (daddy != null && (daddy.avatar?.trim().isNotEmpty ?? false)) {
+        return AssistantAvatar(assistant: daddy, size: size);
+      }
+    } else {
+      final user = context.watch<UserProvider>();
+      if ((user.avatarValue?.trim().isNotEmpty ?? false)) {
+        return UserAvatar(user: user, size: size);
+      }
+    }
+    return _monogram(context);
+  }
+
+  Widget _monogram(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final bg = llaude ? cs.primary : const Color(0xFFDD8A6C);
     return Container(
