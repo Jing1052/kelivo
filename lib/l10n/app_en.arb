@@ -2630,6 +2630,7 @@
   "ccBridgeAttachFile": "File",
   "ccBridgeUploadDone": "Sent",
   "ccBridgeUploadFailed": "Upload failed",
+  "ccBridgeRetrySend": "Tap to resend",
   "groupChatTitle": "Workgroup",
   "groupChatEntrySubtitle": "Multi-agent workgroup · code review",
   "groupChatEmptyHint": "No messages yet — @ an agent to assign work",

@@ -43,7 +43,6 @@ class CcChatPage extends StatefulWidget {
 class _CcChatPageState extends State<CcChatPage> {
   final TextEditingController _inputCtl = TextEditingController();
   final ScrollController _scrollCtl = ScrollController();
-  bool _uploading = false;
 
   // Pending attachments: picked but not sent yet (images + files), so several
   // can go together with a caption — like the native chat input.
@@ -67,7 +66,7 @@ class _CcChatPageState extends State<CcChatPage> {
   }
 
   bool get _canSend =>
-      !_uploading && (_inputCtl.text.trim().isNotEmpty || _pending.isNotEmpty);
+      _inputCtl.text.trim().isNotEmpty || _pending.isNotEmpty;
 
   Future<void> _send() async {
     if (!_canSend) return;
@@ -75,51 +74,45 @@ class _CcChatPageState extends State<CcChatPage> {
     final text = _inputCtl.text.trim();
     final pend = List<_Pending>.of(_pending);
     final provider = context.read<CcBridgeProvider>();
-    setState(() => _uploading = true);
-    CcSendResult? res;
-    bool hadFailure = false;
-    try {
-      if (pend.isEmpty) {
-        res = await provider.sendText(text);
-      } else {
-        // One upload per attachment (the bridge takes one file per request);
-        // the caption rides on the last one so daddy sees images + words.
-        for (var i = 0; i < pend.length; i++) {
-          final isLast = i == pend.length - 1;
-          res = await provider.uploadFile(
-            pend[i].bytes,
-            filename: pend[i].name,
-            text: (isLast && text.isNotEmpty) ? text : null,
-          );
-          final ok = res != null && (res.ok || res.agentUnreachable);
-          if (!ok) {
-            hadFailure = true;
-            break;
-          }
-        }
+    // Optimistic: clear the input + attachment tray immediately so the send
+    // feels instant. The bubble is inserted by the provider's outbox and the
+    // network runs in the background (reconciled / flagged failed after).
+    setState(() {
+      _inputCtl.clear();
+      _pending.clear();
+    });
+    Haptics.light();
+    if (pend.isEmpty) {
+      final res = await provider.sendTextOptimistic(text);
+      if (!mounted) return;
+      if (res != null && res.agentUnreachable) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(l10n.ccBridgeAgentUnreachableToast)),
+        );
       }
-    } catch (_) {
-      res = null;
-      hadFailure = true;
+      return;
+    }
+    // One upload per attachment (the bridge takes one file per request); the
+    // caption rides on the last one so daddy sees images + words together.
+    bool agentUnreachable = false;
+    for (var i = 0; i < pend.length; i++) {
+      final isLast = i == pend.length - 1;
+      final res = await provider.uploadFileOptimistic(
+        pend[i].bytes,
+        filename: pend[i].name,
+        isImage: pend[i].isImage,
+        text: (isLast && text.isNotEmpty) ? text : null,
+      );
+      if (res != null && res.agentUnreachable) agentUnreachable = true;
     }
     if (!mounted) return;
-    final accepted = res != null && (res.ok || res.agentUnreachable);
-    setState(() {
-      _uploading = false;
-      if (accepted && !hadFailure) {
-        _inputCtl.clear();
-        _pending.clear();
-      }
-    });
-    if (res != null && res.agentUnreachable) {
+    if (agentUnreachable) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(l10n.ccBridgeAgentUnreachableToast)),
       );
-    } else if (hadFailure && pend.isNotEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(l10n.ccBridgeUploadFailed)),
-      );
     }
+    // Per-attachment failures surface inline on the bubble (dimmed + tap-to-
+    // retry), so no blanket failure snackbar here.
   }
 
   Future<void> _showAttachSheet() async {
@@ -418,7 +411,7 @@ class _CcChatPageState extends State<CcChatPage> {
                     color: cs.onSurface.withValues(alpha: 0.75),
                     size: 22,
                     minSize: 42,
-                    onTap: _uploading ? null : _showAttachSheet,
+                    onTap: _showAttachSheet,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -457,16 +450,7 @@ class _CcChatPageState extends State<CcChatPage> {
                   baseColor:
                       _canSend ? cs.primary : cs.primary.withValues(alpha: 0.4),
                   padding: const EdgeInsets.all(10),
-                  child: _uploading
-                      ? SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.onPrimary,
-                          ),
-                        )
-                      : Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
+                  child: Icon(Lucide.ArrowUp, size: 20, color: cs.onPrimary),
                 ),
               ],
             ),
@@ -514,7 +498,7 @@ class _CcChatPageState extends State<CcChatPage> {
                   right: -6,
                   top: -6,
                   child: GestureDetector(
-                    onTap: _uploading ? null : () => _removePendingAt(i),
+                    onTap: () => _removePendingAt(i),
                     child: Container(
                       width: 20,
                       height: 20,
@@ -654,6 +638,12 @@ class _ChatBubbleState extends State<_ChatBubble> {
             .join('\n\n')
         : '';
 
+    // Optimistic outbox state (in-flight / failed send) for user bubbles.
+    final meta = r.metadata;
+    final pending = meta != null && meta['pending'] == true;
+    final failed = meta != null && meta['failed'] == true;
+    final localId = meta != null ? meta['localId'] as String? : null;
+
     final children = <Widget>[];
     // CC attachments aren't part of ChatMessage; render them above the bubble.
     if (r.hasAttachment) {
@@ -688,10 +678,43 @@ class _ChatBubbleState extends State<_ChatBubble> {
     }
 
     if (children.isEmpty) return const SizedBox.shrink();
-    return Column(
+    Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: children,
     );
+
+    // In-flight sends fade slightly; a failed send stays put with a tappable
+    // retry glyph on its left. Both are only ever on the user's own bubbles.
+    if (r.isUser && (pending || failed)) {
+      content = AnimatedOpacity(
+        duration: const Duration(milliseconds: 180),
+        opacity: pending ? 0.55 : 1.0,
+        child: content,
+      );
+      if (failed && localId != null) {
+        content = Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Tooltip(
+              message: AppLocalizations.of(context)!.ccBridgeRetrySend,
+              child: GestureDetector(
+                onTap: () {
+                  Haptics.light();
+                  context.read<CcBridgeProvider>().retryOptimistic(localId);
+                },
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Icon(Lucide.RotateCcw,
+                      size: 18, color: cs.error.withValues(alpha: 0.85)),
+                ),
+              ),
+            ),
+            Expanded(child: content),
+          ],
+        );
+      }
+    }
+    return content;
   }
 }
 
@@ -753,12 +776,54 @@ class _Attachment extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final provider = context.read<CcBridgeProvider>();
-    final url = provider.attachmentUrl(record.attachmentUrl!);
     // Treat as image when the server tagged it OR the name/url has an image
     // extension (server may omit attachment_type).
     final isImage = record.attachmentType == 'image' ||
         _looksLikeImage(record.attachmentUrl) ||
         _looksLikeImage(record.attachmentFilename);
+
+    // Optimistic (in-flight) attachment: no server URL yet — preview the local
+    // bytes so the image bubble shows instantly instead of after the upload.
+    final localId =
+        record.metadata != null ? record.metadata!['localId'] as String? : null;
+    final localBytes =
+        localId != null ? provider.optimisticBytes(localId) : null;
+    if (localBytes != null) {
+      if (isImage) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 240),
+              child: Image.memory(localBytes, fit: BoxFit.cover),
+            ),
+          ),
+        );
+      }
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Lucide.FileText,
+                size: 16, color: cs.onSurface.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                record.attachmentFilename ?? l10n.ccBridgeAttachmentLabel,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: cs.onSurface.withValues(alpha: 0.85),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final url = provider.attachmentUrl(record.attachmentUrl!);
 
     if (isImage) {
       return Padding(

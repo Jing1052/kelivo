@@ -8,6 +8,7 @@
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -26,6 +27,11 @@ class CcBridgeProvider extends ChangeNotifier {
   CcConnectionState _connection = CcConnectionState.idle;
   CcChatStatus _status = CcChatStatus.unknown;
   final List<CcChatRecord> _records = <CcChatRecord>[];
+  // Optimistic outbox: messages shown instantly on send, before the server
+  // echoes them back. Reconciled (removed) when the real record lands via the
+  // send/upload response or a poll; marked failed (kept, tap-to-retry) on error.
+  final List<_Outgoing> _outbox = <_Outgoing>[];
+  int _optSeq = 0;
   final Map<String, List<CcThinkingRecord>> _thinking =
       <String, List<CcThinkingRecord>>{};
   String? _cursor; // last seen ts (poll cursor)
@@ -36,7 +42,26 @@ class CcBridgeProvider extends ChangeNotifier {
   CcBridgeConfig get config => _config;
   CcConnectionState get connection => _connection;
   CcChatStatus get status => _status;
-  List<CcChatRecord> get records => List<CcChatRecord>.unmodifiable(_records);
+  /// Real records merged with in-flight optimistic ones, time-sorted. The
+  /// optimistic placeholders carry `metadata.pending`/`metadata.failed` so the
+  /// UI can dim them / show a retry affordance.
+  List<CcChatRecord> get records {
+    if (_outbox.isEmpty) return List<CcChatRecord>.unmodifiable(_records);
+    final all = <CcChatRecord>[
+      ..._records,
+      ..._outbox.map((o) => o.asRecord()),
+    ]..sort((a, b) => a.ts.compareTo(b.ts));
+    return List<CcChatRecord>.unmodifiable(all);
+  }
+
+  /// Local bytes for an optimistic attachment (so its bubble previews the image
+  /// before the server URL exists). Null once reconciled or for text sends.
+  Uint8List? optimisticBytes(String localId) {
+    for (final o in _outbox) {
+      if (o.localId == localId) return o.bytes;
+    }
+    return null;
+  }
   bool get isConfigured => _config.isConfigured;
   bool get isOnline => _connection == CcConnectionState.online;
   String? get activeBaseUrl => _activeBaseUrl;
@@ -192,54 +217,119 @@ class CcBridgeProvider extends ChangeNotifier {
       }
     }
     if (added) _records.sort((a, b) => a.ts.compareTo(b.ts));
-  }
-
-  /// Send a message. Returns the result so the UI can surface the 502
-  /// "agent unreachable" case distinctly.
-  Future<CcSendResult?> sendText(String text, {String? quotedTs}) async {
-    final c = _client;
-    final trimmed = text.trim();
-    if (c == null || trimmed.isEmpty) return null;
-    try {
-      final res = await c.send(trimmed, quotedTs: quotedTs);
-      if (res.record != null) {
-        _mergeRecords(<CcChatRecord>[res.record!]);
-        if (res.record!.ts.isNotEmpty) _cursor = res.record!.ts;
+    // If a real user record arrived (e.g. a poll beat the send() response),
+    // drop the matching optimistic placeholder so it doesn't render twice.
+    if (_outbox.isNotEmpty) {
+      for (final r in incoming) {
+        if (r.role != 'user') continue;
+        _outbox.removeWhere((o) =>
+            o.text == r.text &&
+            (o.filename ?? '') == (r.attachmentFilename ?? ''));
       }
-      _lastError = res.agentUnreachable ? 'agent_unreachable' : null;
-      notifyListeners();
-      unawaited(_pollOnce()); // pull soon so the reply shows up fast
-      return res;
-    } on CcAuthException {
-      _connection = CcConnectionState.unauthorized;
-      notifyListeners();
-      rethrow;
     }
   }
 
-  /// Upload an image/file as a user message (raw bytes → /chat/upload). Returns
-  /// the result so the UI can surface the 502 "agent unreachable" case.
-  Future<CcSendResult?> uploadFile(
+  String _newLocalId() => 'opt${++_optSeq}';
+
+  // Optimistic ts: sorts to the bottom (>= existing records) and stays unique
+  // across rapid sends via the seq suffix. The '#' suffix makes DateTime.parse
+  // fall back to now() in the bubble — harmless, only affects the shown time.
+  String _newOptTs() => '${DateTime.now().toIso8601String()}#$_optSeq';
+
+  /// Send a text message optimistically: the bubble shows instantly, the
+  /// network runs in the background, and it reconciles (or flags failed) after.
+  Future<CcSendResult?> sendTextOptimistic(String text, {String? quotedTs}) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return null;
+    final o = _Outgoing(
+      localId: _newLocalId(),
+      ts: _newOptTs(),
+      text: trimmed,
+      quotedTs: quotedTs,
+    );
+    _outbox.add(o);
+    notifyListeners();
+    return _deliver(o);
+  }
+
+  /// Upload an image/file optimistically (raw bytes → /chat/upload). The bubble
+  /// previews the local bytes immediately; the caption rides along as text.
+  Future<CcSendResult?> uploadFileOptimistic(
     List<int> bytes, {
     required String filename,
+    required bool isImage,
     String? text,
   }) async {
-    final c = _client;
-    if (c == null || bytes.isEmpty) return null;
-    try {
-      final res = await c.upload(bytes, filename: filename, text: text);
-      if (res.record != null) {
-        _mergeRecords(<CcChatRecord>[res.record!]);
-        if (res.record!.ts.isNotEmpty) _cursor = res.record!.ts;
+    if (bytes.isEmpty) return null;
+    final o = _Outgoing(
+      localId: _newLocalId(),
+      ts: _newOptTs(),
+      text: (text ?? '').trim(),
+      bytes: Uint8List.fromList(bytes),
+      filename: filename,
+      attachmentType: isImage ? 'image' : 'file',
+    );
+    _outbox.add(o);
+    notifyListeners();
+    return _deliver(o);
+  }
+
+  /// Retry a failed optimistic message (tap its retry affordance).
+  Future<void> retryOptimistic(String localId) async {
+    _Outgoing? o;
+    for (final e in _outbox) {
+      if (e.localId == localId) {
+        o = e;
+        break;
       }
-      _lastError = res.agentUnreachable ? 'agent_unreachable' : null;
+    }
+    if (o == null) return;
+    o.failed = false;
+    notifyListeners();
+    await _deliver(o);
+  }
+
+  /// Shared network + reconcile for an outbox item (text or attachment).
+  Future<CcSendResult?> _deliver(_Outgoing o) async {
+    final c = _client;
+    if (c == null) {
+      o.failed = true;
       notifyListeners();
-      unawaited(_pollOnce());
+      return null;
+    }
+    try {
+      final CcSendResult res = o.bytes == null
+          ? await c.send(o.text, quotedTs: o.quotedTs)
+          : await c.upload(o.bytes!,
+              filename: o.filename ?? 'file',
+              text: o.text.isEmpty ? null : o.text);
+      final accepted = res.ok || res.agentUnreachable;
+      if (accepted) {
+        _outbox.removeWhere((e) => e.localId == o.localId);
+        if (res.record != null) {
+          _mergeRecords(<CcChatRecord>[res.record!]);
+          if (res.record!.ts.isNotEmpty) _cursor = res.record!.ts;
+        }
+        _lastError = res.agentUnreachable ? 'agent_unreachable' : null;
+        notifyListeners();
+        unawaited(_pollOnce()); // pull soon so the reply shows up fast
+      } else {
+        o.failed = true;
+        notifyListeners();
+      }
       return res;
     } on CcAuthException {
+      // Surface via the failed bubble + unauthorized presence label rather than
+      // rethrowing (callers are fire-and-forget tap handlers).
+      o.failed = true;
       _connection = CcConnectionState.unauthorized;
       notifyListeners();
-      rethrow;
+      return null;
+    } catch (e) {
+      o.failed = true;
+      _lastError = e.toString();
+      notifyListeners();
+      return null;
     }
   }
 
@@ -433,4 +523,42 @@ class CcBridgeProvider extends ChangeNotifier {
     _client?.dispose();
     super.dispose();
   }
+}
+
+/// An in-flight (optimistic) outgoing message. Rendered as a dimmed bubble until
+/// the server echoes it back; carries local image bytes so an attachment can
+/// preview before its server URL exists.
+class _Outgoing {
+  _Outgoing({
+    required this.localId,
+    required this.ts,
+    required this.text,
+    this.quotedTs,
+    this.bytes,
+    this.filename,
+    this.attachmentType,
+  });
+
+  final String localId;
+  final String ts;
+  final String text;
+  final String? quotedTs;
+  final Uint8List? bytes;
+  final String? filename;
+  final String? attachmentType; // 'image' | 'file'
+  bool failed = false;
+
+  CcChatRecord asRecord() => CcChatRecord(
+        ts: ts,
+        role: 'user',
+        text: text,
+        quotedTs: quotedTs,
+        attachmentUrl: bytes != null ? 'optimistic://$localId' : null,
+        attachmentType: attachmentType,
+        attachmentFilename: filename,
+        metadata: <String, dynamic>{
+          'localId': localId,
+          (failed ? 'failed' : 'pending'): true,
+        },
+      );
 }

@@ -2200,6 +2200,7 @@
   "ccBridgeAttachFile": "文件",
   "ccBridgeUploadDone": "已发送",
   "ccBridgeUploadFailed": "上传失败",
+  "ccBridgeRetrySend": "点一下重新发送",
   "groupChatTitle": "工作群",
   "groupChatEntrySubtitle": "多 agent 工作群 · 审代码",
   "groupChatEmptyHint": "还没有消息，@ 一个 agent 派活吧",
