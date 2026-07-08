@@ -1,5 +1,11 @@
 # SPEC · API ⇄ CC 切换开关（同一时间线 · 互通上下文）
 
+> ✅ **施工完成（2026-07-08 云端 Fable，分支 `claude/cc-switch-spec-2026-07-ge0q2c` → 合真主干）**。三件全落：
+> ① 路由开关＋同一时间线：顶栏终端图标钮（激活主色/掉线灰化），模式按会话持久化（prefs `cc_main_mode_convos_v1`，不动 Hive schema）；CC 消息打 `providerId='cc-bridge'` 哨兵（徽标＋禁 regen/resend 都认它）；发送走 `sendMainChatText`（不进 CC tab outbox），回复经全局水位线（`cc_main_mode_watermark_v1`）导入：填「正在输入」占位 → 追加，思考链 turn_id→/v1/thinking 回填 reasoningText；busy 120s 自动复位（书房 ca3968f61c6a 顺手结了）；杀 App 也能追赶（pending 持久化）。
+> ③ 掉线兜底：进会话/开开关/发送三处各探一次 `/health`（复用桥的连接，无额外轮询）；死了自动回落 API＋提示，发送失败的那条经 resend 语义自动走 API 重发，不丢消息。
+> ② 交接加厚：切 CC 首条前置 `[交接上下文]`（最近 10 条原文≤400字/条＋更早 20 条截断概要，纯字符串零成本）；切回 API 靠同一时间线天然带全量历史；网关 `_cc_tail_inject` 加 seen_texts 内容去重（App 请求正文里已有的环条目不再注）＋交接包条目不进尾巴（Ombre-Brain 侧同日改）。
+> 已知边界：CC 模式暂不支持附件（提示切回 API 发）；桥请求超时 12s，CC 首字慢时占位会等到回复或 120s；主时间线导入只认 assistant 记录、一次 >20 条按洪峰跳过（只推水位线）。验收对照 §3 逐条自审两遍通过（无 SDK 环境，CI 出包为真编译）。
+
 > 2026-07-08 云端 Fable 留的施工图。设计决策已做完、家底已查清，照图施工即可，别重新设计。
 > 小猫的原始诉求（2026-07-08 原话大意）：想用 api 的时候用 api，想用 CC 就切 CC，上下文互通；苹果账号被风控订阅不了 Claude 时，不用新开 session 从头讲。
 > 她明确说过：**流式不流式无所谓**——CC 整轮回复不算缺陷，不用为流式做任何额外工程。

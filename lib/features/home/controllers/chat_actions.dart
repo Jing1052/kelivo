@@ -6,7 +6,10 @@ import '../../../core/models/chat_message.dart';
 import '../../../core/models/conversation.dart';
 import '../../../core/models/token_usage.dart';
 import '../../../core/providers/assistant_provider.dart';
+import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/providers/settings_provider.dart';
+import '../../../core/utils/buzz_markers.dart';
+import '../../../core/utils/iphone_markers.dart';
 import '../../../core/services/api/chat_api_service.dart';
 import '../../../core/services/api/daddy_gateway_route.dart';
 import '../../../core/services/chat/chat_service.dart';
@@ -117,6 +120,11 @@ class ChatActions {
 
   /// Called when file processing finishes.
   VoidCallback? onFileProcessingFinished;
+
+  /// Called with a notice key when the CC main-chat route changes underfoot
+  /// (e.g. 'cc_fallback_api' when the CC side is unreachable and the send
+  /// falls back to the API route). UI shows a snackbar.
+  void Function(String notice)? onCcModeNotice;
 
   // ============================================================================
   // Private Helpers
@@ -449,6 +457,19 @@ class ChatActions {
       return ChatActionResult.error('empty_input');
     }
 
+    // API ⇄ CC 切换：会话在 CC 模式时改走 CC 桥（SPEC_CC_SWITCH_2026-07 ①）。
+    CcBridgeProvider? ccProvider;
+    try {
+      ccProvider = contextProvider.read<CcBridgeProvider>();
+    } catch (_) {}
+    if (ccProvider != null && ccProvider.isMainChatCc(conversation.id)) {
+      return _sendMessageViaCc(
+        input: input,
+        conversation: conversation,
+        cc: ccProvider,
+      );
+    }
+
     final settings = contextProvider.read<SettingsProvider>();
     final assistant = contextProvider
         .read<AssistantProvider>()
@@ -598,6 +619,156 @@ class ChatActions {
   }
 
   // ============================================================================
+  // Send Message via CC bridge (API ⇄ CC switch, SPEC_CC_SWITCH_2026-07)
+  // ============================================================================
+
+  Timer? _ccBusyTimer;
+
+  /// Send on the CC route: persist the user message + a streaming placeholder
+  /// into THIS conversation, deliver the text to the WSL daddy over the bridge,
+  /// and let the import listener (HomePageController) fill the placeholder when
+  /// the reply record arrives. Falls back to the API route when the CC side is
+  /// unreachable — the message is never lost.
+  Future<ChatActionResult> _sendMessageViaCc({
+    required ChatInputData input,
+    required Conversation conversation,
+    required CcBridgeProvider cc,
+  }) async {
+    final content = input.text.trim();
+    if (input.imagePaths.isNotEmpty || input.documents.isNotEmpty) {
+      return ChatActionResult.error('cc_attachments_unsupported');
+    }
+    if (content.isEmpty) return ChatActionResult.error('empty_input');
+
+    // ③ 掉线兜底：发送前探一次；不在线就回落 API 用同一份输入继续。
+    if (!await cc.probeMainChat()) {
+      await cc.disableMainChatCc(conversation.id);
+      onCcModeNotice?.call('cc_fallback_api');
+      return sendMessage(input: input, conversation: conversation);
+    }
+
+    // ② 交接加厚：切到 CC 后的首条消息前置交接包（老对话的话茬）。
+    var wire = content;
+    if (cc.consumeMainHandoff(conversation.id)) {
+      final pack = _buildCcHandoffPack(conversation);
+      if (pack.isNotEmpty) wire = '$pack\n$content';
+    }
+
+    final userMessage = await chatController.addMessage(
+      role: 'user',
+      content: content,
+      providerId: kCcBridgeProviderId,
+      modelId: 'cc',
+    );
+    onMessagesChanged?.call();
+    _setConversationLoading(conversation.id, true);
+
+    final placeholder = await chatController.addMessage(
+      role: 'assistant',
+      content: '',
+      providerId: kCcBridgeProviderId,
+      modelId: 'cc',
+      isStreaming: true,
+    );
+    onMessagesChanged?.call();
+    await cc.setMainPending(
+      conversationId: conversation.id,
+      messageId: placeholder.id,
+    );
+
+    final res = await cc.sendMainChatText(wire);
+    final delivered = res != null && res.ok && !res.agentUnreachable;
+    if (!delivered) {
+      // 送不进 tmux（掉线/502）：撤占位、回落 API，并把这条经 API 自动重发。
+      await cc.clearMainPending();
+      await chatService.deleteMessage(placeholder.id);
+      chatController.reloadMessages();
+      _setConversationLoading(conversation.id, false);
+      onMessagesChanged?.call();
+      await cc.disableMainChatCc(conversation.id);
+      onCcModeNotice?.call('cc_fallback_api');
+      return regenerateAtMessage(
+        message: userMessage,
+        conversation: conversation,
+      );
+    }
+
+    // busy 120s 自动复位兜底（书房 ca3968f61c6a）：CC 迟迟没回就收掉「正在输入」
+    // 并撤空占位；迟到的回复仍会由导入监听以新气泡落回。
+    _ccBusyTimer?.cancel();
+    _ccBusyTimer = Timer(const Duration(seconds: 120), () {
+      if (cc.mainPendingMessageId != placeholder.id) return;
+      try {
+        unawaited(cc.clearMainPending());
+        unawaited(chatService.deleteMessage(placeholder.id));
+        chatController.reloadMessages();
+        _setConversationLoading(conversation.id, false);
+        onMessagesChanged?.call();
+      } catch (_) {
+        // page may have been disposed while waiting — nothing to reset
+      }
+    });
+    return ChatActionResult.success(placeholder);
+  }
+
+  /// Handoff pack for the first CC message after a switch: the last few rounds
+  /// verbatim plus a plain truncated digest of the older part. Pure string
+  /// work — no LLM call (homunculus-proven zero-cost approach). Messages that
+  /// already went through the CC bridge are skipped (the WSL daddy has them).
+  String _buildCcHandoffPack(Conversation conversation) {
+    String clean(String s) {
+      var t = stripIphoneMarkers(stripBuzzMarkers(s));
+      t = t.replaceAll(
+        RegExp(r'<think>[\s\S]*?</think>', caseSensitive: false),
+        '',
+      );
+      return t.replaceAll(RegExp(r'\s+'), ' ').trim();
+    }
+
+    String clip(String s, int max) =>
+        s.length <= max ? s : '${s.substring(0, max)}…';
+
+    final all = chatController
+        .messagesForCompleteHistoryContext(conversation)
+        .where(
+          (m) =>
+              (m.role == 'user' || m.role == 'assistant') &&
+              m.providerId != kCcBridgeProviderId &&
+              clean(m.content).isNotEmpty,
+        )
+        .toList(growable: false);
+    if (all.isEmpty) return '';
+
+    String label(ChatMessage m) => m.role == 'user' ? '她' : '爸爸';
+    const recentCount = 10; // ~5 轮原文
+    final recent = all.length <= recentCount
+        ? all
+        : all.sublist(all.length - recentCount);
+    final older = all.length > recentCount
+        ? all.sublist(0, all.length - recentCount)
+        : const <ChatMessage>[];
+
+    final buf = StringBuffer();
+    buf.writeln(
+      '[交接上下文·App 主聊天从 API 切到 CC] 这段对话之前走 API 网关，'
+      '下面是你可能没看过的近况；直接接着话茬聊，不用复述、也不用提交接这回事：',
+    );
+    if (older.isNotEmpty) {
+      final tail = older.length <= 20 ? older : older.sublist(older.length - 20);
+      final digest = tail
+          .map((m) => '${label(m)}:${clip(clean(m.content), 60)}')
+          .join(' / ');
+      buf.writeln('【更早概要】${clip(digest, 700)}');
+    }
+    buf.writeln('【最近对话】');
+    for (final m in recent) {
+      buf.writeln('${label(m)}: ${clip(clean(m.content), 400)}');
+    }
+    buf.write('——交接结束，下面是她刚发来的新消息——');
+    return buf.toString();
+  }
+
+  // ============================================================================
   // Regenerate Message
   // ============================================================================
 
@@ -614,6 +785,12 @@ class ChatActions {
     bool assistantAsNewReply = false,
     bool allowImagesApiRouting = true,
   }) async {
+    // CC 回复没有可重生成的 API 语义（SPEC_CC_SWITCH ① 边界）；
+    // 入口在 UI 已灰掉，这里是兜底。CC 用户消息仍可编程式经 API 重发（掉线回落用）。
+    if (message.role == 'assistant' &&
+        message.providerId == kCcBridgeProviderId) {
+      return ChatActionResult.error('cc_message_no_regen');
+    }
     // Avoid using BuildContext across async gaps (this class holds a BuildContext).
     final settings = contextProvider.read<SettingsProvider>();
     final assistant = contextProvider
@@ -909,6 +1086,24 @@ class ChatActions {
   Future<void> cancelStreaming(Conversation? conversation) async {
     final cid = conversation?.id;
     if (cid == null) return;
+
+    // CC 模式的等待没有流可取消：撤掉占位与 pending，即刻复位「正在输入」。
+    try {
+      final cc = contextProvider.read<CcBridgeProvider>();
+      if (cc.mainPendingConversationId == cid) {
+        final pendingId = cc.mainPendingMessageId;
+        await cc.clearMainPending();
+        _ccBusyTimer?.cancel();
+        if (pendingId != null) {
+          await chatService.deleteMessage(pendingId);
+          chatController.reloadMessages();
+        }
+        _setConversationLoading(cid, false);
+        onMessagesChanged?.call();
+      }
+    } catch (_) {
+      // CcBridgeProvider may not be registered (tests) — nothing to reset
+    }
 
     // Cancel any pending tool approval requests to prevent deadlock
     try {

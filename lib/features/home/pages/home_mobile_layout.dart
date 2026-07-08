@@ -50,6 +50,10 @@ class HomeMobileScaffold extends StatelessWidget {
     required this.onEnterGlobalSearch,
     required this.onExitGlobalSearch,
     required this.onOpenGlobalSearchResult,
+    this.ccSwitchVisible = false,
+    this.ccModeActive = false,
+    this.ccBridgeOnline = false,
+    this.onToggleCcMode,
     this.appBarOverride,
     required this.body,
   });
@@ -82,6 +86,14 @@ class HomeMobileScaffold extends StatelessWidget {
   final VoidCallback onExitGlobalSearch;
   final Future<void> Function(String conversationId, String messageId)
   onOpenGlobalSearchResult;
+
+  // API ⇄ CC 切换钮（SPEC_CC_SWITCH ①）：桥配置好了才显示；激活时高亮，
+  // CC 端不在线时灰化（仍可点，点了走探活并提示）。
+  final bool ccSwitchVisible;
+  final bool ccModeActive;
+  final bool ccBridgeOnline;
+  final VoidCallback? onToggleCcMode;
+
   final PreferredSizeWidget? appBarOverride;
   final Widget body;
 
@@ -219,11 +231,32 @@ class HomeMobileScaffold extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      actions: const [
+      actions: [
+        // API ⇄ CC 切换：终端图标。激活=主色高亮；CC 掉线=灰化（点了会提示）。
+        if (ccSwitchVisible)
+          Builder(
+            builder: (context) {
+              final zh =
+                  Localizations.localeOf(context).languageCode == 'zh';
+              return IosIconButton(
+                size: 20,
+                padding: const EdgeInsets.all(8),
+                minSize: 40,
+                icon: Lucide.Terminal,
+                color: ccModeActive
+                    ? cs.primary
+                    : cs.onSurface.withValues(
+                        alpha: ccBridgeOnline ? 0.75 : 0.30,
+                      ),
+                semanticLabel: zh ? 'API 与 CC 切换' : 'Switch API / CC',
+                onTap: onToggleCcMode,
+              );
+            },
+          ),
         // 小猫只留图画盘在右上角；地图(MiniMap)和新建/临时对话两个图标已撤
         // （新建对话仍可从侧边抽屉发起）。
-        AppearanceQuickButton(),
-        SizedBox(width: 4),
+        const AppearanceQuickButton(),
+        const SizedBox(width: 4),
       ],
     );
   }

@@ -8,8 +8,10 @@ import 'package:provider/provider.dart';
 import 'package:scrollview_observer/scrollview_observer.dart';
 
 import '../../../core/models/chat_message.dart';
+import '../../../core/providers/cc_bridge_provider.dart' show kCcBridgeProviderId;
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/assistant_provider.dart';
+import '../../../icons/lucide_adapter.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/widgets/ios_checkbox.dart';
 import '../../chat/widgets/chat_message_widget.dart';
@@ -773,11 +775,31 @@ class _MessageListViewState extends State<MessageListView> {
               message.role == 'assistant' &&
               message.providerId != null &&
               message.modelId != null)
-          ? CurrentModelIcon(
-              providerKey: message.providerId,
-              modelId: message.modelId,
-              size: 30,
-            )
+          ? (message.providerId == kCcBridgeProviderId
+                // CC 桥消息：终端图标代替模型图标（cc-bridge 不是真实服务商 key）
+                ? Builder(
+                    builder: (context) {
+                      final cs = Theme.of(context).colorScheme;
+                      return Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          color: cs.secondary.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Lucide.Terminal,
+                          size: 16,
+                          color: cs.secondary,
+                        ),
+                      );
+                    },
+                  )
+                : CurrentModelIcon(
+                    providerKey: message.providerId,
+                    modelId: message.modelId,
+                    size: 30,
+                  ))
           : null,
       showModelIcon: useAssistAvatar
           ? false
@@ -828,10 +850,16 @@ class _MessageListViewState extends State<MessageListView> {
               t != null)
           ? () => widget.onToggleTranslation?.call(message.id)
           : null,
-      onRegenerate: message.role == 'assistant'
+      // CC 桥消息禁用 regenerate/resend：那两条路径写死了 API provider 语义
+      // （SPEC_CC_SWITCH ① 边界）。
+      onRegenerate:
+          (message.role == 'assistant' &&
+              message.providerId != kCcBridgeProviderId)
           ? () => widget.onRegenerateMessage?.call(message)
           : null,
-      onResend: message.role == 'user'
+      onResend:
+          (message.role == 'user' &&
+              message.providerId != kCcBridgeProviderId)
           ? () => widget.onResendMessage?.call(message)
           : null,
       onTranslate: message.role == 'assistant'

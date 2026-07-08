@@ -18,8 +18,20 @@ import '../services/cc/cc_bridge_models.dart';
 
 enum CcConnectionState { idle, connecting, online, offline, unauthorized }
 
+/// providerId sentinel stamped on main-timeline messages that went through the
+/// CC bridge (API ⇄ CC switch). Not a real model provider key — it marks the
+/// message for the terminal badge and for disabling regenerate/resend, and is
+/// deliberately NOT a new Hive field (this environment cannot run
+/// build_runner; providerId already persists and exports).
+const String kCcBridgeProviderId = 'cc-bridge';
+
 class CcBridgeProvider extends ChangeNotifier {
   static const String _configKey = 'cc_bridge_config_v1';
+  // ── Main-chat CC mode (API ⇄ CC switch, SPEC_CC_SWITCH_2026-07) ──
+  static const String _mainModeKey = 'cc_main_mode_convos_v1';
+  static const String _mainWatermarkKey = 'cc_main_mode_watermark_v1';
+  static const String _mainHandoffKey = 'cc_main_mode_handoff_v1';
+  static const String _mainPendingKey = 'cc_main_mode_pending_v1';
 
   CcBridgeConfig _config = CcBridgeConfig.empty;
   CcBridgeClient? _client;
@@ -38,6 +50,19 @@ class CcBridgeProvider extends ChangeNotifier {
   String? _settingsEtag;
   Timer? _pollTimer;
   String? _lastError;
+
+  // ── Main-chat CC mode state ──
+  // Conversations whose primary timeline is currently routed through the CC
+  // bridge, plus the shared import watermark (ts of the newest CC record that
+  // the main timeline has consumed — one global cursor, records land in the
+  // conversation that is waiting/active, never twice).
+  Set<String> _mainCcConversations = <String>{};
+  Set<String> _mainHandoffPending = <String>{};
+  String _mainWatermark = '';
+  // Outstanding reply expectation: the streaming placeholder waiting for the
+  // next assistant record. Persisted so a killed app can still catch up.
+  String? _mainPendingConversationId;
+  String? _mainPendingMessageId;
 
   CcBridgeConfig get config => _config;
   CcConnectionState get connection => _connection;
@@ -83,9 +108,193 @@ class CcBridgeProvider extends ChangeNotifier {
         // corrupted config — keep empty defaults
       }
     }
+    _loadMainChatState(prefs);
     notifyListeners();
-    if (_config.enabled && _config.isConfigured) {
+    // Connect when the CC tab bridge is on, or when any main-chat conversation
+    // is still in CC mode (its reply import needs the polling loop even if the
+    // user never flipped the CC tab's enable switch).
+    if (_config.isConfigured &&
+        (_config.enabled || _mainCcConversations.isNotEmpty)) {
       await connect();
+    }
+  }
+
+  void _loadMainChatState(SharedPreferences prefs) {
+    List<String> readList(String key) {
+      final raw = prefs.getString(key);
+      if (raw == null || raw.isEmpty) return const <String>[];
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          return decoded.map((e) => e.toString()).toList(growable: false);
+        }
+      } catch (_) {}
+      return const <String>[];
+    }
+
+    _mainCcConversations = readList(_mainModeKey).toSet();
+    _mainHandoffPending = readList(_mainHandoffKey).toSet();
+    _mainWatermark = prefs.getString(_mainWatermarkKey) ?? '';
+    final pendingRaw = prefs.getString(_mainPendingKey);
+    if (pendingRaw != null && pendingRaw.isNotEmpty) {
+      try {
+        final m = jsonDecode(pendingRaw);
+        if (m is Map) {
+          _mainPendingConversationId = m['conversationId']?.toString();
+          _mainPendingMessageId = m['messageId']?.toString();
+        }
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _persistMainChatState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _mainModeKey,
+      jsonEncode(_mainCcConversations.toList(growable: false)),
+    );
+    await prefs.setString(
+      _mainHandoffKey,
+      jsonEncode(_mainHandoffPending.toList(growable: false)),
+    );
+    await prefs.setString(_mainWatermarkKey, _mainWatermark);
+    if (_mainPendingConversationId == null || _mainPendingMessageId == null) {
+      await prefs.remove(_mainPendingKey);
+    } else {
+      await prefs.setString(
+        _mainPendingKey,
+        jsonEncode(<String, String>{
+          'conversationId': _mainPendingConversationId!,
+          'messageId': _mainPendingMessageId!,
+        }),
+      );
+    }
+  }
+
+  // ── Main-chat CC mode API ──
+
+  bool isMainChatCc(String conversationId) =>
+      _mainCcConversations.contains(conversationId);
+
+  String? get mainPendingConversationId => _mainPendingConversationId;
+  String? get mainPendingMessageId => _mainPendingMessageId;
+
+  /// One probe round for the main-chat switch (③ 掉线兜底): reuse the live
+  /// connection when it's already online, otherwise attempt a single
+  /// (re)connect across the configured endpoints. No extra polling.
+  Future<bool> probeMainChat() async {
+    if (!_config.isConfigured) return false;
+    if (isOnline) return true;
+    if (_connection == CcConnectionState.connecting) {
+      // 已有一次连接在飞（如启动时的 load()）：等它落地，别叠加二次连接
+      for (var i = 0;
+          i < 20 && _connection == CcConnectionState.connecting;
+          i++) {
+        await Future.delayed(const Duration(milliseconds: 250));
+      }
+      return isOnline;
+    }
+    await connect();
+    return isOnline;
+  }
+
+  /// Switch a conversation's primary timeline to the CC bridge. Probes first;
+  /// returns false (and changes nothing) when the CC side is unreachable.
+  Future<bool> enableMainChatCc(String conversationId) async {
+    if (!await probeMainChat()) return false;
+    _mainCcConversations.add(conversationId);
+    _mainHandoffPending.add(conversationId);
+    if (_mainWatermark.isEmpty) {
+      // 首次开启：现有 CC 历史都算"旧的"。没历史时用纪元哨兵——之后到的
+      // 都算新（若种子迟到灌入旧历史，导入侧还有洪峰上限兜底）。
+      _mainWatermark = _records.isNotEmpty
+          ? _records.last.ts
+          : '1970-01-01T00:00:00.000+00:00';
+    }
+    await _persistMainChatState();
+    notifyListeners();
+    return true;
+  }
+
+  /// Switch a conversation back to the API route (user toggle or offline
+  /// fallback). Clears its handoff flag and any pending expectation on it.
+  Future<void> disableMainChatCc(String conversationId) async {
+    final changed = _mainCcConversations.remove(conversationId);
+    _mainHandoffPending.remove(conversationId);
+    if (_mainPendingConversationId == conversationId) {
+      _mainPendingConversationId = null;
+      _mainPendingMessageId = null;
+    }
+    await _persistMainChatState();
+    if (changed) notifyListeners();
+  }
+
+  /// True exactly once per switch-to-CC: the next outgoing message should
+  /// carry the [交接上下文] handoff pack.
+  bool consumeMainHandoff(String conversationId) {
+    final had = _mainHandoffPending.remove(conversationId);
+    if (had) unawaited(_persistMainChatState());
+    return had;
+  }
+
+  /// Register the streaming placeholder that awaits the next CC reply.
+  Future<void> setMainPending({
+    required String conversationId,
+    required String messageId,
+  }) async {
+    _mainPendingConversationId = conversationId;
+    _mainPendingMessageId = messageId;
+    await _persistMainChatState();
+  }
+
+  Future<void> clearMainPending() async {
+    if (_mainPendingConversationId == null && _mainPendingMessageId == null) {
+      return;
+    }
+    _mainPendingConversationId = null;
+    _mainPendingMessageId = null;
+    await _persistMainChatState();
+  }
+
+  /// Assistant records the main timeline has not consumed yet. Empty until the
+  /// watermark is initialized (guards against flooding a conversation with the
+  /// whole CC history on first enable).
+  List<CcChatRecord> mainRecordsAfterWatermark() {
+    if (_mainWatermark.isEmpty) return const <CcChatRecord>[];
+    return _records
+        .where((r) => r.isAssistant && r.ts.compareTo(_mainWatermark) > 0)
+        .toList(growable: false);
+  }
+
+  /// Advance the import watermark (after importing, or to skip records nobody
+  /// is waiting for — e.g. CC-tab chatter while no main conversation listens).
+  Future<void> advanceMainWatermark(String ts) async {
+    if (ts.isEmpty || ts.compareTo(_mainWatermark) <= 0) return;
+    _mainWatermark = ts;
+    await _persistMainChatState();
+  }
+
+  /// The newest record ts, for watermark fast-forwarding.
+  String get latestRecordTs => _records.isEmpty ? '' : _records.last.ts;
+
+  /// Direct send for the main-chat CC route. Unlike [sendTextOptimistic] this
+  /// does NOT create a CC-tab outbox bubble (the main timeline renders its own
+  /// user message). Returns null on transport failure ([lastError] set).
+  Future<CcSendResult?> sendMainChatText(String text) async {
+    final c = _client;
+    if (c == null) return null;
+    try {
+      final res = await c.send(text);
+      unawaited(_pollOnce()); // pull soon so the reply lands fast
+      return res;
+    } on CcAuthException {
+      _connection = CcConnectionState.unauthorized;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      _lastError = e.toString();
+      notifyListeners();
+      return null;
     }
   }
 

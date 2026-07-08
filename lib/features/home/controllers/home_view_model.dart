@@ -187,6 +187,7 @@ class HomeViewModel extends ChangeNotifier {
     _chatActions.onAssistantMessageFinished = _onAssistantMessageFinished;
     _chatActions.onFileProcessingStarted = _onFileProcessingStarted;
     _chatActions.onFileProcessingFinished = _onFileProcessingFinished;
+    _chatActions.onCcModeNotice = (notice) => onCcModeNotice?.call(notice);
   }
 
   // ============================================================================
@@ -220,6 +221,10 @@ class HomeViewModel extends ChangeNotifier {
 
   /// Called when a warning occurs (UI should show snackbar).
   void Function(String warning)? onWarning;
+
+  /// Called when the CC main-chat route changes underfoot (e.g. offline
+  /// fallback to the API route). UI shows a snackbar.
+  void Function(String notice)? onCcModeNotice;
 
   /// Called when streaming finishes (UI may show notification).
   VoidCallback? onStreamFinished;
@@ -292,6 +297,12 @@ class HomeViewModel extends ChangeNotifier {
       unawaited(_drainQueuedInputIfReady(conversationId));
     }
   }
+
+  /// External (non-ChatActions) loading transitions — e.g. the CC import
+  /// listener clearing the typing state when a bridge reply lands — reuse the
+  /// same notify + queued-input drain hook.
+  void onExternalLoadingChanged(String conversationId, bool loading) =>
+      _onLoadingChanged(conversationId, loading);
 
   void _onContentUpdated(String messageId, String content, int totalTokens) {
     final index = messages.indexWhere((m) => m.id == messageId);

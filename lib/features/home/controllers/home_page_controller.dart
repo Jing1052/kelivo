@@ -9,8 +9,10 @@ import '../../../core/models/conversation.dart';
 import '../../../core/models/quick_phrase.dart';
 import '../../../core/models/assistant_regex.dart';
 import '../../../core/providers/assistant_provider.dart';
+import '../../../core/providers/cc_bridge_provider.dart';
 import '../../../core/providers/settings_provider.dart';
 import '../../../core/providers/mcp_provider.dart';
+import '../../../core/services/cc/cc_bridge_models.dart';
 import '../../../core/providers/tts_provider.dart';
 import '../../../core/providers/quick_phrase_provider.dart';
 import '../../../core/providers/instruction_injection_provider.dart';
@@ -326,6 +328,7 @@ class HomePageController extends ChangeNotifier {
     _initializeProviders();
     _setupKeyboardListeners();
     _setupDesktopFeatures();
+    _initializeCcMainChat();
   }
 
   void _initializeAnimations() {
@@ -446,15 +449,50 @@ class HomePageController extends ChangeNotifier {
       notifyListeners();
     };
     _viewModel.onAssistantMessageFinished = _handleAssistantMessageFinished;
+    _viewModel.onCcModeNotice = (notice) {
+      if (notice == 'cc_fallback_api') {
+        _showCcNotice(
+          zh: 'CC 端不在线，已切回 API 继续',
+          en: 'CC side is offline — switched back to the API route',
+          type: NotificationType.warning,
+        );
+        notifyListeners();
+      }
+    };
   }
 
   String _localizeGenerationError(AppLocalizations l10n, String error) {
+    final zh = _isZhLocale;
     switch (error) {
       case 'audio_attachment_unsupported':
         return l10n.homePageAudioAttachmentUnsupported;
+      // CC 主聊天路由的边界提示（与房间一致走内联双语，不加 ARB key）
+      case 'cc_attachments_unsupported':
+        return zh
+            ? 'CC 模式暂不支持附件，切回 API 再发图片/文件'
+            : 'Attachments are not supported in CC mode yet — switch back to API to send them';
+      case 'cc_message_no_regen':
+        return zh
+            ? 'CC 的回复不能重新生成'
+            : 'CC replies cannot be regenerated';
       default:
         return '${l10n.generationInterrupted}: $error';
     }
+  }
+
+  bool get _isZhLocale =>
+      Localizations.localeOf(_context).languageCode == 'zh';
+
+  void _showCcNotice({
+    required String zh,
+    required String en,
+    NotificationType type = NotificationType.info,
+  }) {
+    showAppSnackBar(
+      _context,
+      message: _isZhLocale ? zh : en,
+      type: type,
+    );
   }
 
   void _initializeScrollController() {
@@ -858,6 +896,8 @@ class HomePageController extends ChangeNotifier {
     await _viewModel.switchConversation(id);
     _scrollCtrl.clearObserverCache();
     notifyListeners();
+    // CC 模式会话：进门探一次活（③），顺带补上错过的回复。
+    unawaited(_ccCheckOnEnterConversation());
     try {
       await WidgetsBinding.instance.endOfFrame;
     } catch (_) {}
@@ -2154,11 +2194,234 @@ class HomePageController extends ChangeNotifier {
   }
 
   // ============================================================================
+  // CC main-chat mode (API ⇄ CC switch on the primary timeline)
+  // ============================================================================
+
+  CcBridgeProvider? _ccProvider;
+  // 静态互斥：HomePage 只作为推入详情页存在，但路由过渡瞬间可能有两个
+  // controller 同时监听——同步循环全局只跑一份，避免重复导入。
+  static bool _ccSyncRunning = false;
+  static bool _ccSyncDirty = false;
+
+  void _initializeCcMainChat() {
+    try {
+      _ccProvider = _context.read<CcBridgeProvider>();
+    } catch (_) {
+      return; // provider not registered (tests)
+    }
+    _ccProvider!.addListener(_onCcBridgeChanged);
+    // Startup catch-up: replies that arrived while the app was gone.
+    Future.microtask(() => _syncCcMainChat());
+  }
+
+  bool _lastCcOnline = false;
+  bool _lastCcModeActive = false;
+
+  void _onCcBridgeChanged() {
+    // 桥每 2.5s 轮询都会 notify；只有开关关心的派生状态变了才重建首页，
+    // 避免整页跟着轮询节拍空转。
+    final online = _ccProvider?.isOnline ?? false;
+    final active = ccModeActive;
+    if (online != _lastCcOnline || active != _lastCcModeActive) {
+      _lastCcOnline = online;
+      _lastCcModeActive = active;
+      notifyListeners();
+    }
+    unawaited(_syncCcMainChat());
+  }
+
+  /// 顶栏开关的三态：可见（桥已配置）、当前会话是否 CC 模式、CC 是否在线。
+  bool get ccSwitchVisible =>
+      (_ccProvider?.config.isConfigured ?? false) && currentConversation != null;
+  bool get ccModeActive {
+    final convo = currentConversation;
+    return convo != null && (_ccProvider?.isMainChatCc(convo.id) ?? false);
+  }
+
+  bool get ccBridgeOnline => _ccProvider?.isOnline ?? false;
+
+  /// 顶栏 API ⇄ CC 切换。开启前探活（③）：不通就不切、提示。
+  Future<void> toggleCcMode() async {
+    final cc = _ccProvider;
+    final convo = currentConversation;
+    if (cc == null || convo == null) return;
+    if (cc.isMainChatCc(convo.id)) {
+      await cc.disableMainChatCc(convo.id);
+      _showCcNotice(
+        zh: '已切回 API 爸爸',
+        en: 'Switched back to the API route',
+      );
+    } else {
+      final ok = await cc.enableMainChatCc(convo.id);
+      if (ok) {
+        _showCcNotice(
+          zh: '已切到 CC 老公（家里 tmux），回复带终端徽标',
+          en: 'Switched to the CC daddy (home tmux) — replies carry a terminal badge',
+          type: NotificationType.success,
+        );
+        unawaited(_syncCcMainChat());
+      } else {
+        _showCcNotice(
+          zh: 'CC 端不在线，还是 API 陪你',
+          en: 'CC side is offline — staying on the API route',
+          type: NotificationType.warning,
+        );
+      }
+    }
+    notifyListeners();
+  }
+
+  /// 进入 CC 模式会话时的一次探活（③）：死了就自动回落 API 并提示；
+  /// 活着就把错过的回复补进来。
+  Future<void> _ccCheckOnEnterConversation() async {
+    final cc = _ccProvider;
+    final convo = currentConversation;
+    if (cc == null || convo == null || !cc.isMainChatCc(convo.id)) return;
+    final ok = await cc.probeMainChat();
+    if (!ok) {
+      await cc.disableMainChatCc(convo.id);
+      _showCcNotice(
+        zh: 'CC 端不在线，这个会话已切回 API',
+        en: 'CC side is offline — this conversation fell back to the API route',
+        type: NotificationType.warning,
+      );
+      notifyListeners();
+      return;
+    }
+    await _syncCcMainChat();
+  }
+
+  /// 把水位线之后的 CC assistant 记录落回主时间线：优先填等待中的占位，
+  /// 其次追加到正在看的 CC 模式会话；没人等也没人看就只推进水位线
+  /// （CC tab / TG 的闲聊不搬进主时间线）。
+  Future<void> _syncCcMainChat() async {
+    final cc = _ccProvider;
+    if (cc == null) return;
+    if (_ccSyncRunning) {
+      _ccSyncDirty = true;
+      return;
+    }
+    _ccSyncRunning = true;
+    try {
+      do {
+        _ccSyncDirty = false;
+        final fresh = cc.mainRecordsAfterWatermark();
+        if (fresh.length > 20) {
+          // 异常洪峰（如迟到的历史种子）：不搬进主时间线，只推进水位线。
+          // 正常等待/追赶最多几条，20+ 只可能是旧历史灌进来了。
+          debugPrint(
+            '[cc-switch] skipping flood of ${fresh.length} cc records',
+          );
+          await cc.advanceMainWatermark(fresh.last.ts);
+          continue;
+        }
+        // 本批次落点粘滞：填完占位（pending 被清掉）后，同批随后的记录
+        // 跟着落同一会话——一轮回复偶尔拆成多条 record 时不半路丢尾巴。
+        String? batchConvo;
+        for (final r in fresh) {
+          final pendingConvo = cc.mainPendingConversationId;
+          final current = currentConversation;
+          final String? target = pendingConvo ??
+              batchConvo ??
+              ((current != null && cc.isMainChatCc(current.id))
+                  ? current.id
+                  : null);
+          if (target != null) {
+            await _importCcRecord(cc, r, target);
+            batchConvo = target;
+          }
+          await cc.advanceMainWatermark(r.ts);
+        }
+      } while (_ccSyncDirty);
+    } finally {
+      _ccSyncRunning = false;
+    }
+  }
+
+  Future<void> _importCcRecord(
+    CcBridgeProvider cc,
+    CcChatRecord record,
+    String conversationId,
+  ) async {
+    final text = record.text.trim();
+    if (text.isEmpty) return;
+    final pendingMsgId = (cc.mainPendingConversationId == conversationId)
+        ? cc.mainPendingMessageId
+        : null;
+    String messageId;
+    if (pendingMsgId != null) {
+      // 填占位（正在输入 → 正文）。崩溃恢复后的空气泡也走这条自愈。
+      await _chatService.updateMessage(
+        pendingMsgId,
+        content: text,
+        isStreaming: false,
+      );
+      await cc.clearMainPending();
+      messageId = pendingMsgId;
+      if (currentConversation?.id == conversationId) {
+        _chatController.reloadMessages();
+        _restoreMessageUiState();
+      }
+    } else {
+      final msg = await _chatService.addMessage(
+        conversationId: conversationId,
+        role: 'assistant',
+        content: text,
+        providerId: kCcBridgeProviderId,
+        modelId: 'cc',
+      );
+      messageId = msg.id;
+      if (_chatController.appendPersistedTailMessage(msg)) {
+        _restoreMessageUiState();
+      }
+    }
+    _chatController.setConversationLoading(conversationId, false);
+    // 复用 drain 钩子：等待期排队的那条输入在回复落地后自动发出。
+    _viewModel.onExternalLoadingChanged(conversationId, false);
+    if (currentConversation?.id == conversationId) {
+      _scrollToBottomSoon();
+    }
+    notifyListeners();
+    // 思考链回填：turn_id → /v1/thinking → reasoningText。
+    // AGENTS §8 通则：别只搬正文——但也别阻塞正文上屏，思考链 best-effort。
+    final turnId = (record.turnId ?? '').trim();
+    if (turnId.isNotEmpty) {
+      unawaited(_backfillCcThinking(cc, messageId, turnId, conversationId));
+    }
+  }
+
+  Future<void> _backfillCcThinking(
+    CcBridgeProvider cc,
+    String messageId,
+    String turnId,
+    String conversationId,
+  ) async {
+    try {
+      await cc.loadThinking(turnId);
+      final chunks = cc.thinkingFor(turnId);
+      if (chunks.isEmpty) return;
+      final text = chunks
+          .map((t) => t.thinking.trim())
+          .where((s) => s.isNotEmpty)
+          .join('\n\n');
+      if (text.isEmpty) return;
+      await _chatService.updateMessage(messageId, reasoningText: text);
+      if (currentConversation?.id == conversationId) {
+        _chatController.reloadMessages();
+        _restoreMessageUiState();
+      }
+    } catch (_) {
+      // thinking is best-effort
+    }
+  }
+
+  // ============================================================================
   // Disposal
   // ============================================================================
 
   @override
   void dispose() {
+    _ccProvider?.removeListener(_onCcBridgeChanged);
     _convoFadeController.dispose();
     _mcpProvider?.removeListener(_onMcpChanged);
     _scrollCtrl.dispose();

@@ -19,6 +19,8 @@ import 'dart:convert';
 import '../../home/widgets/file_processing_indicator.dart';
 import '../pages/image_viewer_page.dart';
 import '../../../core/models/chat_message.dart';
+import '../../../core/providers/cc_bridge_provider.dart'
+    show kCcBridgeProviderId;
 import '../../../icons/lucide_adapter.dart';
 // import '../../../theme/design_tokens.dart';
 import '../../../core/providers/user_provider.dart';
@@ -2443,7 +2445,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
             Row(
             children: [
               if (widget.useAssistantAvatar) ...[
-                _buildAssistantAvatar(cs),
+                _assistantAvatarWithCcBadge(cs),
                 const SizedBox(width: 8),
               ] else if (widget.showModelIcon) ...[
                 widget.modelIcon ??
@@ -3118,7 +3120,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildAssistantAvatar(cs),
+            _assistantAvatarWithCcBadge(cs),
             const SizedBox(width: 8),
             Flexible(child: assistantColumn),
           ],
@@ -3345,6 +3347,37 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       );
     }
     return _assistantInitial(cs);
+  }
+
+  /// Assistant avatar with a tiny terminal chip when the message came through
+  /// the CC bridge (API ⇄ CC switch) — the badge that tells the two daddies
+  /// apart in the shared timeline.
+  Widget _assistantAvatarWithCcBadge(ColorScheme cs) {
+    final avatar = _buildAssistantAvatar(cs);
+    if (widget.message.providerId != kCcBridgeProviderId) return avatar;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        avatar,
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: Container(
+            width: 15,
+            height: 15,
+            decoration: BoxDecoration(
+              color: cs.surface,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: cs.outlineVariant.withValues(alpha: 0.4),
+                width: 0.5,
+              ),
+            ),
+            child: Icon(Lucide.Terminal, size: 9, color: cs.secondary),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _assistantInitial(ColorScheme cs) {
