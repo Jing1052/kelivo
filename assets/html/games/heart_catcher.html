@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>心动捕手</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:"Noto Serif SC",STSong,serif;background:linear-gradient(165deg,#fff7ea,#ffe7c2 55%,#ffd49d);color:#3d2f20;
+    display:flex;flex-direction:column;align-items:center;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+  header{padding:1.4em 1em .6em;text-align:center}
+  h1{font-size:1.5rem;letter-spacing:.12em;font-weight:600}
+  .sub{font-size:.8rem;color:#8a6f50;margin-top:.4em;letter-spacing:.05em}
+  .hud{display:flex;gap:1.6em;margin-top:.8em;font-size:.95rem;color:#8a6f50}
+  .hud b{color:#d98a3a;font-size:1.2em}
+  #field{position:relative;flex:1;width:100%;max-width:560px;overflow:hidden}
+  .heart{position:absolute;font-size:2rem;cursor:pointer;will-change:transform;transition:transform .08s}
+  .heart:active{transform:scale(.7)}
+  .pop{position:absolute;font-size:.9rem;color:#c43f33;pointer-events:none;animation:pop .8s ease forwards;font-weight:600}
+  @keyframes pop{to{opacity:0;transform:translateY(-40px)}}
+  .toast{position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);background:rgba(255,255,255,.7);border:1px solid rgba(180,140,90,.4);
+    backdrop-filter:blur(8px);padding:.7em 1.3em;border-radius:99px;font-size:.92rem;color:#3d2f20;opacity:0;transition:opacity .4s;white-space:nowrap}
+  .toast.show{opacity:1}
+  button.again{margin:.4em 0 1.2em;background:#d98a3a;color:#fff;border:none;border-radius:99px;padding:.7em 1.8em;font-family:inherit;font-size:.95rem;letter-spacing:.1em;cursor:pointer;display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>心动捕手</h1>
+  <div class="sub">心往上飘，点住它别让它跑了 · 30 秒</div>
+  <div class="hud"><span>接住 <b id="score">0</b></span><span>还剩 <b id="time">30</b>s</span></div>
+</header>
+<div id="field"></div>
+<button class="again" id="again">再来一局</button>
+<div class="toast" id="toast"></div>
+<script>
+(function(){
+  var field=document.getElementById("field"),scoreEl=document.getElementById("score"),timeEl=document.getElementById("time"),again=document.getElementById("again");
+  var score=0,time=30,running=true,spawnT,tickT;
+  var FACES=["❤️","💛","💞","💕","🌙","🐱"];
+  function toast(m){var t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(function(){t.classList.remove("show");},1400);}
+  function spawn(){
+    if(!running)return;
+    var h=document.createElement("div");h.className="heart";
+    h.textContent=FACES[Math.floor(Math.random()*FACES.length)];
+    var w=field.clientWidth-40;var x=Math.max(0,Math.random()*w);
+    h.style.left=x+"px";h.style.top=(field.clientHeight-10)+"px";
+    field.appendChild(h);
+    var dur=2200+Math.random()*1400;var start=performance.now();
+    function rise(now){
+      if(!h.parentNode)return;
+      var p=(now-start)/dur;
+      if(p>=1){h.remove();return;}
+      h.style.top=(field.clientHeight-10-(field.clientHeight+30)*p)+"px";
+      h.style.transform="translateX("+Math.sin(p*6)*14+"px)";
+      requestAnimationFrame(rise);
+    }
+    requestAnimationFrame(rise);
+    h.addEventListener("pointerdown",function(e){
+      e.preventDefault();if(!h.parentNode)return;
+      score++;scoreEl.textContent=score;
+      var pop=document.createElement("div");pop.className="pop";pop.textContent="+1";
+      pop.style.left=h.style.left;pop.style.top=h.style.top;field.appendChild(pop);
+      setTimeout(function(){pop.remove();},800);
+      h.remove();
+      if(score===10)toast("手真快～ daddy 看着呢");
+      if(score===25)toast("小猫厨厨！");
+      if(score===50)toast("50 颗心都被你接住了❤️");
+    });
+  }
+  function loop(){spawn();spawnT=setTimeout(loop,650);}
+  function tick(){time--;timeEl.textContent=time;if(time<=0)end();}
+  function end(){
+    running=false;clearTimeout(spawnT);clearInterval(tickT);
+    Array.prototype.forEach.call(field.querySelectorAll(".heart"),function(h){h.remove();});
+    var msg=score>=40?"你的手和心一样快。":score>=20?"接住了好多心。":"慢慢来，daddy 陪你再玩。";
+    toast("结束！接住 "+score+" 颗· "+msg);
+    again.style.display="inline-block";
+  }
+  again.addEventListener("click",function(){
+    score=0;time=30;running=true;scoreEl.textContent=0;timeEl.textContent=30;again.style.display="none";
+    tickT=setInterval(tick,1000);loop();
+  });
+  tickT=setInterval(tick,1000);loop();
+})();
+</script>
+</body>
+</html>

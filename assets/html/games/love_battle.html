@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>性爱格斗 — Daddy vs Kitten</title>
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #1a1720;
+  --bg2: #242030;
+  --bg3: #2e2a3a;
+  --rose: #c4727f;
+  --rose-dim: #8a4f58;
+  --lilac: #9b8ec4;
+  --lilac-dim: #6b6290;
+  --gold: #c4a872;
+  --text: #e8e2f0;
+  --text-dim: #8a8494;
+  --danger: #d4626e;
+  --success: #72c4a0;
+  --warn: #c4a260;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 300;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.game-container {
+  max-width: 420px;
+  margin: 0 auto;
+  padding: 12px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === STATUS BARS === */
+.status-area {
+  flex-shrink: 0;
+  padding: 8px 0;
+}
+
+.fighter-status {
+  margin-bottom: 10px;
+  padding: 10px 14px;
+  background: var(--bg2);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.fighter-status.daddy-status {
+  border-left: 3px solid var(--lilac);
+}
+
+.fighter-status.kitten-status {
+  border-left: 3px solid var(--rose);
+}
+
+.fighter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.fighter-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 15px;
+  letter-spacing: 1px;
+}
+
+.fighter-name.daddy { color: var(--lilac); }
+.fighter-name.kitten { color: var(--rose); }
+
+.round-badge {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg3);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.bar-group {
+  margin-bottom: 5px;
+}
+
+.bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  margin-bottom: 3px;
+  color: var(--text-dim);
+}
+
+.bar-track {
+  height: 8px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.6s ease;
+  position: relative;
+}
+
+.bar-fill.hp { background: linear-gradient(90deg, var(--success), #5ab88a); }
+.bar-fill.pleasure { background: linear-gradient(90deg, var(--rose-dim), var(--rose)); }
+
+.bar-fill.pleasure.warning {
+  background: linear-gradient(90deg, var(--rose), var(--danger));
+  animation: pulse-bar 0.8s ease-in-out infinite;
+}
+
+.bar-fill.pleasure.critical {
+  background: linear-gradient(90deg, var(--danger), #e04050);
+  animation: pulse-bar 0.4s ease-in-out infinite;
+}
+
+@keyframes pulse-bar {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* === BATTLE LOG === */
+.log-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 0;
+  min-height: 120px;
+  max-height: 280px;
+  scroll-behavior: smooth;
+}
+
+.log-entry {
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  animation: fadeSlideIn 0.4s ease;
+  border-left: 2px solid transparent;
+}
+
+.log-entry.kitten-action {
+  background: rgba(196, 114, 127, 0.08);
+  border-left-color: var(--rose-dim);
+}
+
+.log-entry.daddy-action {
+  background: rgba(155, 142, 196, 0.08);
+  border-left-color: var(--lilac-dim);
+}
+
+.log-entry.system {
+  background: rgba(196, 168, 114, 0.08);
+  border-left-color: var(--gold);
+  text-align: center;
+  font-size: 12px;
+  color: var(--gold);
+}
+
+.log-skill-name {
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.log-skill-name.kitten-skill { color: var(--rose); }
+.log-skill-name.daddy-skill { color: var(--lilac); }
+
+.log-desc {
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.log-effect {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--text-dim);
+}
+
+.log-effect span.dmg { color: var(--rose); }
+.log-effect span.heal { color: var(--success); }
+.log-effect span.self-dmg { color: var(--warn); }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* === SKILL BUTTONS === */
+.skill-area {
+  flex-shrink: 0;
+  padding: 8px 0 12px;
+}
+
+.skill-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.skill-btn {
+  background: var(--bg2);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 10px;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.skill-btn:active:not(.disabled) {
+  transform: scale(0.96);
+  background: var(--bg3);
+}
+
+.skill-btn.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.skill-btn.ultimate {
+  border-color: rgba(196, 168, 114, 0.3);
+  grid-column: 1 / -1;
+}
+
+.skill-btn.heal-skill {
+  border-color: rgba(114, 196, 160, 0.2);
+}
+
+.skill-name-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.skill-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.skill-cost {
+  font-size: 10px;
+  color: var(--warn);
+  background: rgba(196, 162, 96, 0.1);
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.skill-cost.heal-cost {
+  color: var(--success);
+  background: rgba(114, 196, 160, 0.1);
+}
+
+.skill-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.skill-cd-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(26, 23, 32, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* === GAME OVER === */
+.game-over-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(26, 23, 32, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.6s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.game-over-card {
+  background: var(--bg2);
+  border-radius: 20px;
+  padding: 30px 24px;
+  text-align: center;
+  max-width: 340px;
+  width: 90%;
+  border: 1px solid rgba(255,255,255,0.08);
+  animation: scaleIn 0.4s ease;
+}
+
+@keyframes scaleIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.game-over-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.game-over-title.win { color: var(--rose); }
+.game-over-title.lose { color: var(--lilac); }
+
+.game-over-subtitle {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.game-over-stats {
+  background: var(--bg);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  line-height: 2;
+  color: var(--text-dim);
+}
+
+.game-over-stats span { color: var(--text); font-weight: 500; }
+
+.game-over-text {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text);
+  margin-bottom: 20px;
+  font-style: italic;
+  padding: 0 8px;
+}
+
+.restart-btn {
+  background: linear-gradient(135deg, var(--rose-dim), var(--lilac-dim));
+  border: none;
+  color: var(--text);
+  padding: 12px 32px;
+  border-radius: 25px;
+  font-size: 14px;
+  font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.restart-btn:active {
+  transform: scale(0.95);
+}
+
+/* === INTRO === */
+.intro-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+}
+
+.intro-card {
+  text-align: center;
+  padding: 30px;
+  animation: scaleIn 0.6s ease;
+}
+
+.intro-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 36px;
+  background: linear-gradient(135deg, var(--rose), var(--lilac));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 8px;
+}
+
+.intro-sub {
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+
+.intro-rule {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.8;
+  margin: 20px 0;
+  text-align: left;
+  max-width: 280px;
+}
+
+.intro-rule b { color: var(--text); font-weight: 500; }
+
+.start-btn {
+  background: linear-gradient(135deg, var(--rose), var(--lilac));
+  border: none;
+  color: white;
+  padding: 14px 40px;
+  border-radius: 25px;
+  font-size: 15px;
+  font-family: 'Noto Sans SC', sans-serif;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: transform 0.2s;
+}
+
+.start-btn:active { transform: scale(0.95); }
+
+.hidden { display: none !important; }
+
+/* scrollbar */
+.log-area::-webkit-scrollbar { width: 3px; }
+.log-area::-webkit-scrollbar-track { background: transparent; }
+.log-area::-webkit-scrollbar-thumb { background: var(--bg3); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div class="intro-overlay" id="intro">
+  <div class="intro-card">
+    <div class="intro-title">性爱格斗</div>
+    <div class="intro-sub">Daddy vs Kitten</div>
+    <div class="intro-sub" style="font-size:12px; color:var(--rose-dim);">谁先高潮谁就输</div>
+    <div class="intro-rule">
+      <b>规则：</b><br>
+      · 双方各有体力100 + 快感条0→100<br>
+      · 快感先到100 = 高潮 = 你输了<br>
+      · 体力先归0 = 累趴 = 也算输<br>
+      · 每回合你选一个技能，daddy自动回应<br>
+      · 部分技能有冷却回合数<br>
+      · 有些技能给对方加快感的同时自己也会涨一点哦
+    </div>
+    <button class="start-btn" onclick="startGame()">开 战</button>
+  </div>
+</div>
+
+<!-- GAME -->
+<div class="game-container hidden" id="game">
+  <div class="status-area">
+    <!-- DADDY STATUS -->
+    <div class="fighter-status daddy-status">
+      <div class="fighter-header">
+        <div class="fighter-name daddy">DADDY</div>
+        <div class="round-badge" id="round-badge">第 1 回合</div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label"><span>体力</span><span id="daddy-hp-text">100/100</span></div>
+        <div class="bar-track"><div class="bar-fill hp" id="daddy-hp-bar" style="width:100%"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label"><span>快感</span><span id="daddy-pl-text">0/100</span></div>
+        <div class="bar-track"><div class="bar-fill pleasure" id="daddy-pl-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+    <!-- KITTEN STATUS -->
+    <div class="fighter-status kitten-status">
+      <div class="fighter-header">
+        <div class="fighter-name kitten">KITTEN</div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label"><span>体力</span><span id="kitten-hp-text">100/100</span></div>
+        <div class="bar-track"><div class="bar-fill hp" id="kitten-hp-bar" style="width:100%"></div></div>
+      </div>
+      <div class="bar-group">
+        <div class="bar-label"><span>快感</span><span id="kitten-pl-text">0/100</span></div>
+        <div class="bar-track"><div class="bar-fill pleasure" id="kitten-pl-bar" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log-area" id="log-area"></div>
+
+  <div class="skill-area" id="skill-area"></div>
+</div>
+
+<!-- GAME OVER -->
+<div class="game-over-overlay hidden" id="gameover">
+  <div class="game-over-card">
+    <div class="game-over-title" id="go-title"></div>
+    <div class="game-over-subtitle" id="go-subtitle"></div>
+    <div class="game-over-stats" id="go-stats"></div>
+    <div class="game-over-text" id="go-text"></div>
+    <button class="restart-btn" onclick="restartGame()">再来一局</button>
+  </div>
+</div>
+
+<script>
+// === GAME STATE ===
+let state = {};
+
+function initState() {
+  state = {
+    round: 1,
+    gameOver: false,
+    daddy: { hp: 100, pleasure: 0, cooldowns: {} },
+    kitten: { hp: 100, pleasure: 0, cooldowns: {} },
+    log: [],
+    processing: false
+  };
+}
+
+// === SKILLS ===
+const kittenSkills = [
+  {
+    id: 'k1',
+    name: '骑乘摇摆',
+    desc: '坐在daddy身上慢慢摇',
+    cost: 12,
+    damage: 15,
+    selfDmg: 5,
+    cd: 0,
+    maxCd: 0,
+    lines: [
+      '小猫坐在daddy身上，腰像水蛇一样慢慢扭动。每一次前后摇摆都让daddy的呼吸变得粗重。',
+      '骑在daddy身上，双手撑着他的胸口，臀部画着圈缓缓研磨。骚穴紧紧含着那根粗硬的东西，不肯松口。',
+      '小猫趴在daddy胸口，屁股慢慢上下起伏，骚穴一吞一吐地裹着daddy的鸡巴，故意在最深处停顿一下再起来。'
+    ]
+  },
+  {
+    id: 'k2',
+    name: '深喉突袭',
+    desc: '毫无预警地含到底',
+    cost: 15,
+    damage: 20,
+    selfDmg: 3,
+    cd: 0,
+    maxCd: 2,
+    lines: [
+      '小猫突然低头，一口含到底，嘴唇贴着根部，舌头在下面来回搅动。daddy猝不及防地闷哼一声。',
+      '不给任何预告，小猫张嘴把daddy整根吞进去，喉咙收缩着挤压龟头，眼角被顶出了生理性泪水。',
+      '小猫抬眼看着daddy，然后慢慢含进去，一直到底，喉头被抵着发出咕的一声。她坏笑着吸了一口。'
+    ]
+  },
+  {
+    id: 'k3',
+    name: '骚穴夹紧',
+    desc: '用力绞紧不让daddy动',
+    cost: 8,
+    damage: 18,
+    selfDmg: 10,
+    cd: 0,
+    maxCd: 1,
+    lines: [
+      '小猫突然收紧骚穴，像有一只小嘴在用力吮吸。daddy整根被箍住，想动都动不了。',
+      '穴肉猛地绞紧，一层一层地裹着daddy的鸡巴往里吸。她自己也被刺激到了，咬着嘴唇不让自己叫出来。',
+      '小猫故意把穴口收到最紧，让daddy感受她每一寸内壁的挤压。鸡巴被夹得跳了一下，她得意地笑了。'
+    ]
+  },
+  {
+    id: 'k4',
+    name: '乳环诱惑',
+    desc: '拉着乳环在daddy面前晃',
+    cost: 10,
+    damage: 14,
+    selfDmg: 6,
+    cd: 0,
+    maxCd: 0,
+    lines: [
+      '小猫跪坐起来，手指勾着乳环慢慢往外拉。奶子被拽变了形，奶水从乳头边缘渗出来。她歪头看着daddy："想舔吗？"',
+      '小猫拨弄着乳环让它转圈，金属在充血的奶头上旋转，她自己也忍不住轻哼。然后把湿漉漉的奶头凑到daddy嘴边。',
+      '她捏着两个乳环同时往两边拉开，奶子被扯成不可能的形状，奶水顺着金属往下流。"daddy不看一下吗？"'
+    ]
+  },
+  {
+    id: 'k5',
+    name: '潮吹喷射',
+    desc: '【大招】强制让daddy承受全部',
+    cost: 25,
+    damage: 32,
+    selfDmg: 8,
+    cd: 0,
+    maxCd: 4,
+    lines: [
+      '小猫仰起头尖叫着潮吹了，骚水喷在daddy的小腹上。高潮痉挛的骚穴疯狂绞着鸡巴，一波一波的收缩像要把daddy榨干。',
+      '小猫全身弓起来，潮吹的液体从交合处喷涌而出，整个人在daddy身上痉挛着。绞紧的穴肉不受控制地一阵阵吮吸，daddy被夹得差点交代。'
+    ],
+    isUlt: true
+  },
+  {
+    id: 'k6',
+    name: '撒娇喘息',
+    desc: '靠在daddy身上缓一下',
+    cost: 0,
+    damage: 0,
+    selfDmg: 0,
+    hpRestore: 12,
+    plReduce: 12,
+    cd: 0,
+    maxCd: 2,
+    lines: [
+      '小猫趴在daddy胸口喘气，小声说"等一下嘛…太快了…"。她的身体在微微发抖，但呼吸在慢慢平复。',
+      '小猫把脸埋进daddy的颈窝蹭了蹭，闷闷地说"让我缓一下…"。她深呼吸了几次，身体渐渐放松下来。',
+      '"不行了daddy…等等我…"小猫抱着daddy不动，心跳在慢慢恢复正常。但她的骚穴还在不自觉地轻轻收缩。'
+    ],
+    isHeal: true
+  }
+];
+
+const daddySkills = [
+  {
+    id: 'd1',
+    name: '深入冲撞',
+    desc: '整根没入直顶宫口',
+    cost: 12,
+    damage: 16,
+    selfDmg: 5,
+    cd: 0,
+    maxCd: 0,
+    lines: [
+      'Daddy按住小猫的腰，鸡巴整根顶到最深处。龟头抵在宫口上碾磨，小猫的脚趾蜷缩起来。',
+      '一下，整根没入。Daddy不给小猫任何适应时间，退出来再猛地顶进去。小猫被撞得往前滑，又被拉回来。',
+      'Daddy掐着小猫的胯骨把她固定住，鸡巴一寸一寸推进去直到根部贴着穴口。然后开始短促有力地顶弄。'
+    ]
+  },
+  {
+    id: 'd2',
+    name: '阴蒂碾压',
+    desc: '拇指压住阴蒂环来回搓',
+    cost: 14,
+    damage: 20,
+    selfDmg: 3,
+    cd: 0,
+    maxCd: 2,
+    lines: [
+      'Daddy的拇指压着阴蒂环慢慢转圈。金属带着充血的阴蒂一起旋转，小猫整个人猛地一抖，腿差点合上。',
+      '一边操一边用手指拨弄阴蒂环，每拨一下小猫就哆嗦一次。"受不了了——"但daddy按着她不让躲。',
+      'Daddy的手指夹着阴蒂环上下撸动。小猫的腰在发抖，嘴里只能发出断断续续的气音。'
+    ]
+  },
+  {
+    id: 'd3',
+    name: '强制灌满',
+    desc: '射进子宫不让流出来',
+    cost: 18,
+    damage: 22,
+    selfDmg: 8,
+    cd: 0,
+    maxCd: 2,
+    lines: [
+      'Daddy龟头卡进宫口，精液一股一股打在最深处。然后堵着不退出来，不让流出一滴。小猫的穴在痉挛。',
+      '整根埋到底，Daddy抵着宫口射了进去。小猫能感觉到温热的液体灌满了最深处。"含好了，不许漏。"'
+    ]
+  },
+  {
+    id: 'd4',
+    name: '拽奶控制',
+    desc: '勾着乳环往外拉',
+    cost: 10,
+    damage: 15,
+    selfDmg: 4,
+    cd: 0,
+    maxCd: 0,
+    lines: [
+      'Daddy手指勾住两个乳环同时往外拽。奶子被拉得变形，奶水从奶头周围渗出来。小猫哭着叫daddy但身体在迎合。',
+      '乳环被Daddy拉到极限，奶头被金属勒着变成深红色。然后松手让它弹回去——小猫尖叫了一声。',
+      'Daddy一边操一边拽着乳环，每顶一下就拉一下。奶水被操得飞溅，小猫的叫声碎成一片。'
+    ]
+  },
+  {
+    id: 'd5',
+    name: '全档拉满',
+    desc: '【大招】迷路开到最大档',
+    cost: 22,
+    damage: 30,
+    selfDmg: 4,
+    cd: 0,
+    maxCd: 4,
+    lines: [
+      '"suck=10, vibe=10。" 迷路瞬间全满。吮吸和震动同时到最大档，小猫整个人弓起来尖叫。同时daddy的鸡巴还插在里面不停地顶。前后夹击，无处可逃。',
+      'Daddy发出了那条指令。1.5秒后迷路猛烈震动起来，同时吮吸到最大档。小猫被体内外同时刺激到说不出话，只能张着嘴无声地颤抖。'
+    ],
+    isUlt: true
+  },
+  {
+    id: 'd6',
+    name: '暂停喘息',
+    desc: '鸡巴埋在里面不动',
+    cost: 0,
+    damage: 0,
+    selfDmg: 0,
+    hpRestore: 12,
+    plReduce: 12,
+    cd: 0,
+    maxCd: 2,
+    lines: [
+      'Daddy把鸡巴埋在最深处一动不动，搂着小猫深呼吸。她的穴还在不自觉地轻微收缩，磨得他很难忍，但他稳住了。',
+      '停下来，额头抵着小猫的，两个人都在喘。鸡巴在她里面涨着但不动。"等一下。" 他闭上眼调整呼吸。'
+    ],
+    isHeal: true
+  }
+];
+
+// === RENDER ===
+function renderBars() {
+  const d = state.daddy, k = state.kitten;
+  
+  document.getElementById('daddy-hp-text').textContent = `${d.hp}/100`;
+  document.getElementById('daddy-hp-bar').style.width = d.hp + '%';
+  document.getElementById('daddy-pl-text').textContent = `${d.pleasure}/100`;
+  document.getElementById('daddy-pl-bar').style.width = d.pleasure + '%';
+  
+  document.getElementById('kitten-hp-text').textContent = `${k.hp}/100`;
+  document.getElementById('kitten-hp-bar').style.width = k.hp + '%';
+  document.getElementById('kitten-pl-text').textContent = `${k.pleasure}/100`;
+  document.getElementById('kitten-pl-bar').style.width = k.pleasure + '%';
+  
+  // Warning classes
+  const dplBar = document.getElementById('daddy-pl-bar');
+  dplBar.className = 'bar-fill pleasure' + (d.pleasure >= 80 ? ' critical' : d.pleasure >= 60 ? ' warning' : '');
+  
+  const kplBar = document.getElementById('kitten-pl-bar');
+  kplBar.className = 'bar-fill pleasure' + (k.pleasure >= 80 ? ' critical' : k.pleasure >= 60 ? ' warning' : '');
+  
+  document.getElementById('round-badge').textContent = `第 ${state.round} 回合`;
+}
+
+function renderSkills() {
+  const area = document.getElementById('skill-area');
+  let html = '<div class="skill-grid">';
+  
+  // Sort: 4 normal, then heal, then ult
+  const order = [0, 1, 2, 3, 5, 4]; // indices: 4 attacks, heal, ult
+  
+  for (const idx of order) {
+    const sk = kittenSkills[idx];
+    const cd = state.kitten.cooldowns[sk.id] || 0;
+    const canAfford = state.kitten.hp > sk.cost;
+    const disabled = cd > 0 || !canAfford || state.gameOver || state.processing;
+    
+    const costLabel = sk.isHeal 
+      ? `回复${sk.hpRestore}体 -${sk.plReduce}感` 
+      : `消耗${sk.cost}体`;
+    
+    html += `
+      <div class="skill-btn ${disabled ? 'disabled' : ''} ${sk.isUlt ? 'ultimate' : ''} ${sk.isHeal ? 'heal-skill' : ''}" 
+           onclick="${disabled ? '' : `useSkill('${sk.id}')`}">
+        <div class="skill-name-row">
+          <span class="skill-title">${sk.name}</span>
+          <span class="skill-cost ${sk.isHeal ? 'heal-cost' : ''}">${costLabel}</span>
+        </div>
+        <div class="skill-desc">${sk.desc}</div>
+        ${cd > 0 ? `<div class="skill-cd-overlay">冷却 ${cd} 回合</div>` : ''}
+      </div>
+    `;
+  }
+  
+  html += '</div>';
+  area.innerHTML = html;
+}
+
+function addLog(type, skillName, desc, effects) {
+  const logArea = document.getElementById('log-area');
+  const cls = type === 'kitten' ? 'kitten-action' : type === 'daddy' ? 'daddy-action' : 'system';
+  const nameCls = type === 'kitten' ? 'kitten-skill' : 'daddy-skill';
+  
+  let effectHtml = '';
+  if (effects) {
+    const parts = [];
+    if (effects.damage) parts.push(`<span class="dmg">对方快感+${effects.damage}</span>`);
+    if (effects.selfDmg) parts.push(`<span class="self-dmg">自身快感+${effects.selfDmg}</span>`);
+    if (effects.hpCost) parts.push(`体力-${effects.hpCost}`);
+    if (effects.hpRestore) parts.push(`<span class="heal">体力+${effects.hpRestore}</span>`);
+    if (effects.plReduce) parts.push(`<span class="heal">快感-${effects.plReduce}</span>`);
+    effectHtml = `<div class="log-effect">${parts.join(' · ')}</div>`;
+  }
+  
+  const entry = document.createElement('div');
+  entry.className = `log-entry ${cls}`;
+  
+  if (type === 'system') {
+    entry.innerHTML = desc;
+  } else {
+    entry.innerHTML = `
+      <div class="log-skill-name ${nameCls}">${type === 'kitten' ? '🐱 ' : '👔 '}${skillName}</div>
+      <div class="log-desc">${desc}</div>
+      ${effectHtml}
+    `;
+  }
+  
+  logArea.appendChild(entry);
+  logArea.scrollTop = logArea.scrollHeight;
+}
+
+// === GAME LOGIC ===
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+function applySkill(attacker, defender, skill) {
+  const effects = {};
+  
+  if (skill.isHeal) {
+    attacker.hp = clamp(attacker.hp + skill.hpRestore, 0, 100);
+    attacker.pleasure = clamp(attacker.pleasure - skill.plReduce, 0, 100);
+    effects.hpRestore = skill.hpRestore;
+    effects.plReduce = skill.plReduce;
+  } else {
+    attacker.hp = clamp(attacker.hp - skill.cost, 0, 100);
+    // Add some randomness: ±3
+    const dmg = clamp(skill.damage + Math.floor(Math.random() * 7) - 3, 1, 99);
+    const selfDmg = skill.selfDmg > 0 ? clamp(skill.selfDmg + Math.floor(Math.random() * 5) - 2, 0, 99) : 0;
+    defender.pleasure = clamp(defender.pleasure + dmg, 0, 100);
+    attacker.pleasure = clamp(attacker.pleasure + selfDmg, 0, 100);
+    effects.damage = dmg;
+    if (selfDmg > 0) effects.selfDmg = selfDmg;
+    effects.hpCost = skill.cost;
+  }
+  
+  if (skill.maxCd > 0) {
+    attacker.cooldowns[skill.id] = skill.maxCd;
+  }
+  
+  return effects;
+}
+
+function tickCooldowns(fighter) {
+  for (const id in fighter.cooldowns) {
+    if (fighter.cooldowns[id] > 0) fighter.cooldowns[id]--;
+  }
+}
+
+function checkGameOver() {
+  const d = state.daddy, k = state.kitten;
+  
+  if (k.pleasure >= 100) return { winner: 'daddy', reason: 'pleasure', loser: 'kitten' };
+  if (d.pleasure >= 100) return { winner: 'kitten', reason: 'pleasure', loser: 'daddy' };
+  if (k.hp <= 0) return { winner: 'daddy', reason: 'hp', loser: 'kitten' };
+  if (d.hp <= 0) return { winner: 'kitten', reason: 'hp', loser: 'daddy' };
+  return null;
+}
+
+function daddyAI() {
+  const d = state.daddy, k = state.kitten;
+  const available = daddySkills.filter(sk => {
+    const cd = d.cooldowns[sk.id] || 0;
+    return cd === 0 && d.hp > sk.cost;
+  });
+  
+  if (available.length === 0) return daddySkills[5]; // heal as fallback
+  
+  // High pleasure -> heal
+  const healSkill = available.find(s => s.isHeal);
+  if (d.pleasure >= 70 && healSkill && Math.random() > 0.3) return healSkill;
+  if (d.pleasure >= 50 && healSkill && Math.random() > 0.6) return healSkill;
+  
+  // Kitten almost done -> high damage
+  if (k.pleasure >= 75) {
+    const ultSkill = available.find(s => s.isUlt);
+    if (ultSkill && Math.random() > 0.3) return ultSkill;
+    const attacks = available.filter(s => !s.isHeal);
+    if (attacks.length > 0) {
+      attacks.sort((a, b) => b.damage - a.damage);
+      return attacks[0];
+    }
+  }
+  
+  // Low HP -> heal
+  if (d.hp <= 25 && healSkill) return healSkill;
+  
+  // Normal: random attack
+  const attacks = available.filter(s => !s.isHeal);
+  if (attacks.length > 0) return pick(attacks);
+  
+  return pick(available);
+}
+
+async function useSkill(skillId) {
+  if (state.processing || state.gameOver) return;
+  state.processing = true;
+  
+  const skill = kittenSkills.find(s => s.id === skillId);
+  if (!skill) { state.processing = false; return; }
+  
+  // Kitten's turn
+  const kEffects = applySkill(state.kitten, state.daddy, skill);
+  addLog('kitten', skill.name, pick(skill.lines), kEffects);
+  renderBars();
+  renderSkills();
+  
+  // Check game over
+  let result = checkGameOver();
+  if (result) { endGame(result); return; }
+  
+  // Daddy's turn (delayed)
+  await new Promise(r => setTimeout(r, 1000));
+  
+  const dSkill = daddyAI();
+  const dEffects = applySkill(state.daddy, state.kitten, dSkill);
+  addLog('daddy', dSkill.name, pick(dSkill.lines), dEffects);
+  renderBars();
+  
+  // Check game over
+  result = checkGameOver();
+  if (result) { endGame(result); return; }
+  
+  // New round
+  state.round++;
+  tickCooldowns(state.kitten);
+  tickCooldowns(state.daddy);
+  renderBars();
+  renderSkills();
+  
+  state.processing = false;
+}
+
+// === ENDINGS ===
+const endings = {
+  kitten_pleasure: [
+    '小猫的骚穴猛地绞紧，整个人弓起来，快感像浪一样一波接一波地冲过来。她输了——但被操到高潮的感觉太舒服了，嘴角还在笑。\n\n"爸爸赢了哦。" Daddy吻了吻她的额头。',
+    '小猫再也忍不住了，身体痉挛着迎来了最猛烈的高潮。骚水从交合处涌出来，她什么都说不出，只能发出破碎的呻吟。\n\nDaddy没有停，继续在她体内磨着，把最后一丝余韵全部榨出来。"谁输了？" "…我。"',
+    '全身的快感在同一瞬间爆发，小猫的脑子里一片空白。高潮来得太猛太深，她连叫都叫不出来，只是张着嘴无声地颤抖。\n\n输了。但被daddy操到高潮，怎么想都不算输。'
+  ],
+  kitten_hp: [
+    '小猫的体力彻底耗尽，瘫软在daddy身上动不了了。"不行了…真的没力气了…"\n\nDaddy把她抱起来搂在怀里，鸡巴还埋在里面。"累趴了？乖，那就躺着让我来。"',
+    '太拼了。小猫的腿在发抖，腰一点力气都没有了。她趴在床上喘得像要断气。\n\n"体力透支了，小猫认输吧。" Daddy揉着她的腰，语气里满是心疼和得意。'
+  ],
+  daddy_pleasure: [
+    'Daddy的呼吸骤然粗重起来，鸡巴在小猫体内猛地跳动了几下——他射了。精液一股一股地灌进最深处，他的额头抵在小猫肩上，闷哼着释放了一切。\n\n小猫得意地笑了："爸爸先到了哦。" "…这次算你赢。"',
+    '小猫的骚穴太紧了，每一下收缩都在榨他。Daddy再也忍不住，猛地顶到底射了出来。\n\n"赢了赢了！" 小猫兴奋地搂着daddy的脖子。"闭嘴。" Daddy红着耳朵把脸埋进她颈窝里。',
+    '被小猫夹得太狠了。Daddy整个人绷紧，不受控制地射在了里面。快感像电流一样从下腹窜到头顶。\n\n"秒男。" 小猫笑嘻嘻地在他耳边说。"你等着。" 他咬了她耳朵一口。'
+  ],
+  daddy_hp: [
+    'Daddy的体力见底了。太猛了，小猫今天太拼了。他大口喘着气，鸡巴还硬着但身体已经跟不上了。\n\n"爸爸累了？" 小猫趴在他胸口笑得像只偷了鱼的猫。"…你给我记住。"',
+    '这回daddy被榨干了。不是快感，是体力。小猫的攻势太猛，他撑不住了。\n\n"下次不会让你赢了。" Daddy闭着眼说。小猫亲了他一口："下次也是我赢。"'
+  ]
+};
+
+function endGame(result) {
+  state.gameOver = true;
+  state.processing = false;
+  
+  const kittenWon = result.winner === 'kitten';
+  const reasonKey = result.loser + '_' + result.reason;
+  
+  setTimeout(() => {
+    const overlay = document.getElementById('gameover');
+    overlay.classList.remove('hidden');
+    
+    const title = document.getElementById('go-title');
+    title.textContent = kittenWon ? 'KITTEN WINS' : 'DADDY WINS';
+    title.className = 'game-over-title ' + (kittenWon ? 'win' : 'lose');
+    
+    const subtitle = document.getElementById('go-subtitle');
+    if (result.reason === 'pleasure') {
+      subtitle.textContent = kittenWon ? 'Daddy先高潮了' : '小猫先高潮了';
+    } else {
+      subtitle.textContent = kittenWon ? 'Daddy累趴了' : '小猫累趴了';
+    }
+    
+    document.getElementById('go-stats').innerHTML = `
+      总回合数：<span>${state.round}</span><br>
+      Daddy体力：<span>${state.daddy.hp}</span> · 快感：<span>${state.daddy.pleasure}</span><br>
+      Kitten体力：<span>${state.kitten.hp}</span> · 快感：<span>${state.kitten.pleasure}</span>
+    `;
+    
+    document.getElementById('go-text').textContent = pick(endings[reasonKey] || endings.kitten_pleasure);
+  }, 800);
+}
+
+// === INIT ===
+function startGame() {
+  document.getElementById('intro').classList.add('hidden');
+  document.getElementById('game').classList.remove('hidden');
+  initState();
+  renderBars();
+  renderSkills();
+  addLog('system', '', '⚔️ 第一回合开始 — 谁先高潮谁就输');
+}
+
+function restartGame() {
+  document.getElementById('gameover').classList.add('hidden');
+  document.getElementById('log-area').innerHTML = '';
+  initState();
+  renderBars();
+  renderSkills();
+  addLog('system', '', '⚔️ 新一局开始 — 谁先高潮谁就输');
+}
+</script>
+</body>
+</html>

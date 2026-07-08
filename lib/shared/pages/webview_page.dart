@@ -8,9 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../l10n/app_localizations.dart';
 
 class WebViewPage extends StatefulWidget {
-  const WebViewPage({super.key, this.url, this.contentBase64});
+  const WebViewPage({super.key, this.url, this.contentBase64, this.assetPath});
   final String? url;
   final String? contentBase64; // HTML string in Base64
+  final String? assetPath; // bundled flutter asset, e.g. assets/html/games/x.html
 
   @override
   State<WebViewPage> createState() => _WebViewPageState();
@@ -80,8 +81,12 @@ class _WebViewPageState extends State<WebViewPage> {
       return;
     }
     final url = widget.url?.trim() ?? '';
+    final asset = widget.assetPath?.trim() ?? '';
     if (url.isNotEmpty) {
       await _controller.loadRequest(Uri.parse(url));
+    } else if (asset.isNotEmpty) {
+      // Bundled offline game/tool — loads from flutter_assets, no network.
+      await _controller.loadFlutterAsset(asset);
     } else {
       final data = widget.contentBase64 ?? '';
       final html = data.isEmpty
@@ -160,9 +165,11 @@ class _WebViewPageState extends State<WebViewPage> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final bool hasUrl = widget.url != null && widget.url!.trim().isNotEmpty;
     final bool contentMode =
-        (widget.contentBase64 != null && (widget.contentBase64!.isNotEmpty)) &&
-        ((widget.url == null) || widget.url!.isEmpty);
+        !hasUrl &&
+        ((widget.contentBase64?.isNotEmpty ?? false) ||
+            (widget.assetPath?.isNotEmpty ?? false));
     return PopScope(
       canPop: !_canGoBack,
       onPopInvokedWithResult: (didPop, _) {
