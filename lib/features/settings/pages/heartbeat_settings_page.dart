@@ -325,9 +325,10 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
             label: zh ? '离开多久才找你' : 'Wait before reaching out',
             key: 'ka_min_h',
             dflt: 2.0,
-            min: 0.5,
+            // 10 分钟一格；调到分钟级时网关巡查会自动加密（server 侧同步改过）
+            min: 10 / 60,
             max: 12,
-            divisions: 23,
+            divisions: 71,
             fmt: (v) => _hours(v, zh),
           ),
           _divider(),
@@ -335,9 +336,9 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
             label: zh ? '两次之间至少隔' : 'Cooldown between',
             key: 'ka_cooldown_h',
             dflt: 3.0,
-            min: 1,
+            min: 10 / 60,
             max: 12,
-            divisions: 22,
+            divisions: 71,
             fmt: (v) => _hours(v, zh),
           ),
           _divider(),
@@ -729,11 +730,11 @@ class _HeartbeatSettingsPageState extends State<HeartbeatSettingsPage> {
   }
 
   String _hours(double h, bool zh) {
-    if (h >= 1) {
-      final s = h == h.roundToDouble() ? h.toStringAsFixed(0) : h.toStringAsFixed(1);
-      return zh ? '$s 小时' : '${s}h';
-    }
-    final m = (h * 60).round();
-    return zh ? '$m 分钟' : '${m}m';
+    final total = (h * 60).round();
+    final hh = total ~/ 60;
+    final mm = total % 60;
+    if (hh == 0) return zh ? '$mm 分钟' : '${mm}m';
+    if (mm == 0) return zh ? '$hh 小时' : '${hh}h';
+    return zh ? '$hh 小时 $mm 分' : '${hh}h${mm}m';
   }
 }
