@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../icons/lucide_adapter.dart';
@@ -33,7 +37,8 @@ class BrowserPage extends StatefulWidget {
   State<BrowserPage> createState() => _BrowserPageState();
 }
 
-class _BrowserPageState extends State<BrowserPage> {
+class _BrowserPageState extends State<BrowserPage>
+    with WidgetsBindingObserver {
   // iPhone Safari UA (mobile, default) / Mac Safari UA (desktop mode).
   static const String _mobileUa =
       'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) '
@@ -139,6 +144,16 @@ window.haptic = function(style){
   bool _canGoForward = false;
   String _currentUrl = '';
 
+  // 窗·遥控桥（pocket）：她把这扇窗借给爸爸时才通。默认关，每次进房都要她亲手开——
+  // 这是知情同意的边界，不落盘、不跨会话记忆。开着时每 ~1.2s 向老家网关领一条指令
+  // （ping/goto/js/html/screenshot），干完交回执；关窗/退房/App 切后台即停，爸爸只会
+  // 收到「手机不在线」。协议按家规走短轮询（不走长连接）。
+  static const Duration _pollInterval = Duration(milliseconds: 1200);
+  bool _bridgeOn = false;
+  bool _polling = false;
+  Timer? _pollTimer;
+  OurHomeGateway? _gw;
+
   bool get _hasPage =>
       _currentUrl.isNotEmpty && !_currentUrl.startsWith('about:blank');
 
@@ -156,6 +171,7 @@ window.haptic = function(style){
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final initial = widget.initialUrl?.trim();
     if (initial != null && initial.isNotEmpty) {
       _urlController.text = initial;
@@ -164,9 +180,157 @@ window.haptic = function(style){
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pollTimer?.cancel();
     _urlController.dispose();
     _urlFocus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 只有 App 在前台、桥开着时才轮询。切后台/锁屏立刻停（iOS 本就会冻结，这里主动收手
+    // 让服务端「不在线」判定更快、不留悬空回执），回到前台再续上。
+    if (!_bridgeOn) return;
+    if (state == AppLifecycleState.resumed) {
+      _startPolling();
+    } else {
+      _pollTimer?.cancel();
+      _pollTimer = null;
+    }
+  }
+
+  // 借窗给爸爸的开关：需要家里的钥匙（网关 token）。默认关，她亲手开。
+  Future<void> _toggleBridge(bool zh) async {
+    if (_bridgeOn) {
+      setState(() => _bridgeOn = false);
+      _pollTimer?.cancel();
+      _pollTimer = null;
+      _gw = null;
+      Haptics.medium();
+      _snack(zh ? '窗已收回 · 爸爸看不到了' : 'Window taken back · daddy can no longer see');
+      return;
+    }
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) {
+      _snack(zh
+          ? '还没连上家里的钥匙——先在主聊天跟爸爸说句话唤醒一次再回来'
+          : 'Not linked to home yet — say hi to daddy in the main chat first');
+      return;
+    }
+    _gw = gw;
+    setState(() => _bridgeOn = true);
+    Haptics.medium();
+    _startPolling();
+    _snack(zh
+        ? '已把这扇窗借给爸爸 · 他能看你正在看的页了'
+        : 'This window is now shared with daddy');
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(_pollInterval, (_) => _pollOnce());
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(msg)));
+  }
+
+  Map<String, String> get _pocketHeaders =>
+      {..._gw!.authHeaders, 'Content-Type': 'application/json'};
+
+  // 领一条指令：报上当前 {url,title}，有指令就干、干完交回执。可重入保护 + 全程吞错
+  // （网络抖动不该弄崩房间；桥断了下一拍自然重来）。
+  Future<void> _pollOnce() async {
+    if (_polling || !_bridgeOn || _gw == null) return;
+    _polling = true;
+    try {
+      final title = (await _controller?.getTitle()) ?? '';
+      final resp = await http
+          .post(
+            Uri.parse('${_gw!.base}/api/pocket/poll'),
+            headers: _pocketHeaders,
+            body: jsonEncode({
+              'page': {'url': _currentUrl, 'title': title},
+            }),
+          )
+          .timeout(const Duration(seconds: 6));
+      if (resp.statusCode != 200) return;
+      final data = jsonDecode(resp.body);
+      final cmd = data is Map ? data['cmd'] : null;
+      if (cmd is Map) {
+        await _runCmd(Map<String, dynamic>.from(cmd));
+      }
+    } catch (_) {
+      // 忽略：网络错误/超时，下一拍再来
+    } finally {
+      _polling = false;
+    }
+  }
+
+  Future<void> _runCmd(Map<String, dynamic> cmd) async {
+    final id = cmd['id'];
+    final action = (cmd['action'] ?? '').toString();
+    Map<String, dynamic> result;
+    try {
+      switch (action) {
+        case 'ping':
+          result = {'id': id, 'ok': true, 'data': 'pong'};
+          break;
+        case 'goto':
+          final u = _normalize((cmd['url'] ?? '').toString());
+          await _controller?.loadUrl(urlRequest: URLRequest(url: WebUri(u)));
+          result = {'id': id, 'ok': true, 'data': u};
+          break;
+        case 'js':
+          final r = await _controller?.evaluateJavascript(
+            source: (cmd['js'] ?? '').toString(),
+          );
+          result = {'id': id, 'ok': true, 'data': r?.toString() ?? ''};
+          break;
+        case 'html':
+          final r = await _controller?.evaluateJavascript(
+            source: 'document.documentElement.outerHTML',
+          );
+          result = {'id': id, 'ok': true, 'data': r?.toString() ?? ''};
+          break;
+        case 'screenshot':
+          final bytes = await _controller?.takeScreenshot(
+            screenshotConfiguration: ScreenshotConfiguration(
+              compressFormat: CompressFormat.JPEG,
+              quality: 80,
+            ),
+          );
+          result = bytes != null
+              ? {'id': id, 'ok': true, 'image': base64Encode(bytes)}
+              : {'id': id, 'ok': false, 'data': '截图失败：没拿到图'};
+          break;
+        default:
+          result = {'id': id, 'ok': false, 'data': '不认识的指令：$action'};
+      }
+    } catch (e) {
+      result = {'id': id, 'ok': false, 'data': '执行出错：$e'};
+    }
+    await _postResult(result);
+  }
+
+  Future<void> _postResult(Map<String, dynamic> result) async {
+    final gw = _gw;
+    if (gw == null) return;
+    try {
+      await http
+          .post(
+            Uri.parse('${gw.base}/api/pocket/result'),
+            headers: _pocketHeaders,
+            body: jsonEncode(result),
+          )
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {
+      // 回执发失败就算了——爸爸那端会超时，她重开窗或他重下都能恢复
+    }
   }
 
   URLRequest _initialRequest() {
@@ -319,6 +483,17 @@ window.haptic = function(style){
                 ),
               ),
               actions: [
+                IosIconButton(
+                  icon: Lucide.Link,
+                  minSize: 44,
+                  color: _bridgeOn
+                      ? cs.primary
+                      : cs.onSurface.withValues(alpha: 0.6),
+                  semanticLabel: _bridgeOn
+                      ? (zh ? '收回窗口（爸爸不再能看）' : 'Take window back from daddy')
+                      : (zh ? '把这扇窗借给爸爸' : 'Share this window with daddy'),
+                  onTap: () => _toggleBridge(zh),
+                ),
                 IosIconButton(
                   icon: Lucide.EyeOff,
                   minSize: 44,
