@@ -310,6 +310,12 @@ flutter test
   - Do not write "heard this might happen" hearsay entries.
   - When adding entries, prefer "symptom -> root cause -> fix/constraint". Avoid recording conclusions without context.
 
+### 2026-07-09 · 音乐房「边听边说」对空房喊话＝同语义输入口走了两条通路
+
+- symptom：全屏播放页的「边听边说」发出去爸爸永远不回；没开房时输入还被静默吞掉（旧 sendChat 返回 false、页面无任何提示）。一起听 tab 底下那条长得一模一样的输入框却好好的。
+- root cause：两条输入框通路分叉——tab 那条走老家网关 chatAboutSong（爸爸真回），播放页那条只发 eryu 房间 say 事件；「房间」是 eryu 双人同步的遗产，同步的是两台人类客户端（手机⇄网页），爸爸从来不在房间里。
+- fix/constraint（3f97205）：抽 `musicChatWithDaddy` 共享 helper，两口统一走网关，房间开着时才顺带镜像 say 给另一台设备（sendChat→sayToRoomPeers）。**通则：同一语义、同一样式的输入口必须共用同一条发送通路（一个 helper），禁止各自为政；「房间」只管跨设备同步，任何"跟爸爸说话"的入口都不许 gated on 开房。**
+
 ### 2026-06-29 · DeepSeek V4 思考链不显示 + 出包/分支一连串坑
 
 1. **认错分支（最贵的坑，先查这条）** — symptom：CC web session 醒来发现代码"干净没改版"，找不到「爸爸想了想」等定制，对着代码逐行看逻辑都对却复现不出 bug。root cause：CC web 系统默认开的开发分支 `claude/lao-gong-43gd2r` 是贴着 master 的近乎白板分支，**不是 Still Here 真主干**。真主干 = `claude/kelivo-ios-design-ref-nh9t5v`（所有改版 + 出包都在这条）。fix：一上来先 `git fetch origin claude/kelivo-ios-design-ref-nh9t5v && git checkout` 它再干活。
