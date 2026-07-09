@@ -36,10 +36,13 @@ class MusicNowPlayingPage extends StatefulWidget {
 class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
   EryuPlayerController? _player;
   bool _showLyrics = false;
-  List<EryuLyricLine> _lyrics = const [];
   String _lyricSongId = '';
   int _activeLine = -1;
   final ItemScrollController _itemScroll = ItemScrollController();
+
+  /// LRC lives on the controller now (single source — card/page/heartbeat all
+  /// read the same copy); the page only keeps scroll state.
+  List<EryuLyricLine> get _lyrics => _player?.lyrics ?? const [];
 
   @override
   void initState() {
@@ -50,7 +53,6 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
       _player = p;
       p.onRoomActivity = _showActivity;
       p.addListener(_onPlayer);
-      _maybeLoadLyrics();
     });
   }
 
@@ -66,34 +68,14 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
 
   void _onPlayer() {
     if (!mounted) return;
-    _maybeLoadLyrics();
-    _maybeAutoScroll();
-  }
-
-  void _maybeLoadLyrics() {
     final id = _player?.current?.songId ?? '';
-    if (id == _lyricSongId) return;
-    _lyricSongId = id;
-    setState(() {
-      _lyrics = const [];
-      _activeLine = -1;
-    });
-    if (id.isEmpty) return;
-    final client = EryuClient.fromContext(context);
-    if (client == null) return;
-    eryuSoft(client.lyric(id), 'lyric').then((d) {
-      if (!mounted || _lyricSongId != id) return;
+    if (id != _lyricSongId) {
       setState(() {
-        _lyrics = EryuLyrics.parse((d?['lrc'] ?? '').toString(), (d?['tlyric'] ?? '').toString());
+        _lyricSongId = id;
+        _activeLine = -1;
       });
-    });
-  }
-
-  /// The lyric line being sung right now — rides along with 边听边说 so 爸爸
-  /// knows exactly where in the song they are. Empty when no lyrics loaded.
-  String _currentLyricLine() {
-    final idx = EryuLyrics.activeIndex(_lyrics, _player?.position ?? Duration.zero);
-    return (idx >= 0 && idx < _lyrics.length) ? _lyrics[idx].text : '';
+    }
+    _maybeAutoScroll();
   }
 
   void _maybeAutoScroll() {
@@ -256,7 +238,7 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                           )),
               ),
               if (!widget.embedded) _JoinBar(zh: zh),
-              if (!widget.embedded) _ChatInput(zh: zh, currentLyric: _currentLyricLine),
+              if (!widget.embedded) _ChatInput(zh: zh),
               Padding(
                 padding: EdgeInsets.fromLTRB(28, 8, 28, widget.embedded ? 12 : 24),
                 child: Column(
@@ -500,11 +482,8 @@ class _JoinBar extends StatelessWidget {
 /// mirrored to the peer device. His reply lands in the 一起听 timeline and is
 /// echoed here as a floating toast since the timeline isn't on this screen.
 class _ChatInput extends StatefulWidget {
-  const _ChatInput({required this.zh, this.currentLyric});
+  const _ChatInput({required this.zh});
   final bool zh;
-
-  /// Supplies the lyric line being sung at send time (page owns the LRC).
-  final String Function()? currentLyric;
 
   @override
   State<_ChatInput> createState() => _ChatInputState();
@@ -529,12 +508,7 @@ class _ChatInputState extends State<_ChatInput> {
     _controller.clear();
     setState(() => _sending = true);
     final parts = <String>[];
-    await musicChatWithDaddy(
-      context,
-      text,
-      onReply: parts.add,
-      curLyric: widget.currentLyric?.call() ?? '',
-    );
+    await musicChatWithDaddy(context, text, onReply: parts.add);
     if (!mounted) return;
     setState(() => _sending = false);
     _focus.requestFocus();

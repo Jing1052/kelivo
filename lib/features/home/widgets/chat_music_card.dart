@@ -32,8 +32,6 @@ class ChatMusicCard extends StatefulWidget {
 
 class _ChatMusicCardState extends State<ChatMusicCard> {
   bool _expanded = false;
-  List<EryuLyricLine> _lyrics = const [];
-  String _lyricSongId = '';
 
   void _openFull() {
     Haptics.soft();
@@ -47,29 +45,6 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
     setState(() => _expanded = !_expanded);
   }
 
-  /// Fetch the LRC for the current song once per song, only while expanded
-  /// (the collapsed pill never shows lyrics). Safe to call from build: the
-  /// sync part only mutates fields for this same frame; setState happens in
-  /// the async callback.
-  void _maybeLoadLyrics(EryuSong song) {
-    if (song.songId == _lyricSongId) return;
-    _lyricSongId = song.songId;
-    _lyrics = const [];
-    if (song.songId.isEmpty) return;
-    final client = EryuClient.fromContext(context);
-    if (client == null) return;
-    final id = song.songId;
-    eryuSoft(client.lyric(id), 'card lyric').then((d) {
-      if (!mounted || _lyricSongId != id) return;
-      setState(() {
-        _lyrics = EryuLyrics.parse(
-          (d?['lrc'] ?? '').toString(),
-          (d?['tlyric'] ?? '').toString(),
-        );
-      });
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     final player = context.watch<EryuPlayerController>();
@@ -78,7 +53,6 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
     // build 一炸，ErrorWidget 的半透明灰盒会被 StackFit.expand 撑满整个聊天区
     // （2026-07-05 小猫的「灰蒙蒙」）。顺带避免隐藏态 BackdropFilter 仍在底部糊一条。
     if (song == null) return const SizedBox.shrink();
-    if (_expanded) _maybeLoadLyrics(song);
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
@@ -165,8 +139,11 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
   }
 
   Widget _buildExpanded(EryuSong song, EryuPlayerController player, ColorScheme cs, bool zh) {
-    final idx = EryuLyrics.activeIndex(_lyrics, player.position);
-    final line = (idx >= 0 && idx < _lyrics.length) ? _lyrics[idx] : null;
+    // LRC lives on the controller (single copy shared with the player page
+    // and the now-playing heartbeat).
+    final lyrics = player.lyrics;
+    final idx = EryuLyrics.activeIndex(lyrics, player.position);
+    final line = (idx >= 0 && idx < lyrics.length) ? lyrics[idx] : null;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [

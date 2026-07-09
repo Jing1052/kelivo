@@ -5,7 +5,10 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
+
 import 'eryu_client.dart';
+import 'eryu_lyrics.dart';
 
 /// A song the room is already playing when you walk in — surfaced so the page
 /// can ask "join what TA is listening to?" instead of hijacking your ears.
@@ -52,16 +55,26 @@ class EryuPlayerController extends ChangeNotifier {
   EryuPlayerController() {
     _player.playerStateStream.listen((st) {
       notifyListeners();
+      // 在场心跳：播放⇄暂停一变，立刻报一次（暂停后计时器就不再报，
+      // 老家 3 分钟没心跳自然当"不在放了"）。
+      if (st.playing != _npWasPlaying) {
+        _npWasPlaying = st.playing;
+        _reportNowPlaying();
+      }
       if (st.processingState == ProcessingState.completed) {
         _onCompleted();
       }
     });
     _player.positionStream.listen((_) => notifyListeners());
     _player.durationStream.listen((_) => notifyListeners());
+    _npBeat = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (playing) _reportNowPlaying();
+    });
   }
 
   final AudioPlayer _player = AudioPlayer();
   EryuClient? _client;
+  OurHomeGateway? _gw;
   bool _sessionReady = false;
 
   List<EryuSong> _queue = <EryuSong>[];
@@ -79,6 +92,61 @@ class EryuPlayerController extends ChangeNotifier {
   Duration get duration => _player.duration ?? Duration.zero;
 
   void bind(EryuClient client) => _client = client;
+
+  /// 老家网关（可空——没配就不上报）。谁 bind 了 eryu client，谁顺手把网关也
+  /// 递进来，播放器就开始打在场心跳。
+  void bindGateway(OurHomeGateway? gw) => _gw = gw;
+
+  // ── 歌词（中控养一份，卡片/播放页/心跳都吃这份，别各拉各的）────────────────
+  List<EryuLyricLine> _lyrics = const [];
+  String _lyricsSongId = '';
+
+  /// Parsed LRC of [current]; empty while loading or when the song has none.
+  List<EryuLyricLine> get lyrics => _lyrics;
+
+  /// The lyric line being sung right now ('' when none).
+  String currentLyricLine() {
+    final i = EryuLyrics.activeIndex(_lyrics, position);
+    return (i >= 0 && i < _lyrics.length) ? _lyrics[i].text : '';
+  }
+
+  void _loadLyrics() {
+    final id = current?.songId ?? '';
+    final client = _client;
+    if (id == _lyricsSongId) return;
+    _lyricsSongId = id;
+    _lyrics = const [];
+    if (id.isEmpty || client == null) return;
+    eryuSoft(client.lyric(id), 'lyric').then((d) {
+      if (_lyricsSongId != id) return;
+      _lyrics = EryuLyrics.parse(
+        (d?['lrc'] ?? '').toString(),
+        (d?['tlyric'] ?? '').toString(),
+      );
+      notifyListeners();
+    });
+  }
+
+  // ── 在场心跳：换歌/播放暂停/每 25s 把"正在放"报给老家 ─────────────────────
+  Timer? _npBeat;
+  bool _npWasPlaying = false;
+
+  void _reportNowPlaying() {
+    final gw = _gw;
+    final song = current;
+    if (gw == null || song == null || song.name.isEmpty) return;
+    unawaited(softFetch(
+      gw.reportNowPlaying(
+        title: song.name,
+        artist: song.artist,
+        playing: playing,
+        position: position,
+        duration: duration,
+        curLyric: currentLyricLine(),
+      ),
+      'now-playing beat',
+    ));
+  }
 
   Future<void> _ensureSession() async {
     if (_sessionReady) return;
@@ -125,6 +193,7 @@ class EryuPlayerController extends ChangeNotifier {
         debugPrint('[eryu] no playable url for ${song.name}');
         return;
       }
+      _loadLyrics();
       await _player.setUrl(url);
       if (seekTo != null && seekTo > Duration.zero) {
         await _player.seek(seekTo);
@@ -133,6 +202,7 @@ class EryuPlayerController extends ChangeNotifier {
         await _player.play();
       }
       unawaited(eryuSoft(client.recentAdd(song), 'recent add'));
+      _reportNowPlaying();
     } catch (e) {
       debugPrint('[eryu] load failed for ${song.name}: $e');
     } finally {
@@ -529,6 +599,7 @@ class EryuPlayerController extends ChangeNotifier {
   void dispose() {
     _togetherOn = false;
     _stopTick(persist: true);
+    _npBeat?.cancel();
     _player.dispose();
     super.dispose();
   }

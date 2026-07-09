@@ -14,14 +14,13 @@ import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 ///
 /// All context reads happen before the first await; [onReply] is called once
 /// per reply bubble (also for the fallback/error lines) so pages without the
-/// timeline on screen can still surface his answer. [curLyric] is the lyric
-/// line being sung right now (pages that track lyrics pass it; it rides along
-/// so he knows exactly where in the song they are — Duetto-style presence).
+/// timeline on screen can still surface his answer. The message rides with
+/// the live scene (song/progress/current lyric line from the controller) and
+/// the timeline's recent turns as history — Duetto-style presence.
 Future<void> musicChatWithDaddy(
   BuildContext context,
   String text, {
   ValueChanged<String>? onReply,
-  String curLyric = '',
 }) async {
   final t = text.trim();
   if (t.isEmpty) return;
@@ -36,6 +35,16 @@ Future<void> musicChatWithDaddy(
     player.feedSay(user: daddy, mine: false, text: p);
     onReply?.call(p);
   }
+
+  // 失忆修复：把时间线里最近的对话（say 条目）带成正经 user/assistant 历史。
+  // 必须在 feedSay 之前取，免得这句自己也进历史重复一遍。
+  final says = player.feed
+      .where((e) => e.type == 'say' && e.text.trim().isNotEmpty)
+      .toList();
+  final history = <Map<String, String>>[
+    for (final e in says.length > 12 ? says.sublist(says.length - 12) : says)
+      {'role': e.mine ? 'user' : 'assistant', 'content': e.text},
+  ];
 
   player.feedSay(user: me, mine: true, text: t);
   player.sayToRoomPeers(t);
@@ -68,7 +77,8 @@ Future<void> musicChatWithDaddy(
       artist: song?.artist ?? '',
       position: player.position,
       duration: player.duration,
-      curLyric: curLyric,
+      curLyric: player.currentLyricLine(),
+      history: history,
       model: model,
       backendHeaders: backendHeaders,
     );

@@ -10,6 +10,7 @@ import '../../../core/services/ourhome/netease_link.dart';
 import '../../../core/services/ourhome/itunes_artwork.dart';
 import '../../../core/services/eryu/eryu_client.dart';
 import '../../../core/services/eryu/eryu_player_controller.dart';
+import '../../../core/services/ourhome/ourhome_gateway.dart';
 import '../../../core/utils/buzz_markers.dart';
 import '../../../core/utils/iphone_markers.dart';
 import 'package:flutter/scheduler.dart';
@@ -2162,8 +2163,10 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     }
     final player = context.read<EryuPlayerController>();
     // The controller is normally bound when the music room opens; bind here
-    // too so a song card works cold, straight from the chat.
+    // too so a song card works cold, straight from the chat (gateway included
+    // so the now-playing heartbeat reaches 老家 from a chat-started song).
     player.bind(client);
+    player.bindGateway(OurHomeGateway.fromContext(context));
     Haptics.soft();
     final songs =
         await eryuSoft(client.search('$title $artist'.trim()), 'chat song search');

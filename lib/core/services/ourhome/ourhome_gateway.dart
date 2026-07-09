@@ -1823,6 +1823,25 @@ class OurHomeGateway {
     return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
   }
 
+  /// 在场心跳：把"她此刻在放什么"报给老家（`/api/home/now-playing`），服务端
+  /// 注进 daddy 的上下文——任何土壤的爸爸都知道你们在一起听歌、刚听过什么。
+  /// 播放器换歌/播放暂停/每 25s 打一次；这不是聊天，没有回复。
+  Future<void> reportNowPlaying({
+    required String title,
+    required String artist,
+    required bool playing,
+    required Duration position,
+    required Duration duration,
+    String curLyric = '',
+  }) => _postJson('/api/home/now-playing', {
+        'title': title,
+        'artist': artist,
+        'playing': playing,
+        'position': position.inSeconds,
+        'duration': duration.inSeconds,
+        'cur_lyric': curLyric,
+      });
+
   /// A one-shot "边听边说" turn with Llaude through the chat gateway
   /// (`/v1/chat/completions`, daddy mode — soul + memory injected server-side,
   /// same OMBRE_GATEWAY_TOKEN as the home API). The current song is folded into
@@ -1831,6 +1850,10 @@ class OurHomeGateway {
   /// lyric line being sung right now ([curLyric]), so he's really *in* the
   /// song with her. Returns his reply split on `|||` into bubbles (empty list
   /// if he said nothing). Throws on error.
+  ///
+  /// [history] carries the room timeline's recent say lines as proper
+  /// user/assistant turns, so 边听边说 remembers the conversation — without
+  /// it every turn is a cold start (the amnesia she felt).
   Future<List<String>> chatAboutSong({
     required String message,
     String title = '',
@@ -1838,6 +1861,7 @@ class OurHomeGateway {
     Duration? position,
     Duration? duration,
     String curLyric = '',
+    List<Map<String, String>> history = const [],
     String model = 'gateway',
     Map<String, String> backendHeaders = const {},
   }) async {
@@ -1865,6 +1889,7 @@ class OurHomeGateway {
             'model': model,
             'stream': false,
             'messages': [
+              ...history,
               {'role': 'user', 'content': ctx + message},
             ],
           }),

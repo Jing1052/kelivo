@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/eryu/eryu_client.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
@@ -73,7 +74,9 @@ class _MusicPageState extends State<MusicPage> {
       return;
     }
     _client = client;
-    context.read<EryuPlayerController>().bind(client);
+    context.read<EryuPlayerController>()
+      ..bind(client)
+      ..bindGateway(OurHomeGateway.fromContext(context));
     setState(() {
       _needsSetup = false;
       _loadError = null;
