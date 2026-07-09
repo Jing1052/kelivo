@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import '../../../core/services/haptics.dart';
 import '../../../core/services/ourhome/netease_link.dart';
 import '../../../core/services/ourhome/itunes_artwork.dart';
+import '../../../core/services/eryu/eryu_client.dart';
+import '../../../core/services/eryu/eryu_player_controller.dart';
 import '../../../core/utils/buzz_markers.dart';
 import '../../../core/utils/iphone_markers.dart';
 import 'package:flutter/scheduler.dart';
@@ -2024,7 +2026,9 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
 
   // Daddy can drop a music card in chat by writing `[song:歌名|歌手]` (歌手 can
   // be omitted). We render it as a tappable card (cover + title + artist) that
-  // opens the song in NetEase, and strip the marker from the visible text.
+  // plays the song right here via eryu (the ChatMusicCard pops up above the
+  // input — 聊着聊着就一起听), falling back to NetEase when the music room
+  // isn't set up or the search comes up empty. Marker is stripped from text.
   static final RegExp _songMarkerRe = RegExp(
     r'\[song:\s*([^|\]]+?)\s*(?:\|\s*([^\]]*?))?\s*\]',
     caseSensitive: false,
@@ -2142,7 +2146,35 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     );
   }
 
-  // A chat music card: cover (iTunes) + title + artist, tap → open in NetEase.
+  /// Play a `[song:]` card in-app: search eryu for the song and hand the hits
+  /// to the shared player (the ChatMusicCard surfaces above the chat input).
+  /// Falls back to NetEase when the music room isn't configured or nothing
+  /// matches — the card always does *something* on tap.
+  Future<void> _playSongInApp(
+    BuildContext context,
+    String title,
+    String artist,
+  ) async {
+    final client = EryuClient.fromContext(context);
+    if (client == null) {
+      openSongInNetease(context, title: title, artist: artist);
+      return;
+    }
+    final player = context.read<EryuPlayerController>();
+    // The controller is normally bound when the music room opens; bind here
+    // too so a song card works cold, straight from the chat.
+    player.bind(client);
+    Haptics.soft();
+    final songs =
+        await eryuSoft(client.search('$title $artist'.trim()), 'chat song search');
+    if (!context.mounted) return;
+    if (songs == null || songs.isEmpty) {
+      openSongInNetease(context, title: title, artist: artist);
+      return;
+    }
+    await player.playSong(songs.first, queue: songs);
+  }
+
   Widget _buildSongCard(BuildContext context, String title, String artist) {
     final cs = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2155,8 +2187,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
           maxWidth: MediaQuery.sizeOf(context).width * 0.82,
         ),
         child: IosCardPress(
-          onTap: () =>
-              openSongInNetease(context, title: title, artist: artist),
+          onTap: () => _playSongInApp(context, title, artist),
           borderRadius: BorderRadius.circular(14),
           child: Container(
             padding: const EdgeInsets.all(10),
@@ -2214,7 +2245,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
                       const SizedBox(height: 2),
                       Text(
                         artist.isEmpty
-                            ? (zh ? '点击在网易云打开' : 'Open in NetEase')
+                            ? (zh ? '点一下 · 一起听' : 'Tap to play')
                             : artist,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

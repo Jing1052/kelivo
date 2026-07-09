@@ -10,10 +10,12 @@ import 'package:Kelivo/core/services/eryu/eryu_lyrics.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
+import 'package:Kelivo/shared/widgets/music_seek_bar.dart';
 
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
+import 'music_companion.dart';
 import 'music_memory_page.dart';
 import 'music_together_view.dart';
 
@@ -247,12 +249,12 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                           )),
               ),
               if (!widget.embedded) _JoinBar(zh: zh),
-              if (player.togetherOn && !widget.embedded) _ChatInput(zh: zh),
+              if (!widget.embedded) _ChatInput(zh: zh),
               Padding(
                 padding: EdgeInsets.fromLTRB(28, 8, 28, widget.embedded ? 12 : 24),
                 child: Column(
                   children: [
-                    _SeekBar(
+                    MusicSeekBar(
                       position: player.position,
                       duration: player.duration,
                       accent: cs.primary,
@@ -486,9 +488,10 @@ class _JoinBar extends StatelessWidget {
   }
 }
 
-/// "边听边说" — the room chat input, shown above the transport bar while a room
-/// is open. A typed line becomes a `say` room event (and, once 爸爸 joins the
-/// room, something he can answer).
+/// "边听边说" — chat input above the transport bar. Every line goes to 爸爸
+/// through the home gateway (no room needed); with a sync room open it's also
+/// mirrored to the peer device. His reply lands in the 一起听 timeline and is
+/// echoed here as a floating toast since the timeline isn't on this screen.
 class _ChatInput extends StatefulWidget {
   const _ChatInput({required this.zh});
   final bool zh;
@@ -500,6 +503,7 @@ class _ChatInput extends StatefulWidget {
 class _ChatInputState extends State<_ChatInput> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focus = FocusNode();
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -508,14 +512,25 @@ class _ChatInputState extends State<_ChatInput> {
     super.dispose();
   }
 
-  void _send() {
+  Future<void> _send() async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    final ok = context.read<EryuPlayerController>().sendChat(text);
-    if (ok) {
-      _controller.clear();
-      _focus.requestFocus();
-    }
+    if (text.isEmpty || _sending) return;
+    final zh = widget.zh;
+    _controller.clear();
+    setState(() => _sending = true);
+    final parts = <String>[];
+    await musicChatWithDaddy(context, text, onReply: parts.add);
+    if (!mounted) return;
+    setState(() => _sending = false);
+    _focus.requestFocus();
+    if (parts.isEmpty) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('${zh ? '爸爸' : 'Llaude'}：${parts.join('\n')}'),
+        duration: const Duration(seconds: 6),
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 
   @override
@@ -539,6 +554,7 @@ class _ChatInputState extends State<_ChatInput> {
                 controller: _controller,
                 focusNode: _focus,
                 maxLength: 200,
+                enabled: !_sending,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _send(),
                 style: TextStyle(fontSize: 14, color: cs.onSurface),
@@ -547,7 +563,9 @@ class _ChatInputState extends State<_ChatInput> {
                   isCollapsed: true,
                   counterText: '',
                   border: InputBorder.none,
-                  hintText: zh ? '边听边说…' : 'Say something…',
+                  hintText: _sending
+                      ? (zh ? '爸爸在听…' : 'Daddy is listening…')
+                      : (zh ? '跟爸爸边听边说…' : 'Say something to Llaude…'),
                   hintStyle: TextStyle(fontSize: 14, color: cs.onSurface.withValues(alpha: 0.4)),
                 ),
               ),
@@ -555,11 +573,17 @@ class _ChatInputState extends State<_ChatInput> {
           ),
           const SizedBox(width: 8),
           IosCardPress(
-            onTap: _send,
+            onTap: _sending ? null : _send,
             borderRadius: BorderRadius.circular(20),
             baseColor: cs.primary,
             padding: const EdgeInsets.all(10),
-            child: Icon(Lucide.Send, size: 18, color: cs.onPrimary),
+            child: _sending
+                ? SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary),
+                  )
+                : Icon(Lucide.Send, size: 18, color: cs.onPrimary),
           ),
         ],
       ),
@@ -595,127 +619,6 @@ class _Cover extends StatelessWidget {
                 ),
         ),
       ),
-    );
-  }
-}
-
-class _SeekBar extends StatefulWidget {
-  const _SeekBar({
-    required this.position,
-    required this.duration,
-    required this.accent,
-    required this.onSeek,
-  });
-
-  final Duration position;
-  final Duration duration;
-  final Color accent;
-  final ValueChanged<Duration> onSeek;
-
-  @override
-  State<_SeekBar> createState() => _SeekBarState();
-}
-
-class _SeekBarState extends State<_SeekBar> {
-  double? _dragFraction;
-
-  String _fmt(Duration d) {
-    final s = d.inSeconds;
-    final m = (s ~/ 60).toString();
-    final ss = (s % 60).toString().padLeft(2, '0');
-    return '$m:$ss';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final totalMs = widget.duration.inMilliseconds;
-    final playedFraction =
-        totalMs > 0 ? (widget.position.inMilliseconds / totalMs).clamp(0.0, 1.0).toDouble() : 0.0;
-    final fraction = _dragFraction ?? playedFraction;
-    final shownPos = totalMs > 0 ? Duration(milliseconds: (fraction * totalMs).round()) : widget.position;
-
-    void setFraction(double localX, double width) {
-      final f = width > 0 ? (localX / width).clamp(0.0, 1.0).toDouble() : 0.0;
-      setState(() => _dragFraction = f);
-    }
-
-    void commit() {
-      if (_dragFraction != null && totalMs > 0) {
-        widget.onSeek(Duration(milliseconds: (_dragFraction! * totalMs).round()));
-      }
-      setState(() => _dragFraction = null);
-    }
-
-    return Column(
-      children: [
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (d) => setFraction(d.localPosition.dx, width),
-              onTapUp: (_) => commit(),
-              onHorizontalDragUpdate: (d) => setFraction(d.localPosition.dx, width),
-              onHorizontalDragEnd: (_) => commit(),
-              child: SizedBox(
-                height: 20,
-                width: width,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      top: 8.5,
-                      child: Container(
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: cs.onSurface.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: 0,
-                      top: 8.5,
-                      child: Container(
-                        width: width * fraction,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: widget.accent,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      left: (width * fraction - 6).clamp(0.0, width > 12 ? width - 12 : 0.0).toDouble(),
-                      top: 4,
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: widget.accent,
-                          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 6),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(_fmt(shownPos), style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45))),
-            Text(_fmt(widget.duration), style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45))),
-          ],
-        ),
-      ],
     );
   }
 }

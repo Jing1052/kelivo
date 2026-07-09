@@ -4,16 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:Kelivo/core/providers/settings_provider.dart';
-import 'package:Kelivo/core/services/api/daddy_gateway_route.dart';
 import 'package:Kelivo/core/services/eryu/eryu_client.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
-import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
+import 'music_companion.dart';
 import 'music_now_playing_page.dart';
 import 'music_home_playlist_page.dart';
 import 'music_together_view.dart';
@@ -512,6 +511,18 @@ class _MusicPageState extends State<MusicPage> {
                 ],
               ),
             ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 2),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  zh
+                      ? '跟爸爸说话随时可以，不用开房间——房间只是把播放同步到网页端/另一台设备'
+                      : 'Llaude is always here — a room only syncs playback to another device',
+                  style: TextStyle(fontSize: 11, color: cs.onSurface.withValues(alpha: 0.45)),
+                ),
+              ),
+            ),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 4, 18, 4),
@@ -957,69 +968,14 @@ class _TogetherChatBarState extends State<_TogetherChatBar> {
   Future<void> _send() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty || _sending) return;
-    final zh = widget.zh;
-    final player = context.read<EryuPlayerController>();
-    final settings = context.read<SettingsProvider>();
-    final gw = OurHomeGateway.fromContext(context);
-    final me = settings.eryuUser;
-    final daddy = zh ? '爸爸' : 'Llaude';
     _ctrl.clear();
-    player.feedSay(user: me, mine: true, text: text);
-    if (gw == null) {
-      player.feedSay(
-        user: daddy,
-        mine: false,
-        text: zh ? '（家里的连接还没配好，先在爸爸设置里连一下…）' : '(home not connected yet)',
-      );
-      return;
-    }
-    // Follow whatever backend Still Here's chat is on right now (claude-p vs a
-    // 中转站) so 爸爸 here speaks on the same model — mirrors DaddyGatewayRoute.
-    final provKey = settings.currentModelProvider;
-    final cfg = provKey != null ? settings.getProviderConfig(provKey) : null;
-    final model = settings.currentModelId ?? 'gateway';
-    final backendHeaders = <String, String>{};
-    if (cfg != null) {
-      if (DaddyGatewayRoute.isClaudePBackend(cfg)) {
-        backendHeaders['x-ombre-backend'] = 'claude_p';
-      } else if (cfg.baseUrl.isNotEmpty && cfg.apiKey.isNotEmpty) {
-        final kind = ProviderConfig.classify(cfg.id, explicitType: cfg.providerType);
-        backendHeaders['x-ombre-upstream-base'] = cfg.baseUrl;
-        backendHeaders['x-ombre-upstream-key'] = cfg.apiKey;
-        backendHeaders['x-ombre-upstream-proto'] =
-            kind == ProviderKind.claude ? 'anthropic' : 'openai';
-      }
-    }
     setState(() => _sending = true);
-    final song = player.current;
-    try {
-      final parts = await gw.chatAboutSong(
-        message: text,
-        title: song?.name ?? '',
-        artist: song?.artist ?? '',
-        model: model,
-        backendHeaders: backendHeaders,
-      );
-      if (!mounted) return;
-      if (parts.isEmpty) {
-        player.feedSay(user: daddy, mine: false, text: '……');
-      } else {
-        for (final p in parts) {
-          player.feedSay(user: daddy, mine: false, text: p);
-        }
-      }
-    } catch (_) {
-      if (!mounted) return;
-      player.feedSay(
-        user: daddy,
-        mine: false,
-        text: zh ? '（没接上，等会儿再跟你说…）' : '(could not reach me — try again)',
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _sending = false);
-        _focus.requestFocus();
-      }
+    // Replies land in the room timeline via the controller — visible right
+    // here, so no extra onReply surface needed.
+    await musicChatWithDaddy(context, text);
+    if (mounted) {
+      setState(() => _sending = false);
+      _focus.requestFocus();
     }
   }
 

@@ -302,14 +302,18 @@ class EryuPlayerController extends ChangeNotifier {
     if (_canPub()) _publish('quote', song: current, line: line);
   }
 
-  /// "边听边说" — a free-text chat line into the eryu sync room. Returns false if
-  /// the room isn't open (so the page can nudge "先开一间房").
-  bool sendChat(String text) {
+  /// Mirror a chat line into the eryu sync room as a `say` event, WITHOUT
+  /// logging it locally (callers log via [feedSay] so the line shows up with
+  /// or without a room). No-op when no room is open — talking to Llaude never
+  /// requires one; the room only relays to another device/web client.
+  void sayToRoomPeers(String text) {
     final t = text.trim();
-    if (t.isEmpty) return false;
-    if (!_togetherOn) return false;
-    _publish('say', text: t);
-    return true;
+    final client = _client;
+    if (t.isEmpty || !_togetherOn || client == null) return;
+    unawaited(eryuSoft(
+      client.roomEvent({'user': _user, 'type': 'say', 'text': t}),
+      'room say',
+    ));
   }
 
   /// Append a chat line to the timeline WITHOUT touching the eryu sync room —
