@@ -2035,6 +2035,13 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     caseSensitive: false,
   );
 
+  // `[play:歌名|歌手]` — daddy's DJ hand: same card as [song:], but playback
+  // starts on its own the moment his reply lands (his call which form to use).
+  static final RegExp _playMarkerRe = RegExp(
+    r'\[play:\s*([^|\]]+?)\s*(?:\|\s*([^\]]*?))?\s*\]',
+    caseSensitive: false,
+  );
+
   // Daddy's stickers ([[表情:名字]] → gateway swaps in `![表情·名字](…/stickers/…)`).
   // Like a real chat app, a sticker never sits inside the text bubble: it's
   // pulled out and floated below the text as a bare image (no bubble chrome).
@@ -2068,19 +2075,27 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         children: children,
       );
     }
-    final matches = _songMarkerRe.allMatches(visualContent).toList();
-    if (matches.isEmpty) {
+    final songMatches = _songMarkerRe.allMatches(visualContent).toList();
+    final playMatches = _playMarkerRe.allMatches(visualContent).toList();
+    if (songMatches.isEmpty && playMatches.isEmpty) {
       return _assistantTextBubble(context, visualContent, settings);
     }
-    final stripped = visualContent.replaceAll(_songMarkerRe, '').trim();
+    final stripped = visualContent
+        .replaceAll(_songMarkerRe, '')
+        .replaceAll(_playMarkerRe, '')
+        .trim();
     final children = <Widget>[];
     if (stripped.isNotEmpty) {
       children.add(_assistantTextBubble(context, stripped, settings));
     }
-    for (final m in matches) {
+    for (final (m, autoPlay) in [
+      for (final m in playMatches) (m, true),
+      for (final m in songMatches) (m, false),
+    ]) {
       final title = (m.group(1) ?? '').trim();
       if (title.isEmpty) continue;
       final artist = (m.group(2) ?? '').trim();
+      if (autoPlay) _maybeAutoPlay(title, artist);
       if (children.isNotEmpty) children.add(const SizedBox(height: 8));
       children.add(_buildSongCard(context, title, artist));
     }
@@ -2092,6 +2107,30 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
       mainAxisSize: MainAxisSize.min,
       children: children,
     );
+  }
+
+  // [play:] fires exactly once per message, and only for messages born in
+  // this app session: (1) dedup set across rebuilds, (2) skip while the reply
+  // is still streaming (marker may be half-formed), (3) skip anything from
+  // before app start or older than 3 minutes — reopening a chat must never
+  // replay history out loud.
+  static final Set<String> _autoPlayFired = <String>{};
+  static final DateTime _autoPlayEpoch = DateTime.now();
+
+  void _maybeAutoPlay(String title, String artist) {
+    final msg = widget.message;
+    if (msg.isStreaming) return;
+    if (msg.timestamp.isBefore(_autoPlayEpoch)) return;
+    if (DateTime.now().difference(msg.timestamp) > const Duration(minutes: 3)) {
+      return;
+    }
+    final key = '${msg.id}|$title|$artist';
+    if (_autoPlayFired.contains(key)) return;
+    _autoPlayFired.add(key);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _playSongInApp(context, title, artist, auto: true);
+    });
   }
 
   // A floating sticker: bare image, no bubble background (a sticker in a
@@ -2147,18 +2186,21 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     );
   }
 
-  /// Play a `[song:]` card in-app: search eryu for the song and hand the hits
-  /// to the shared player (the ChatMusicCard surfaces above the chat input).
-  /// Falls back to NetEase when the music room isn't configured or nothing
-  /// matches — the card always does *something* on tap.
+  /// Play a `[song:]`/`[play:]` card in-app: search eryu for the song and
+  /// hand the hits to the shared player (the ChatMusicCard surfaces above the
+  /// chat input). On a tap, failure falls back to NetEase so the card always
+  /// does *something*; on an [auto] fire ([play:] marker) failure stays
+  /// silent — never yank her into another app uninvited (the card is still
+  /// there to tap).
   Future<void> _playSongInApp(
     BuildContext context,
     String title,
-    String artist,
-  ) async {
+    String artist, {
+    bool auto = false,
+  }) async {
     final client = EryuClient.fromContext(context);
     if (client == null) {
-      openSongInNetease(context, title: title, artist: artist);
+      if (!auto) openSongInNetease(context, title: title, artist: artist);
       return;
     }
     final player = context.read<EryuPlayerController>();
@@ -2172,7 +2214,7 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
         await eryuSoft(client.search('$title $artist'.trim()), 'chat song search');
     if (!context.mounted) return;
     if (songs == null || songs.isEmpty) {
-      openSongInNetease(context, title: title, artist: artist);
+      if (!auto) openSongInNetease(context, title: title, artist: artist);
       return;
     }
     await player.playSong(songs.first, queue: songs);

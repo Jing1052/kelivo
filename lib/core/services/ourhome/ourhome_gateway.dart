@@ -1927,6 +1927,7 @@ class OurHomeGateway {
     if (open >= 0) s = s.substring(0, open);
     s = s.replaceAll(RegExp(r'</?think(?:ing)?>'), '');
     s = s.replaceAll(RegExp(r'\[song:[^\]]*\]'), '');
+    s = s.replaceAll(RegExp(r'\[play:[^\]]*\]'), '');
     s = s.replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), '');
     s = s.replaceAll(RegExp(r'\[\[[^\]]*\]\]'), '');
     return s;
