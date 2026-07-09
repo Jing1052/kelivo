@@ -1818,21 +1818,39 @@ class OurHomeGateway {
         if (title.isNotEmpty) 'title': title,
       });
 
+  static String _fmtSec(Duration d) {
+    final s = d.inSeconds;
+    return '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
+  }
+
   /// A one-shot "边听边说" turn with Llaude through the chat gateway
   /// (`/v1/chat/completions`, daddy mode — soul + memory injected server-side,
   /// same OMBRE_GATEWAY_TOKEN as the home API). The current song is folded into
-  /// the user message because daddy mode drops `system`. Returns his reply split
-  /// on `|||` into bubbles (empty list if he said nothing). Throws on error.
+  /// the user message because daddy mode drops `system` — Duetto-style: not
+  /// just the title but where we are in it ([position]/[duration]) and the
+  /// lyric line being sung right now ([curLyric]), so he's really *in* the
+  /// song with her. Returns his reply split on `|||` into bubbles (empty list
+  /// if he said nothing). Throws on error.
   Future<List<String>> chatAboutSong({
     required String message,
     String title = '',
     String artist = '',
+    Duration? position,
+    Duration? duration,
+    String curLyric = '',
     String model = 'gateway',
     Map<String, String> backendHeaders = const {},
   }) async {
-    final ctx = title.isNotEmpty
-        ? '（我们正在一起听《$title》${artist.isNotEmpty ? ' — $artist' : ''}）\n'
-        : '';
+    var ctx = '';
+    if (title.isNotEmpty) {
+      final pos = (position != null && duration != null && duration > Duration.zero)
+          ? '，放到 ${_fmtSec(position)}/${_fmtSec(duration)}'
+          : '';
+      final lyric = curLyric.trim().isNotEmpty
+          ? '，正唱到「${curLyric.trim().characters.take(60)}」'
+          : '';
+      ctx = '（我们正在一起听《$title》${artist.isNotEmpty ? ' — $artist' : ''}$pos$lyric）\n';
+    }
     final uri = Uri.parse('$base/v1/chat/completions');
     final res = await http
         .post(

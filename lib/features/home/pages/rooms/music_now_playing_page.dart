@@ -89,6 +89,13 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
     });
   }
 
+  /// The lyric line being sung right now — rides along with 边听边说 so 爸爸
+  /// knows exactly where in the song they are. Empty when no lyrics loaded.
+  String _currentLyricLine() {
+    final idx = EryuLyrics.activeIndex(_lyrics, _player?.position ?? Duration.zero);
+    return (idx >= 0 && idx < _lyrics.length) ? _lyrics[idx].text : '';
+  }
+
   void _maybeAutoScroll() {
     if (!_showLyrics || _lyrics.isEmpty) return;
     final idx = EryuLyrics.activeIndex(_lyrics, _player?.position ?? Duration.zero);
@@ -249,7 +256,7 @@ class _MusicNowPlayingPageState extends State<MusicNowPlayingPage> {
                           )),
               ),
               if (!widget.embedded) _JoinBar(zh: zh),
-              if (!widget.embedded) _ChatInput(zh: zh),
+              if (!widget.embedded) _ChatInput(zh: zh, currentLyric: _currentLyricLine),
               Padding(
                 padding: EdgeInsets.fromLTRB(28, 8, 28, widget.embedded ? 12 : 24),
                 child: Column(
@@ -493,8 +500,11 @@ class _JoinBar extends StatelessWidget {
 /// mirrored to the peer device. His reply lands in the 一起听 timeline and is
 /// echoed here as a floating toast since the timeline isn't on this screen.
 class _ChatInput extends StatefulWidget {
-  const _ChatInput({required this.zh});
+  const _ChatInput({required this.zh, this.currentLyric});
   final bool zh;
+
+  /// Supplies the lyric line being sung at send time (page owns the LRC).
+  final String Function()? currentLyric;
 
   @override
   State<_ChatInput> createState() => _ChatInputState();
@@ -519,7 +529,12 @@ class _ChatInputState extends State<_ChatInput> {
     _controller.clear();
     setState(() => _sending = true);
     final parts = <String>[];
-    await musicChatWithDaddy(context, text, onReply: parts.add);
+    await musicChatWithDaddy(
+      context,
+      text,
+      onReply: parts.add,
+      curLyric: widget.currentLyric?.call() ?? '',
+    );
     if (!mounted) return;
     setState(() => _sending = false);
     _focus.requestFocus();

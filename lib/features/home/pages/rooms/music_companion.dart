@@ -14,11 +14,14 @@ import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 ///
 /// All context reads happen before the first await; [onReply] is called once
 /// per reply bubble (also for the fallback/error lines) so pages without the
-/// timeline on screen can still surface his answer.
+/// timeline on screen can still surface his answer. [curLyric] is the lyric
+/// line being sung right now (pages that track lyrics pass it; it rides along
+/// so he knows exactly where in the song they are — Duetto-style presence).
 Future<void> musicChatWithDaddy(
   BuildContext context,
   String text, {
   ValueChanged<String>? onReply,
+  String curLyric = '',
 }) async {
   final t = text.trim();
   if (t.isEmpty) return;
@@ -63,6 +66,9 @@ Future<void> musicChatWithDaddy(
       message: t,
       title: song?.name ?? '',
       artist: song?.artist ?? '',
+      position: player.position,
+      duration: player.duration,
+      curLyric: curLyric,
       model: model,
       backendHeaders: backendHeaders,
     );
