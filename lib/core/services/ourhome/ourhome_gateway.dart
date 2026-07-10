@@ -1912,6 +1912,19 @@ class OurHomeGateway {
         .toList();
   }
 
+  /// 故事本全集（daddy 亲笔的图画书，`/api/home/storybooks`）。返回原始
+  /// JSON（{books: [...]}), 页面自行解析；上新只需老家改 storybooks.json
+  /// 重新部署，App 不用出包。Throws on transport/HTTP error.
+  Future<Map<String, dynamic>> fetchStorybooks() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/storybooks'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('storybooks ${res.statusCode}');
+    }
+    return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+  }
+
   /// A one-shot 看画 turn with Llaude through the chat gateway — the museum
   /// room's 「和爸爸一起看」. Mirrors [chatAboutSong]: daddy mode drops
   /// `system`, so [scene] (the painting we're standing in front of, built by
