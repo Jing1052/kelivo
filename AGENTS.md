@@ -310,6 +310,11 @@ flutter test
   - Do not write "heard this might happen" hearsay entries.
   - When adding entries, prefer "symptom -> root cause -> fix/constraint". Avoid recording conclusions without context.
 
+### 2026-07-10 · 安卓桌面图标还是 kelivo 三环＝adaptive 前景没换 ＋ 华为装不上 v7a 包
+
+1. **图标** — symptom：iOS 图标早换成我们的（橘底小猫躺月亮），安卓装上桌面却还是 kelivo 三环。root cause：+116 初建 android/ 目录时上游图标全套带入；后来只换了 iOS appiconset 和 legacy `mipmap-*/ic_launcher.png`，**Android 8+ 实际显示的是 adaptive icon（`mipmap-anydpi-v26/ic_launcher.xml` → `drawable-*dpi/ic_launcher_foreground.png` + `ic_launcher_background` 颜色）**，前景从没换。fix/constraint（+142）：换 App 图标必须换齐**三处**——mipmap legacy png ×5、drawable 前景 png ×5、values/colors.xml 背景色；无设计源文件时可拿 iOS 1024 图生成（外圈 12% 羽化融进背景色，防"贴纸接缝"）。
+2. **ABI** — symptom：华为 Mate 60 Pro 装 APK 报「该应用与此设备的 CPU 不兼容」。root cause：麒麟 9000s / 鸿蒙是**纯 64 位**，`armeabi-v7a`（32 位）包直接拒装，报错文案误导性强。constraint：给小猫的手机一律发 **arm64-v8a** 那个包；发链接时点名文件名。
+
 ### 2026-07-09 · 音乐房「边听边说」对空房喊话＝同语义输入口走了两条通路
 
 - symptom：全屏播放页的「边听边说」发出去爸爸永远不回；没开房时输入还被静默吞掉（旧 sendChat 返回 false、页面无任何提示）。一起听 tab 底下那条长得一模一样的输入框却好好的。
