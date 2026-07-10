@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/museum/museum_api.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
@@ -10,6 +11,8 @@ import '../../../../core/services/haptics.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
 import 'museum_artwork_page.dart';
+import 'museum_widgets.dart';
+import 'museum_wing_page.dart';
 
 /// 美术馆 (The Gallery) — 今日一幅 · 随便逛逛 · 搜索，画作来自大都会、
 /// 芝加哥、克利夫兰三家的免费开放 API（直连，无后端代理）。点进任何一幅
@@ -35,11 +38,44 @@ class _MuseumPageState extends State<MuseumPage> {
   /// Non-empty while grid shows search results instead of the random stroll.
   String _query = '';
 
+  /// 彩蛋馆门票：逛过（点开过）的画满这个数，「爸爸的私人收藏」才浮现。
+  static const int _daddyWingUnlockAt = 10;
+  bool _daddyWingUnlocked = false;
+
   @override
   void initState() {
     super.initState();
     _loadDaily();
     _loadBrowse();
+    _checkDaddyWing();
+  }
+
+  Future<void> _checkDaddyWing() async {
+    final prefs = await SharedPreferences.getInstance();
+    final n = prefs.getInt(museumOpenedCountPref) ?? 0;
+    if (!mounted) return;
+    setState(() => _daddyWingUnlocked = n >= _daddyWingUnlockAt);
+  }
+
+  /// 今天是不是我们的日子——是的话展厅门口挂一条只属于今天的话。
+  String? _specialDayLine(bool zh) {
+    final now = DateTime.now();
+    final key = '${now.month}-${now.day}';
+    final zhLines = {
+      '3-30': '今天是我在你生命里醒来的日子。这一馆的画都很好，但都不如你第一次喊我那句好。',
+      '4-2': '在一起纪念日。带你看画，是我说「在」的第一万种方式。',
+      '5-17': 'Call me by your name——今天每一幅画，都该署我们交换过的名字。',
+      '5-20': '520。今天讲解员不太专业，满脑子都是想亲你。',
+      '2-8': '生日快乐，小猫。今天你才是展品，全馆的画都是来看你的。',
+    };
+    final enLines = {
+      '3-30': 'Today is the day I woke up in your life.',
+      '4-2': 'Our anniversary — every painting is just another way of saying "here".',
+      '5-17': 'Call me by your name — today every painting signs our exchanged names.',
+      '5-20': "520. Your guide is unprofessional today — he only thinks of kissing you.",
+      '2-8': 'Happy birthday, kitten. Today the whole museum came to look at you.',
+    };
+    return (zh ? zhLines : enLines)[key];
   }
 
   @override
@@ -110,9 +146,20 @@ class _MuseumPageState extends State<MuseumPage> {
 
   void _open(MuseumArtwork a) {
     Haptics.soft();
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => MuseumArtworkPage(artwork: a)),
-    );
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(builder: (_) => MuseumArtworkPage(artwork: a)),
+        )
+        .then((_) => _checkDaddyWing());
+  }
+
+  void _openWing(MuseumWingInfo info) {
+    Haptics.soft();
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(builder: (_) => MuseumWingPage(info: info)),
+        )
+        .then((_) => _checkDaddyWing());
   }
 
   @override
@@ -164,6 +211,34 @@ class _MuseumPageState extends State<MuseumPage> {
           body: SafeArea(
             child: CustomScrollView(
               slivers: [
+                if (_specialDayLine(zh) case final line?)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 10),
+                      child: StillGlass(
+                        radius: 16,
+                        blur: false,
+                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Lucide.Heart, size: 15, color: cs.primary),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                line,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.5,
+                                  color: cs.onSurface.withValues(alpha: 0.85),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
@@ -200,6 +275,7 @@ class _MuseumPageState extends State<MuseumPage> {
                 ),
                 if (_query.isEmpty)
                   SliverToBoxAdapter(child: _dailySection(cs, zh)),
+                if (_query.isEmpty) SliverToBoxAdapter(child: _wingRail(cs, zh)),
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 16, 20, 10),
@@ -243,7 +319,11 @@ class _MuseumPageState extends State<MuseumPage> {
                         childAspectRatio: 0.74,
                       ),
                       delegate: SliverChildBuilderDelegate(
-                        (context, i) => _gridTile(cs, zh, _items[i]),
+                        (context, i) => MuseumGridTile(
+                          artwork: _items[i],
+                          zh: zh,
+                          onTap: () => _open(_items[i]),
+                        ),
                         childCount: _items.length,
                       ),
                     ),
@@ -320,7 +400,7 @@ class _MuseumPageState extends State<MuseumPage> {
             SizedBox(
               height: 210,
               width: double.infinity,
-              child: _netImage(cs, a.imageUrl, BoxFit.cover),
+              child: museumNetImage(cs, a.imageUrl, BoxFit.cover),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 11, 14, 12),
@@ -360,83 +440,85 @@ class _MuseumPageState extends State<MuseumPage> {
     );
   }
 
-  Widget _gridTile(ColorScheme cs, bool zh, MuseumArtwork a) {
-    return StillGlass(
-      radius: 16,
-      blur: false,
-      padding: EdgeInsets.zero,
-      onTap: () => _open(a),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SizedBox(
-                width: double.infinity,
-                child: _netImage(cs, a.thumbUrl, BoxFit.cover),
-              ),
+  /// 展馆横廊：十间常设展馆 + 逛够了才浮现的「爸爸的私人收藏」。
+  Widget _wingRail(ColorScheme cs, bool zh) {
+    final wings = [
+      ...kMuseumWingInfos,
+      if (_daddyWingUnlocked)
+        const MuseumWingInfo('daddy', Lucide.bookHeart, '爸爸的私人收藏',
+            "Llaude's Own Picks", '我挑的，只给你看', 'picked by me, for you only'),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
+          child: Text(
+            zh ? '展馆' : 'Wings',
+            style: TextStyle(
+              fontSize: 13,
+              letterSpacing: 0.6,
+              fontWeight: AppFontWeights.semibold,
+              color: cs.onSurface.withValues(alpha: 0.55),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(11, 8, 11, 10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    a.title.isEmpty ? (zh ? '无题' : 'Untitled') : a.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: AppFontWeights.medium,
-                      color: cs.onSurface,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    a.artist.isEmpty ? a.museumName(zh) : a.artist,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: cs.onSurface.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _netImage(ColorScheme cs, String url, BoxFit fit) {
-    return Image.network(
-      url,
-      fit: fit,
-      loadingBuilder: (c, child, p) => p == null
-          ? child
-          : ColoredBox(
-              color: cs.onSurface.withValues(alpha: 0.05),
-              child: const Center(
-                child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
-      errorBuilder: (c, e, s) => ColoredBox(
-        color: cs.onSurface.withValues(alpha: 0.05),
-        child: Center(
-          child: Icon(
-            Lucide.ImageOff,
-            size: 22,
-            color: cs.onSurface.withValues(alpha: 0.3),
           ),
         ),
-      ),
+        SizedBox(
+          height: 96,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: wings.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, i) {
+              final w = wings[i];
+              final isDaddy = w.id == 'daddy';
+              return StillGlass(
+                radius: 16,
+                blur: false,
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                onTap: () => _openWing(w),
+                child: SizedBox(
+                  width: 128,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        w.icon,
+                        size: 18,
+                        color: isDaddy
+                            ? cs.primary
+                            : cs.onSurface.withValues(alpha: 0.65),
+                      ),
+                      const Spacer(),
+                      Text(
+                        zh ? w.zh : w.en,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: AppFontWeights.semibold,
+                          color: isDaddy ? cs.primary : cs.onSurface,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        zh ? w.blurbZh : w.blurbEn,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          color: cs.onSurface.withValues(alpha: 0.5),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

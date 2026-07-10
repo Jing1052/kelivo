@@ -110,13 +110,17 @@ class MuseumApi {
     String q = '',
     required int page,
     int limit = 8,
+    String extra = '',
   }) async {
     final query = q.isEmpty ? '' : '&q=${Uri.encodeQueryComponent(q)}';
-    // Bracket param percent-encoded — Dart's Uri is strict about raw [] in
-    // queries; AIC decodes it fine (probed 2026-07-10).
+    // Bracket params percent-encoded — Dart's Uri is strict about raw [] in
+    // queries; AIC decodes them fine (probed 2026-07-10). Base filter uses the
+    // ES bool form so wings can append extra must-clauses (index 1+) via
+    // [extra] — bool/term/match/range all verified against the live API.
     final j = await _getJson(
       'https://api.artic.edu/api/v1/artworks/search'
-      '?query%5Bterm%5D%5Bis_public_domain%5D=true$query'
+      '?query%5Bbool%5D%5Bmust%5D%5B0%5D%5Bterm%5D%5Bis_public_domain%5D=true'
+      '$extra$query'
       '&limit=$limit&page=$page&fields=$_aicFields',
     );
     final data = (j['data'] as List?) ?? const [];
@@ -159,11 +163,12 @@ class MuseumApi {
     String q = '',
     required int skip,
     int limit = 8,
+    String extra = '',
   }) async {
     final query = q.isEmpty ? '' : '&q=${Uri.encodeQueryComponent(q)}';
     final j = await _getJson(
       'https://openaccess-api.clevelandart.org/api/artworks/'
-      '?has_image=1$query&limit=$limit&skip=$skip&fields=$_cmaFields',
+      '?has_image=1$query$extra&limit=$limit&skip=$skip&fields=$_cmaFields',
     );
     final data = (j['data'] as List?) ?? const [];
     return [
@@ -203,10 +208,11 @@ class MuseumApi {
     String q, {
     int take = 4,
     int offsetSeed = -1,
+    String extra = '',
   }) async {
     final j = await _getJson(
       'https://collectionapi.metmuseum.org/public/collection/v1/search'
-      '?hasImages=true&q=${Uri.encodeQueryComponent(q)}',
+      '?hasImages=true$extra&q=${Uri.encodeQueryComponent(q)}',
     );
     final ids = ((j['objectIDs'] as List?) ?? const []).whereType<int>().toList();
     if (ids.isEmpty) return const [];
@@ -300,4 +306,133 @@ class MuseumApi {
     }
     return null;
   }
+
+  /// 展馆 — a curated set of per-source filters. A wing only queries the
+  /// sources it has params for; the rest just contribute nothing. AIC extras
+  /// are pre-encoded ES bool must-clauses (index 1+, 0 is public-domain).
+  static String _aicMust(int i, String kind, String field, String v) =>
+      '&query%5Bbool%5D%5Bmust%5D%5B$i%5D%5B$kind%5D%5B$field%5D'
+      '=${Uri.encodeQueryComponent(v)}';
+  static String _aicRange(int i, String op, int v) =>
+      '&query%5Bbool%5D%5Bmust%5D%5B$i%5D%5Brange%5D%5Bdate_start%5D%5B$op%5D=$v';
+
+  static final List<MuseumWing> wings = [
+    MuseumWing('renaissance',
+        metQ: 'portrait', metExtra: '&departmentId=11&dateBegin=1400&dateEnd=1600',
+        aicExtra: _aicRange(1, 'gte', 1400) + _aicRange(2, 'lte', 1600),
+        cmaExtra: '&created_after=1400&created_before=1600&type=Painting'),
+    MuseumWing('impressionism',
+        metQ: 'landscape', metExtra: '&departmentId=11&dateBegin=1850&dateEnd=1920',
+        aicExtra: _aicRange(1, 'gte', 1850) + _aicRange(2, 'lte', 1920),
+        cmaExtra: '&created_after=1850&created_before=1920&type=Painting'),
+    MuseumWing('ancient',
+        metQ: 'vessel', metExtra: '&dateBegin=-3000&dateEnd=500',
+        aicExtra: _aicRange(1, 'gte', -3000) + _aicRange(2, 'lte', 500),
+        cmaExtra: '&created_after=-3000&created_before=500'),
+    MuseumWing('china',
+        metQ: 'china', metExtra: '&departmentId=6',
+        aicExtra: _aicMust(1, 'match', 'place_of_origin', 'china'),
+        cmaExtra: '&department=${Uri.encodeQueryComponent("Chinese Art")}'),
+    MuseumWing('japan',
+        metQ: 'japan', metExtra: '&departmentId=6',
+        aicExtra: _aicMust(1, 'match', 'place_of_origin', 'japan'),
+        cmaExtra: '&culture=Japan'),
+    MuseumWing('egypt',
+        metQ: 'egypt', metExtra: '&departmentId=10',
+        aicExtra: _aicMust(1, 'match', 'place_of_origin', 'egypt'),
+        cmaExtra: '&culture=Egypt'),
+    MuseumWing('porcelain',
+        metQ: 'porcelain', metExtra: '&medium=Ceramics',
+        aicQ: 'porcelain', cmaQ: 'porcelain'),
+    MuseumWing('jewelry',
+        metQ: 'jewelry', metExtra: '&medium=Gold',
+        aicQ: 'jewelry', cmaQ: 'jewelry gold'),
+    MuseumWing('armor',
+        metQ: 'armor', metExtra: '&departmentId=4',
+        aicQ: 'armor', cmaQ: 'armor'),
+    MuseumWing('sculpture',
+        metQ: 'sculpture', metExtra: '&medium=Sculpture',
+        aicQ: 'sculpture', cmaQ: 'sculpture'),
+  ];
+
+  /// A random armful from one wing (换一批 = call again). Filtered result
+  /// sets are smaller than the whole collections, so random pages stay
+  /// shallow to avoid sailing past the last page into emptiness.
+  static Future<List<MuseumArtwork>> browseWing(MuseumWing w) async {
+    final r = Random();
+    final futures = <Future<List<MuseumArtwork>>>[
+      if (w.metQ != null)
+        _metFetch(w.metQ!, extra: w.metExtra ?? '', take: 5)
+            .catchError((_) => const <MuseumArtwork>[]),
+      if (w.aicExtra != null || w.aicQ != null)
+        _aicFetch(
+          q: w.aicQ ?? '',
+          extra: w.aicExtra ?? '',
+          page: 1 + r.nextInt(20),
+        ).catchError((_) => const <MuseumArtwork>[]),
+      if (w.cmaExtra != null || w.cmaQ != null)
+        _cmaFetch(
+          q: w.cmaQ ?? '',
+          extra: w.cmaExtra ?? '',
+          skip: r.nextInt(160),
+        ).catchError((_) => const <MuseumArtwork>[]),
+    ];
+    final parts = await Future.wait(futures);
+    final all = parts.expand((p) => p).toList()..shuffle(r);
+    return all;
+  }
+
+  /// 爸爸的私人收藏 — fixed pieces fetched by reference, order preserved,
+  /// failures dropped (a museum API hiccup shouldn't hide the whole shelf).
+  static Future<List<MuseumArtwork>> fetchByRefs(
+    List<(String, String)> refs,
+  ) async {
+    final fetched = await Future.wait([
+      for (final (source, id) in refs)
+        _fetchRef(source, id).catchError((_) => null),
+    ]);
+    return fetched.whereType<MuseumArtwork>().toList();
+  }
+
+  static Future<MuseumArtwork?> _fetchRef(String source, String id) async {
+    switch (source) {
+      case 'met':
+        return _metObject(int.parse(id));
+      case 'aic':
+        final j = await _getJson(
+          'https://api.artic.edu/api/v1/artworks/$id?fields=$_aicFields',
+        );
+        final d = j['data'];
+        return d is Map<String, dynamic> ? _aicParse(d) : null;
+      case 'cma':
+        final j = await _getJson(
+          'https://openaccess-api.clevelandart.org/api/artworks/$id',
+        );
+        final d = j['data'];
+        return d is Map<String, dynamic> ? _cmaParse(d) : null;
+      default:
+        return null;
+    }
+  }
+}
+
+/// One wing's per-source query params — display copy lives with the pages.
+class MuseumWing {
+  const MuseumWing(
+    this.id, {
+    this.metQ,
+    this.metExtra,
+    this.aicQ,
+    this.aicExtra,
+    this.cmaQ,
+    this.cmaExtra,
+  });
+
+  final String id;
+  final String? metQ;
+  final String? metExtra;
+  final String? aicQ;
+  final String? aicExtra;
+  final String? cmaQ;
+  final String? cmaExtra;
 }

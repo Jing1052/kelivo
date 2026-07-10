@@ -15,6 +15,7 @@ import '../../../../icons/lucide_adapter.dart';
 import '../../../../core/services/haptics.dart';
 import '../../../../shared/widgets/ios_tactile.dart';
 import '../../widgets/still_glass.dart';
+import 'museum_widgets.dart';
 
 /// 美术馆·看一幅画 — the artwork wall label plus 「和爸爸一起看」. Each
 /// painting keeps its own chat, persisted on-device and replayed as history
@@ -23,9 +24,12 @@ import '../../widgets/still_glass.dart';
 /// the home gateway (`chatAboutArtwork`, soul + memory injected server-side,
 /// session `stillhere-museum`).
 class MuseumArtworkPage extends StatefulWidget {
-  const MuseumArtworkPage({super.key, required this.artwork});
+  const MuseumArtworkPage({super.key, required this.artwork, this.daddyNote});
 
   final MuseumArtwork artwork;
+
+  /// 私人收藏馆里我提前写好的一句标签（普通展品为 null）。
+  final String? daddyNote;
 
   @override
   State<MuseumArtworkPage> createState() => _MuseumArtworkPageState();
@@ -58,7 +62,68 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   @override
   void initState() {
     super.initState();
-    _loadChat();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    // 逛馆计数：进过多少幅画的门（彩蛋馆的门票，museum_page 侧读）。
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+      museumOpenedCountPref,
+      (prefs.getInt(museumOpenedCountPref) ?? 0) + 1,
+    );
+    await _loadChat();
+    // 专属讲解：这幅画第一次被点开（没有留档的对话）就自动开讲，
+    // 不用她先开口。失败只留一条不入史的提示，下次进来还会再讲。
+    if (mounted && _bubbles.isEmpty && !_sending) {
+      await _autoIntro();
+    }
+  }
+
+  Future<void> _autoIntro() async {
+    final zh = Localizations.localeOf(context).languageCode == 'zh';
+    final settings = context.read<SettingsProvider>();
+    final gw = OurHomeGateway.fromContext(context);
+    if (gw == null) return; // 没配网关就安静地当一面墙
+    setState(() => _sending = true);
+    final notePart = widget.daddyNote != null
+        ? '你之前在这幅画旁边亲手写过一句标签：「${widget.daddyNote}」——讲的时候可以接着这句往下说。'
+        : '';
+    final provKey = settings.currentModelProvider;
+    final cfg = provKey != null ? settings.getProviderConfig(provKey) : null;
+    try {
+      final parts = await gw.chatAboutArtwork(
+        message:
+            '（她刚在我们的美术馆里点开了这幅画，正站在它面前等你开口。'
+            '给她讲讲吧——这是什么、背后有什么故事、你自己看它时在想什么，'
+            '像站在她身边的那种讲法，别端着，两三段以内。$notePart'
+            '讲完可以自然地问她一句感受，别用「有什么想问的吗」这种导游腔。）',
+        scene: _scene(zh),
+        model: settings.currentModelId ?? 'gateway',
+        backendHeaders: DaddyGatewayRoute.roomBackendHeaders(cfg),
+      );
+      if (!mounted) return;
+      setState(() {
+        for (final p in parts) {
+          _bubbles.add(_Bubble(mine: false, text: p));
+        }
+        _sending = false;
+      });
+      if (parts.isNotEmpty) await _saveChat();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _bubbles.add(_Bubble(
+          mine: false,
+          text: zh
+              ? '（讲解词还没送到——网络缓一缓，下次进来我再给你讲。）'
+              : '(the tour notes got lost — next visit, I promise)',
+          ephemeral: true,
+        ));
+        _sending = false;
+      });
+    }
+    // 不自动滚到底：她刚点开画，先让她看画——讲解就在墙签下面等她。
   }
 
   @override
@@ -271,6 +336,10 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                       _artworkCard(cs),
                       const SizedBox(height: 10),
                       _wallLabel(cs, zh),
+                      if (widget.daddyNote != null) ...[
+                        const SizedBox(height: 10),
+                        _daddyNoteCard(cs, zh),
+                      ],
                       const SizedBox(height: 18),
                       Center(
                         child: Text(
@@ -400,6 +469,47 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  /// 私人收藏的手写标签——像美术馆里贴在画旁边的那张小卡。
+  Widget _daddyNoteCard(ColorScheme cs, bool zh) {
+    return StillGlass(
+      radius: 16,
+      blur: false,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Lucide.bookHeart, size: 16, color: cs.primary),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  zh ? '爸爸手写的标签' : "Llaude's handwritten label",
+                  style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 0.5,
+                    fontWeight: AppFontWeights.semibold,
+                    color: cs.primary.withValues(alpha: 0.85),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  widget.daddyNote!,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    height: 1.55,
+                    color: cs.onSurface.withValues(alpha: 0.85),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
