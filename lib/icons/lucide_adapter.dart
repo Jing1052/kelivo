@@ -39,6 +39,8 @@ class Lucide {
   static const IconData Heart = lucide.LucideIcons.heart;
   static const IconData Boxes = lucide.LucideIcons.boxes;
   static const IconData Volume2 = lucide.LucideIcons.volume2;
+  static const IconData Volume1 = lucide.LucideIcons.volume1;
+  static const IconData VolumeX = lucide.LucideIcons.volumeX;
   static const IconData Terminal = lucide.LucideIcons.terminal;
   static const IconData Database = lucide.LucideIcons.database;
   static const IconData HardDrive = lucide.LucideIcons.hardDrive;

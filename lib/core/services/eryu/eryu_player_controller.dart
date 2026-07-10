@@ -70,6 +70,14 @@ class EryuPlayerController extends ChangeNotifier {
     _npBeat = Timer.periodic(const Duration(seconds: 25), (_) {
       if (playing) _reportNowPlaying();
     });
+    // 恢复上次的音量（聊天音乐卡的滑条调过就记住，重启不回弹满格）。
+    unawaited(SharedPreferences.getInstance().then((p) {
+      final v = p.getDouble(_volKey);
+      if (v != null) {
+        unawaited(_player.setVolume(v.clamp(0.0, 1.0).toDouble()));
+        notifyListeners();
+      }
+    }));
   }
 
   final AudioPlayer _player = AudioPlayer();
@@ -90,6 +98,16 @@ class EryuPlayerController extends ChangeNotifier {
   bool get loadingSong => _loadingSong;
   Duration get position => _player.position;
   Duration get duration => _player.duration ?? Duration.zero;
+
+  // ── 音量（0..1，薄包 just_audio；只影响 App 内播放，与系统音量键叠加）──────
+  static const String _volKey = 'eryu_volume_v1';
+  double get volume => _player.volume;
+  Future<void> setVolume(double v) async {
+    final vv = v.clamp(0.0, 1.0).toDouble();
+    await _player.setVolume(vv);
+    notifyListeners();
+    unawaited(SharedPreferences.getInstance().then((p) => p.setDouble(_volKey, vv)));
+  }
 
   void bind(EryuClient client) => _client = client;
 

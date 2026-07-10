@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/eryu/eryu_client.dart';
 import 'package:Kelivo/core/services/eryu/eryu_lyrics.dart';
 import 'package:Kelivo/core/services/eryu/eryu_player_controller.dart';
@@ -43,6 +44,16 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
   void _toggleExpanded() {
     Haptics.soft();
     setState(() => _expanded = !_expanded);
+  }
+
+  void _toggleTogether() {
+    Haptics.soft();
+    final player = context.read<EryuPlayerController>();
+    if (player.togetherOn) {
+      player.leaveTogether();
+    } else {
+      player.enterTogether(context.read<SettingsProvider>().eryuUser);
+    }
   }
 
   @override
@@ -153,6 +164,15 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
             const SizedBox(width: 12),
             Expanded(child: _title(song, player, cs, zh)),
             IosIconButton(
+              icon: Lucide.Users,
+              size: 17,
+              minSize: 36,
+              color: player.togetherOn
+                  ? (player.hasPartner ? const Color(0xFF34C759) : cs.primary)
+                  : cs.onSurface.withValues(alpha: 0.55),
+              onTap: _toggleTogether,
+            ),
+            IosIconButton(
               icon: Lucide.Maximize2,
               size: 17,
               minSize: 36,
@@ -216,6 +236,10 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
             const SizedBox(width: 18),
             IosIconButton(icon: Lucide.SkipForward, size: 22, minSize: 44, onTap: player.next),
           ],
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 2, 4, 0),
+          child: _VolumeBar(player: player),
         ),
       ],
     );
@@ -281,6 +305,104 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
           style: TextStyle(
             fontSize: 11,
             color: player.togetherOn ? cs.primary.withValues(alpha: 0.85) : cs.onSurface.withValues(alpha: 0.5),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Volume strip on the expanded card: speaker icon (tap = mute/restore) plus a
+/// draggable level bar. Same scrub feel as [MusicSeekBar]; drives
+/// [EryuPlayerController.setVolume] (in-app volume, stacks with the hardware
+/// keys). Page-private for now — extract per §3.9 once a second page wants it.
+class _VolumeBar extends StatelessWidget {
+  const _VolumeBar({required this.player});
+
+  final EryuPlayerController player;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final v = player.volume.clamp(0.0, 1.0).toDouble();
+    final icon = v <= 0.001
+        ? Lucide.VolumeX
+        : (v < 0.5 ? Lucide.Volume1 : Lucide.Volume2);
+    return Row(
+      children: [
+        IosIconButton(
+          icon: icon,
+          size: 16,
+          minSize: 32,
+          color: cs.onSurface.withValues(alpha: 0.55),
+          onTap: () {
+            Haptics.soft();
+            player.setVolume(v <= 0.001 ? 1.0 : 0.0);
+          },
+        ),
+        const SizedBox(width: 2),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              void setFrom(double localX) {
+                if (width <= 0) return;
+                player.setVolume((localX / width).clamp(0.0, 1.0).toDouble());
+              }
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (d) => setFrom(d.localPosition.dx),
+                onHorizontalDragUpdate: (d) => setFrom(d.localPosition.dx),
+                child: SizedBox(
+                  height: 24,
+                  width: width,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        top: 10.5,
+                        child: Container(
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: cs.onSurface.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: 0,
+                        top: 10.5,
+                        child: Container(
+                          width: width * v,
+                          height: 3,
+                          decoration: BoxDecoration(
+                            color: cs.primary,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        left: (width * v - 5).clamp(0.0, width > 10 ? width - 10 : 0.0).toDouble(),
+                        top: 7,
+                        child: Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: cs.primary,
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ],
