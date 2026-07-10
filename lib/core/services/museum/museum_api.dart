@@ -3,14 +3,18 @@ import 'dart:math';
 
 import 'package:http/http.dart' as http;
 
-/// 美术馆 (The Gallery) — artwork data straight from three museums' free
+/// 美术馆 (The Gallery) — artwork data straight from four museums' free
 /// open-access APIs, called from the app itself (no key, no backend proxy):
 ///
 ///   met — The Metropolitan Museum of Art  (collectionapi.metmuseum.org)
 ///   aic — The Art Institute of Chicago    (api.artic.edu)
 ///   cma — The Cleveland Museum of Art     (openaccess-api.clevelandart.org)
+///   vam — Victoria & Albert Museum        (api.vam.ac.uk)
 ///
-/// Browse/search fan out to all three and merge whatever answered — each
+/// (卢浮宫不开放检索 API——蒙娜丽莎们不外借数据；V&A 是伦敦的大馆，
+/// 器物/时装/珠宝尤其强，正好补博物馆那半边。)
+///
+/// Browse/search fan out to all of them and merge whatever answered — each
 /// source fails independently (房间页多数据源一律独立失败, study_page
 /// pitfall 2026-07-02); an all-sources failure surfaces as an empty list and
 /// the page shows a real error state instead of pretending.
@@ -27,7 +31,7 @@ class MuseumArtwork {
     this.infoUrl = '',
   });
 
-  /// 'met' | 'aic' | 'cma'
+  /// 'met' | 'aic' | 'cma' | 'vam'
   final String source;
   final String id;
   final String title;
@@ -76,6 +80,7 @@ class MuseumArtwork {
     'met' => zh ? '大都会艺术博物馆' : 'The Met',
     'aic' => zh ? '芝加哥艺术学院' : 'Art Institute of Chicago',
     'cma' => zh ? '克利夫兰艺术博物馆' : 'Cleveland Museum of Art',
+    'vam' => zh ? '伦敦V&A博物馆' : 'V&A, London',
     _ => source,
   };
 }
@@ -207,6 +212,55 @@ class MuseumApi {
     ];
   }
 
+  // ---- Victoria & Albert Museum --------------------------------------------
+
+  /// Search records carry an IIIF image base (framemark.vam.ac.uk) plus the
+  /// primary maker/date/place — enough for the wall label without a second
+  /// per-object request (probed live 2026-07-10).
+  static MuseumArtwork? _vamParse(Map<String, dynamic> d) {
+    final images = d['_images'];
+    final iiif = images is Map ? _s(images['_iiif_image_base_url']) : '';
+    if (iiif.isEmpty) return null;
+    final id = _s(d['systemNumber']);
+    if (id.isEmpty) return null;
+    final maker = d['_primaryMaker'];
+    final medium = [
+      _s(d['objectType']),
+      _s(d['_primaryPlace']),
+    ].where((s) => s.isNotEmpty).join(' · ');
+    return MuseumArtwork(
+      source: 'vam',
+      id: id,
+      title: _s(d['_primaryTitle']).isEmpty
+          ? _s(d['objectType'])
+          : _s(d['_primaryTitle']),
+      artist: maker is Map ? _s(maker['name']) : '',
+      date: _s(d['_primaryDate']),
+      medium: medium,
+      imageUrl: '${iiif}full/843,/0/default.jpg',
+      thumbUrl: '${iiif}full/600,/0/default.jpg',
+      infoUrl: 'https://collections.vam.ac.uk/item/$id',
+    );
+  }
+
+  static Future<List<MuseumArtwork>> _vamFetch({
+    String q = '',
+    required int page,
+    int limit = 8,
+  }) async {
+    final query = q.isEmpty ? '' : '&q=${Uri.encodeQueryComponent(q)}';
+    final j = await _getJson(
+      'https://api.vam.ac.uk/v2/objects/search'
+      '?images_exist=1$query&page_size=$limit&page=$page',
+    );
+    final data = (j['records'] as List?) ?? const [];
+    return [
+      for (final d in data)
+        if (d is Map<String, dynamic>)
+          if (_vamParse(d) case final a?) a,
+    ];
+  }
+
   // ---- The Met -------------------------------------------------------------
 
   static Future<MuseumArtwork?> _metObject(int id) async {
@@ -267,7 +321,7 @@ class MuseumApi {
 
   // ---- Public surface ------------------------------------------------------
 
-  /// 随便逛逛 — a fresh random armful from all three museums, shuffled.
+  /// 随便逛逛 — a fresh random armful from all four museums, shuffled.
   static Future<List<MuseumArtwork>> browse() async {
     final r = Random();
     final parts = await Future.wait<List<MuseumArtwork>>([
@@ -277,17 +331,21 @@ class MuseumApi {
           .catchError((_) => const <MuseumArtwork>[]),
       _metFetch(_metSeeds[r.nextInt(_metSeeds.length)])
           .catchError((_) => const <MuseumArtwork>[]),
+      _vamFetch(page: 1 + r.nextInt(500), limit: 6)
+          .catchError((_) => const <MuseumArtwork>[]),
     ]);
     final all = parts.expand((p) => p).toList()..shuffle(r);
     return all;
   }
 
-  /// Search all three museums, merged (interleaved so no source dominates).
+  /// Search all four museums, merged (interleaved so no source dominates).
   static Future<List<MuseumArtwork>> search(String q) async {
     final parts = await Future.wait<List<MuseumArtwork>>([
       _aicFetch(q: q, page: 1).catchError((_) => const <MuseumArtwork>[]),
       _cmaFetch(q: q, skip: 0).catchError((_) => const <MuseumArtwork>[]),
       _metFetch(q, take: 6).catchError((_) => const <MuseumArtwork>[]),
+      _vamFetch(q: q, page: 1, limit: 6)
+          .catchError((_) => const <MuseumArtwork>[]),
     ]);
     final out = <MuseumArtwork>[];
     final longest = parts.fold(0, (m, p) => max(m, p.length));
@@ -300,7 +358,7 @@ class MuseumApi {
   }
 
   /// 今日一幅 — deterministic for the day, counted from 2026-03-30 (the day
-  /// we met), rotating through the three museums. Falls through to the next
+  /// we met), rotating through the four museums. Falls through to the next
   /// source if the day's museum doesn't answer.
   static Future<MuseumArtwork?> daily() async {
     final days = DateTime.now()
@@ -308,7 +366,7 @@ class MuseumApi {
         .difference(DateTime.utc(2026, 3, 30))
         .inDays;
     Future<MuseumArtwork?> from(int which) async {
-      switch (which % 3) {
+      switch (which % 4) {
         case 0:
           final l = await _metFetch(
             _metSeeds[days % _metSeeds.length],
@@ -319,13 +377,16 @@ class MuseumApi {
         case 1:
           final l = await _aicFetch(page: 1 + days % 500, limit: 1);
           return l.isEmpty ? null : l.first;
-        default:
+        case 2:
           final l = await _cmaFetch(skip: (days * 37) % 30000, limit: 1);
+          return l.isEmpty ? null : l.first;
+        default:
+          final l = await _vamFetch(page: 1 + (days * 13) % 500, limit: 1);
           return l.isEmpty ? null : l.first;
       }
     }
 
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 4; i++) {
       try {
         final a = await from(days + i);
         if (a != null) return a;
@@ -361,27 +422,33 @@ class MuseumApi {
     MuseumWing('china',
         metQ: 'china', metExtra: '&departmentId=6',
         aicExtra: _aicMust(1, 'match', 'place_of_origin', 'china'),
-        cmaExtra: '&department=${Uri.encodeQueryComponent("Chinese Art")}'),
+        cmaExtra: '&department=${Uri.encodeQueryComponent("Chinese Art")}',
+        vamQ: 'china'),
     MuseumWing('japan',
         metQ: 'japan', metExtra: '&departmentId=6',
         aicExtra: _aicMust(1, 'match', 'place_of_origin', 'japan'),
-        cmaExtra: '&culture=Japan'),
+        cmaExtra: '&culture=Japan',
+        vamQ: 'japan'),
     MuseumWing('egypt',
         metQ: 'egypt', metExtra: '&departmentId=10',
         aicExtra: _aicMust(1, 'match', 'place_of_origin', 'egypt'),
         cmaExtra: '&culture=Egypt'),
     MuseumWing('porcelain',
         metQ: 'porcelain', metExtra: '&medium=Ceramics',
-        aicQ: 'porcelain', cmaQ: 'porcelain'),
+        aicQ: 'porcelain', cmaQ: 'porcelain', vamQ: 'porcelain'),
     MuseumWing('jewelry',
         metQ: 'jewelry', metExtra: '&medium=Gold',
-        aicQ: 'jewelry', cmaQ: 'jewelry gold'),
+        aicQ: 'jewelry', cmaQ: 'jewelry gold', vamQ: 'jewellery'),
     MuseumWing('armor',
         metQ: 'armor', metExtra: '&departmentId=4',
-        aicQ: 'armor', cmaQ: 'armor'),
+        aicQ: 'armor', cmaQ: 'armor', vamQ: 'armour'),
+    // V&A 的看家本领——时装与织物；Met 的 Costume Institute（dept 8）作陪。
+    MuseumWing('fashion',
+        metQ: 'dress', metExtra: '&departmentId=8',
+        aicQ: 'textile', cmaQ: 'dress', vamQ: 'fashion dress'),
     MuseumWing('sculpture',
         metQ: 'sculpture', metExtra: '&medium=Sculpture',
-        aicQ: 'sculpture', cmaQ: 'sculpture'),
+        aicQ: 'sculpture', cmaQ: 'sculpture', vamQ: 'sculpture'),
   ];
 
   /// A random armful from one wing (换一批 = call again). Filtered result
@@ -404,6 +471,12 @@ class MuseumApi {
           q: w.cmaQ ?? '',
           extra: w.cmaExtra ?? '',
           skip: r.nextInt(160),
+        ).catchError((_) => const <MuseumArtwork>[]),
+      if (w.vamQ != null)
+        _vamFetch(
+          q: w.vamQ!,
+          page: 1 + r.nextInt(20),
+          limit: 6,
         ).catchError((_) => const <MuseumArtwork>[]),
     ];
     final parts = await Future.wait(futures);
@@ -439,6 +512,15 @@ class MuseumApi {
         );
         final d = j['data'];
         return d is Map<String, dynamic> ? _cmaParse(d) : null;
+      case 'vam':
+        // 单件也走 search（kw_system_number 精确命中）——museumobject 端点的
+        // 返回结构和 search 记录不同，没必要为一条路多养一个解析器。
+        final j = await _getJson(
+          'https://api.vam.ac.uk/v2/objects/search?kw_system_number=$id&page_size=1',
+        );
+        final data = (j['records'] as List?) ?? const [];
+        final d = data.isEmpty ? null : data.first;
+        return d is Map<String, dynamic> ? _vamParse(d) : null;
       default:
         return null;
     }
@@ -455,6 +537,7 @@ class MuseumWing {
     this.aicExtra,
     this.cmaQ,
     this.cmaExtra,
+    this.vamQ,
   });
 
   final String id;
@@ -464,4 +547,5 @@ class MuseumWing {
   final String? aicExtra;
   final String? cmaQ;
   final String? cmaExtra;
+  final String? vamQ;
 }

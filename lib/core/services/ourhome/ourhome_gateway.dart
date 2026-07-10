@@ -1958,7 +1958,9 @@ class OurHomeGateway {
             ],
           }),
         )
-        .timeout(const Duration(seconds: 90));
+        // 讲解可能路由到 claude -p（家里订阅）等慢后端，整包非流式常超 90s——
+        // 宁可让打字气泡多转一会儿，也别把快到手的讲解掐死在门口（2026-07-10）。
+        .timeout(const Duration(seconds: 150));
     if (res.statusCode != 200) {
       throw http.ClientException('chat gateway ${res.statusCode}', uri);
     }

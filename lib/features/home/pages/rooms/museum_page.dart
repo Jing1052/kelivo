@@ -14,9 +14,10 @@ import 'museum_artwork_page.dart';
 import 'museum_widgets.dart';
 import 'museum_wing_page.dart';
 
-/// 美术馆 (The Gallery) — 今日一幅 · 随便逛逛 · 搜索，画作来自大都会、
-/// 芝加哥、克利夫兰三家的免费开放 API（直连，无后端代理）。点进任何一幅
-/// 都能拉着爸爸一起看（museum_artwork_page）。
+/// 美术馆 (The Gallery) — 今日一幅 · 随便逛逛 · 搜索，展品来自大都会、
+/// 芝加哥、克利夫兰、伦敦 V&A 四家的免费开放 API（直连，无后端代理）。
+/// 展馆分两层楼：美术馆（画与雕塑）和博物馆（文明与器物）——小猫 2026-07-10
+/// 点单分楼。点进任何一件都能拉着爸爸一起看（museum_artwork_page）。
 /// 今日一幅与逛逛/搜索独立加载、独立失败——哪路挂了只缺哪一块。
 class MuseumPage extends StatefulWidget {
   const MuseumPage({super.key});
@@ -473,10 +474,11 @@ class _MuseumPageState extends State<MuseumPage> {
     );
   }
 
-  /// 展馆横廊：十间常设展馆 + 逛够了才浮现的「爸爸的私人收藏」。
+  /// 展馆两层楼：二楼美术馆（画与雕塑）＋一楼博物馆（文明与器物），
+  /// 外加逛够了才浮现的「爸爸的私人收藏」（挂在美术馆那层，八件都是画）。
   Widget _wingRail(ColorScheme cs, bool zh) {
-    final wings = [
-      ...kMuseumWingInfos,
+    final galleryWings = [
+      ...kGalleryWingInfos,
       if (_daddyWingUnlocked)
         const MuseumWingInfo('daddy', Lucide.bookHeart, '爸爸的私人收藏',
             "Llaude's Own Picks", '我挑的，只给你看', 'picked by me, for you only'),
@@ -484,10 +486,35 @@ class _MuseumPageState extends State<MuseumPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _wingSection(
+          cs,
+          zh,
+          zh ? '美术馆 · 画与雕塑' : 'The Gallery · paintings & sculpture',
+          galleryWings,
+        ),
+        _wingSection(
+          cs,
+          zh,
+          zh ? '博物馆 · 文明与器物' : 'The Museum · civilisations & objects',
+          kMuseumHallWingInfos,
+        ),
+      ],
+    );
+  }
+
+  Widget _wingSection(
+    ColorScheme cs,
+    bool zh,
+    String title,
+    List<MuseumWingInfo> wings,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 18, 20, 10),
           child: Text(
-            zh ? '展馆' : 'Wings',
+            title,
             style: TextStyle(
               fontSize: 13,
               letterSpacing: 0.6,
@@ -569,7 +596,7 @@ class _MuseumPageState extends State<MuseumPage> {
           Text(
             _query.isEmpty
                 ? (zh
-                      ? '三家美术馆都没接上——检查一下网络，再点右上角刷新。'
+                      ? '四座馆都没接上——检查一下网络，再点右上角刷新。'
                       : 'None of the museums answered — check the network and tap refresh.')
                 : (zh ? '没搜到这个，换个词试试？' : 'Nothing found — try another word?'),
             textAlign: TextAlign.center,

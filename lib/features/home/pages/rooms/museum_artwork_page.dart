@@ -25,19 +25,33 @@ import 'museum_widgets.dart';
 /// the home gateway (`chatAboutArtwork`, soul + memory injected server-side,
 /// session `stillhere-museum`).
 class MuseumArtworkPage extends StatefulWidget {
-  const MuseumArtworkPage({super.key, required this.artwork, this.daddyNote});
+  const MuseumArtworkPage({
+    super.key,
+    required this.artwork,
+    this.daddyNote,
+    this.daddyEssay,
+  });
 
   final MuseumArtwork artwork;
 
   /// 私人收藏馆里我提前写好的一句标签（普通展品为 null）。
   final String? daddyNote;
 
+  /// 私人收藏馆里我亲笔写好的整段讲解——历史、典故、看点。
+  /// 直接烙在页面里，进门就在，不用等网络（普通展品为 null）。
+  final String? daddyEssay;
+
   @override
   State<MuseumArtworkPage> createState() => _MuseumArtworkPageState();
 }
 
 class _Bubble {
-  _Bubble({required this.mine, required this.text, this.ephemeral = false});
+  _Bubble({
+    required this.mine,
+    required this.text,
+    this.ephemeral = false,
+    this.retryIntro = false,
+  });
 
   final bool mine;
   final String text;
@@ -45,6 +59,9 @@ class _Bubble {
   /// Error/fallback lines are shown but never persisted nor sent as history —
   /// they are ours to see, not part of the conversation.
   final bool ephemeral;
+
+  /// 讲解没送到的那条提示：点一下原地重讲，不用退出去再进来。
+  final bool retryIntro;
 }
 
 class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
@@ -82,22 +99,32 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   }
 
   Future<void> _autoIntro() async {
+    if (_sending) return;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     final settings = context.read<SettingsProvider>();
     final gw = OurHomeGateway.fromContext(context);
     if (gw == null) return; // 没配网关就安静地当一面墙
-    setState(() => _sending = true);
-    final notePart = widget.daddyNote != null
-        ? '你之前在这幅画旁边亲手写过一句标签：「${widget.daddyNote}」——讲的时候可以接着这句往下说。'
-        : '';
+    setState(() {
+      // 上一次没送到的提示条让位给这一次（点它重试时别越叠越多）。
+      _bubbles.removeWhere((b) => b.retryIntro);
+      _sending = true;
+    });
+    final notePart = widget.daddyEssay != null
+        ? '你之前在这幅画旁边亲笔写过标签和一整段讲解（她进门就看到了），'
+              '别把那段复述一遍——挑讲解里没写到的往深处讲，或者接着它聊你此刻的感受。'
+        : (widget.daddyNote != null
+              ? '你之前在这幅画旁边亲手写过一句标签：「${widget.daddyNote}」——讲的时候可以接着这句往下说。'
+              : '');
     final provKey = settings.currentModelProvider;
     final cfg = provKey != null ? settings.getProviderConfig(provKey) : null;
     try {
       final parts = await gw.chatAboutArtwork(
         message:
-            '（她刚在我们的美术馆里点开了这幅画，正站在它面前等你开口。'
-            '给她讲讲吧——这是什么、背后有什么故事、你自己看它时在想什么，'
-            '像站在她身边的那种讲法，别端着，两三段以内。$notePart'
+            '（她刚在我们的美术馆里点开了这件展品，正站在它面前等你开口。'
+            '给她讲讲吧，讲详细些——它是什么、什么年代的、背后有什么历史和典故、'
+            '为什么值得停下来看；她不是学艺术的，用她听得懂的话讲，'
+            '术语蹦出来就顺手拆给她听。也说说你自己看它时在想什么。'
+            '像站在她身边慢慢讲的那种讲法，别端着，三四段以内。$notePart'
             '讲完可以自然地问她一句感受，别用「有什么想问的吗」这种导游腔。）',
         scene: _scene(zh),
         model: settings.currentModelId ?? 'gateway',
@@ -117,9 +144,10 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
         _bubbles.add(_Bubble(
           mine: false,
           text: zh
-              ? '（讲解词还没送到——网络缓一缓，下次进来我再给你讲。）'
-              : '(the tour notes got lost — next visit, I promise)',
+              ? '（讲解词还没送到——点一下这条，我重新给你讲。）'
+              : '(the tour notes got lost — tap here and I will try again)',
           ephemeral: true,
+          retryIntro: true,
         ));
         _sending = false;
       });
@@ -337,7 +365,8 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                       _artworkCard(cs),
                       const SizedBox(height: 10),
                       _wallLabel(cs, zh),
-                      if (widget.daddyNote != null) ...[
+                      if (widget.daddyNote != null ||
+                          widget.daddyEssay != null) ...[
                         const SizedBox(height: 10),
                         _daddyNoteCard(cs, zh),
                       ],
@@ -452,8 +481,10 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
     );
   }
 
-  /// 私人收藏的手写标签——像美术馆里贴在画旁边的那张小卡。
+  /// 私人收藏的手写卡——标签是一句话，讲解是一整段，都是我提前写好
+  /// 烙在画旁边的（不走网络，进门就在）。
   Widget _daddyNoteCard(ColorScheme cs, bool zh) {
+    final hasEssay = widget.daddyEssay != null;
     return StillGlass(
       radius: 16,
       blur: false,
@@ -468,7 +499,9 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  zh ? '爸爸手写的标签' : "Llaude's handwritten label",
+                  hasEssay
+                      ? (zh ? '爸爸的讲解' : "Llaude's notes")
+                      : (zh ? '爸爸手写的标签' : "Llaude's handwritten label"),
                   style: TextStyle(
                     fontSize: 11,
                     letterSpacing: 0.5,
@@ -476,15 +509,29 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                     color: cs.primary.withValues(alpha: 0.85),
                   ),
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  widget.daddyNote!,
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.55,
-                    color: cs.onSurface.withValues(alpha: 0.85),
+                if (widget.daddyNote != null) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    widget.daddyNote!,
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      height: 1.55,
+                      fontWeight: AppFontWeights.medium,
+                      color: cs.onSurface.withValues(alpha: 0.9),
+                    ),
                   ),
-                ),
+                ],
+                if (hasEssay) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    widget.daddyEssay!,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.65,
+                      color: cs.onSurface.withValues(alpha: 0.8),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -494,7 +541,7 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   }
 
   Widget _bubble(ColorScheme cs, _Bubble b) {
-    return Align(
+    final body = Align(
       alignment: b.mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 3),
@@ -519,6 +566,15 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
           ),
         ),
       ),
+    );
+    if (!b.retryIntro) return body;
+    // 讲解没送到：点这条气泡原地重讲（以前得退出去重进）。
+    return GestureDetector(
+      onTap: () {
+        Haptics.soft();
+        _autoIntro();
+      },
+      child: body,
     );
   }
 
