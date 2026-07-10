@@ -223,9 +223,10 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
       if (a.date.isNotEmpty) a.date,
       if (a.medium.isNotEmpty) a.medium,
     ].join(zh ? '，' : ', ');
+    // 「展品」而非「画」——这面墙如今也挂星空照片和化石标本。
     return zh
-        ? '（我们正在美术馆里一起看这幅画：《${a.title}》'
-              '${bits.isNotEmpty ? '——$bits' : ''}；藏于${a.museumName(true)}）\n'
+        ? '（我们正在美术馆里一起看这件展品：《${a.title}》'
+              '${bits.isNotEmpty ? '——$bits' : ''}；来自${a.museumName(true)}）\n'
         : '(We are in the gallery looking at "${a.title}"'
               '${bits.isNotEmpty ? ' — $bits' : ''}; ${a.museumName(false)})\n';
   }

@@ -61,6 +61,27 @@ const List<MuseumWingInfo> kMuseumHallWingInfos = [
       '衣服是文明的皮肤', 'clothes, the skin of civilisation'),
 ];
 
+/// 宫殿特藏——故宫/卢浮宫/凡尔赛都不外借数据，公版藏品从维基共享那扇窗
+/// 请回家（deepcategory 递归类目，货源 2026-07-10 probe 验穿）。
+const List<MuseumWingInfo> kPalaceWingInfos = [
+  MuseumWingInfo('gugong', Lucide.House, '故宫特藏', 'Palace Museum',
+      '紫禁城的家底', 'treasures of the Forbidden City'),
+  MuseumWingInfo('louvre', Lucide.Library, '卢浮宫特藏', 'The Louvre',
+      '从窗户请进来的名画', 'masterpieces through the window'),
+  MuseumWingInfo('versailles', Lucide.Wand, '凡尔赛宫', 'Versailles',
+      '镜厅与太阳王', 'the Hall of Mirrors'),
+];
+
+/// 自然与宇宙——生命/化石走 GBIF 全球标本网络，天文走 NASA 每日天文一图。
+const List<MuseumWingInfo> kNatureWingInfos = [
+  MuseumWingInfo('life', Lucide.HeartPulse, '生命馆', 'Life',
+      '蝴蝶与飞鸟', 'butterflies and birds'),
+  MuseumWingInfo('fossils', Lucide.Layers, '化石馆', 'Fossils',
+      '亿年前的生命拓印', 'life pressed into stone'),
+  MuseumWingInfo('apod', Lucide.Earth, '天文馆', 'Planetarium',
+      '今晚头顶 · NASA', 'tonight overhead · NASA'),
+];
+
 /// 私人收藏里的一件：标签是我留给她的一句话，讲解是我亲笔写的整段——
 /// 历史、典故、看点，进门就在（不走网络、永不缓冲）。
 class DaddyPick {
@@ -210,6 +231,8 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
         got = await MuseumApi.fetchByRefs([
           for (final p in kDaddyPicks) (p.source, p.id),
         ]);
+      } else if (MuseumApi.specialWingIds.contains(widget.info.id)) {
+        got = await MuseumApi.browseSpecial(widget.info.id);
       } else {
         final wing = MuseumApi.wings.firstWhere(
           (w) => w.id == widget.info.id,

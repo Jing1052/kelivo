@@ -81,6 +81,11 @@ class MuseumArtwork {
     'aic' => zh ? '芝加哥艺术学院' : 'Art Institute of Chicago',
     'cma' => zh ? '克利夫兰艺术博物馆' : 'Cleveland Museum of Art',
     'vam' => zh ? '伦敦V&A博物馆' : 'V&A, London',
+    'gugong' => zh ? '故宫博物院' : 'The Palace Museum',
+    'louvre' => zh ? '卢浮宫' : 'The Louvre',
+    'versailles' => zh ? '凡尔赛宫' : 'Palace of Versailles',
+    'gbif' => zh ? '全球自然标本网络 GBIF' : 'GBIF specimen network',
+    'apod' => zh ? 'NASA·每日天文一图' : 'NASA APOD',
     _ => source,
   };
 }
@@ -317,6 +322,185 @@ class MuseumApi {
         _metObject(id).catchError((_) => null),
     ]);
     return fetched.whereType<MuseumArtwork>().toList();
+  }
+
+  // ---- Wikimedia Commons — 宫殿特藏的那扇窗 --------------------------------
+  //
+  // 故宫/卢浮宫/凡尔赛都不开放检索 API，但它们的公版藏品在维基共享上有
+  // 高清扫描。CirrusSearch 的 deepcategory:（递归类目）+ gsrsort=random
+  // 一步到位（三个类目 6.7k~18k 文件，2026-07-10 probe 验穿）。
+
+  static String _plainHtml(String? h) => (h ?? '')
+      .replaceAll(RegExp(r'<[^>]+>'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+
+  static String _cap(String s, int n) => s.length > n ? s.substring(0, n) : s;
+
+  static Future<List<MuseumArtwork>> _wmFetch(
+    String source,
+    String deepcat, {
+    int limit = 8,
+  }) async {
+    final search = Uri.encodeQueryComponent('deepcategory:"$deepcat"');
+    final j = await _getJson(
+      'https://commons.wikimedia.org/w/api.php?action=query&format=json'
+      '&generator=search&gsrnamespace=6&gsrlimit=$limit&gsrsort=random'
+      '&gsrsearch=$search'
+      '&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=1600',
+    );
+    final query = j['query'];
+    final pages = query is Map ? query['pages'] : null;
+    if (pages is! Map) return const [];
+    final out = <MuseumArtwork>[];
+    for (final p in pages.values) {
+      if (p is! Map) continue;
+      final infos = p['imageinfo'];
+      final ii = infos is List && infos.isNotEmpty ? infos.first : null;
+      if (ii is! Map) continue;
+      final big = _s(ii['thumburl']).isEmpty ? _s(ii['url']) : _s(ii['thumburl']);
+      if (big.isEmpty) continue;
+      final em = ii['extmetadata'];
+      String meta(String k) => em is Map && em[k] is Map
+          ? _plainHtml((em[k] as Map)['value']?.toString())
+          : '';
+      var title = meta('ObjectName');
+      if (title.isEmpty) {
+        title = _s(p['title'])
+            .replaceFirst(RegExp(r'^File:'), '')
+            .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
+      }
+      // extmetadata 的日期字段里常拖着 Wikidata 的 "date QS:…" 机器注记。
+      var date = meta('DateTimeOriginal');
+      final qs = date.indexOf('date QS');
+      if (qs >= 0) date = date.substring(0, qs).trim();
+      out.add(MuseumArtwork(
+        source: source,
+        id: _s(p['pageid']),
+        title: _cap(title, 120),
+        artist: _cap(meta('Artist'), 100),
+        date: _cap(date, 40),
+        medium: '',
+        imageUrl: big,
+        thumbUrl: big.contains('/1600px-')
+            ? big.replaceFirst('/1600px-', '/640px-')
+            : big,
+        infoUrl: _s(ii['descriptionurl']),
+      ));
+    }
+    return out;
+  }
+
+  // ---- GBIF — 生命馆与化石馆的标本网络 --------------------------------------
+
+  static const Map<String, String> _gbifBasis = {
+    'HUMAN_OBSERVATION': '野外影像',
+    'MACHINE_OBSERVATION': '机器观测',
+    'PRESERVED_SPECIMEN': '馆藏标本',
+    'FOSSIL_SPECIMEN': '化石标本',
+    'MATERIAL_SAMPLE': '材料样本',
+  };
+
+  static Future<List<MuseumArtwork>> _gbifFetch(
+    String extra, {
+    int limit = 8,
+  }) async {
+    // 每个筛选池都是百万级，浅随机 offset 就够花不完。
+    final offset = Random().nextInt(8000);
+    final j = await _getJson(
+      'https://api.gbif.org/v1/occurrence/search'
+      '?mediaType=StillImage$extra&limit=$limit&offset=$offset',
+    );
+    final data = (j['results'] as List?) ?? const [];
+    final out = <MuseumArtwork>[];
+    for (final r in data) {
+      if (r is! Map) continue;
+      final media = r['media'];
+      final img = media is List && media.isNotEmpty && media.first is Map
+          ? _s((media.first as Map)['identifier'])
+          : '';
+      if (!img.startsWith('http')) continue;
+      final sci = _s(r['species']).isEmpty
+          ? _s(r['scientificName'])
+          : _s(r['species']);
+      final basis = _s(r['basisOfRecord']);
+      final key = _s(r['key']);
+      out.add(MuseumArtwork(
+        source: 'gbif',
+        id: key,
+        title: _cap(sci, 100),
+        artist: [
+          _s(r['institutionCode']),
+          _s(r['country']),
+        ].where((s) => s.isNotEmpty).join(' · '),
+        date: _s(r['year']),
+        medium: _gbifBasis[basis] ?? basis,
+        imageUrl: img,
+        thumbUrl: img,
+        infoUrl: 'https://www.gbif.org/occurrence/$key',
+      ));
+    }
+    return out;
+  }
+
+  // ---- NASA APOD — 天文馆：每日天文一图 -------------------------------------
+
+  /// DEMO_KEY 是 NASA 公开的演示钥匙（不是秘密），限额按她手机 IP 算
+  /// （50 次/天），一个人逛绰绰有余。count= 返回随机历史图，正合「换一批」。
+  static Future<List<MuseumArtwork>> _apodFetch({int count = 12}) async {
+    final j = await _getJson(
+      'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY&count=$count',
+    );
+    if (j is! List) return const [];
+    final out = <MuseumArtwork>[];
+    for (final r in j) {
+      if (r is! Map) continue;
+      if (_s(r['media_type']) != 'image') continue;
+      final url = _s(r['url']);
+      if (url.isEmpty) continue;
+      final date = _s(r['date']); // yyyy-mm-dd
+      out.add(MuseumArtwork(
+        source: 'apod',
+        id: date,
+        title: _s(r['title']),
+        artist: _s(r['copyright']).isEmpty ? 'NASA' : _cap(_s(r['copyright']), 80),
+        date: date,
+        medium: '',
+        imageUrl: _s(r['hdurl']).isEmpty ? url : _s(r['hdurl']),
+        thumbUrl: url,
+        infoUrl: date.length == 10
+            ? 'https://apod.nasa.gov/apod/ap${date.substring(2).replaceAll('-', '')}.html'
+            : '',
+      ));
+    }
+    return out;
+  }
+
+  /// 特藏与自然宇宙的展馆（不走常设 wings 的四馆参数那套）。
+  /// 宫殿特藏走维基那扇窗，生命/化石走 GBIF，天文走 NASA。
+  static const Set<String> specialWingIds = {
+    'gugong', 'louvre', 'versailles', 'life', 'fossils', 'apod',
+  };
+
+  static Future<List<MuseumArtwork>> browseSpecial(String id) async {
+    switch (id) {
+      case 'gugong':
+        return _wmFetch('gugong', 'Collections of the Palace Museum');
+      case 'louvre':
+        return _wmFetch('louvre', 'Paintings in the Louvre');
+      case 'versailles':
+        return _wmFetch('versailles', 'Interior of the Palace of Versailles');
+      case 'life':
+        // 蝶与鸟换着上——「换一批」也可能换一族。797=鳞翅目，212=鸟纲。
+        final taxa = ['797', '212'];
+        return _gbifFetch('&taxonKey=${taxa[Random().nextInt(taxa.length)]}');
+      case 'fossils':
+        return _gbifFetch('&basisOfRecord=FOSSIL_SPECIMEN');
+      case 'apod':
+        return _apodFetch();
+      default:
+        return const [];
+    }
   }
 
   // ---- Public surface ------------------------------------------------------

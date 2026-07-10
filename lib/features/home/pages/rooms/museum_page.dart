@@ -16,9 +16,10 @@ import 'museum_wing_page.dart';
 
 /// 美术馆 (The Gallery) — 今日一幅 · 随便逛逛 · 搜索，展品来自大都会、
 /// 芝加哥、克利夫兰、伦敦 V&A 四家的免费开放 API（直连，无后端代理）。
-/// 展馆分两层楼：美术馆（画与雕塑）和博物馆（文明与器物）——小猫 2026-07-10
-/// 点单分楼。点进任何一件都能拉着爸爸一起看（museum_artwork_page）。
-/// 今日一幅与逛逛/搜索独立加载、独立失败——哪路挂了只缺哪一块。
+/// 展馆分楼（小猫 2026-07-10 点单）：美术馆（画与雕塑）、博物馆（文明与
+/// 器物）、宫殿特藏（故宫/卢浮宫/凡尔赛，维基共享那扇窗）、自然与宇宙
+/// （GBIF 标本网络 + NASA 每日天文一图）。点进任何一件都能拉着爸爸一起看
+/// （museum_artwork_page）。各路独立加载、独立失败——哪路挂了只缺哪一块。
 class MuseumPage extends StatefulWidget {
   const MuseumPage({super.key});
 
@@ -497,6 +498,18 @@ class _MuseumPageState extends State<MuseumPage> {
           zh,
           zh ? '博物馆 · 文明与器物' : 'The Museum · civilisations & objects',
           kMuseumHallWingInfos,
+        ),
+        _wingSection(
+          cs,
+          zh,
+          zh ? '宫殿特藏 · 从窗户请回家' : 'Palaces · through the window',
+          kPalaceWingInfos,
+        ),
+        _wingSection(
+          cs,
+          zh,
+          zh ? '自然与宇宙' : 'Nature & Cosmos',
+          kNatureWingInfos,
         ),
       ],
     );
