@@ -315,6 +315,95 @@ Widget _buildToolImageFromPath(
   );
 }
 
+// Sticker loader with slow-network manners: spinner placeholder while
+// loading, one automatic retry after a short delay, then tap-to-retry.
+// Plain Image.network turns a single timeout into a permanently broken box
+// (it never refetches until the widget rebuilds) — on a cold server cache
+// that reads as "sticker won't display" (2026-07-10).
+class _StickerImage extends StatefulWidget {
+  const _StickerImage({required this.url});
+
+  final String url;
+
+  @override
+  State<_StickerImage> createState() => _StickerImageState();
+}
+
+class _StickerImageState extends State<_StickerImage> {
+  int _attempt = 0;
+  bool _autoRetried = false;
+
+  Widget _box(ColorScheme cs, {required Widget child}) => Container(
+    width: 110,
+    height: 110,
+    color: cs.onSurface.withValues(alpha: 0.05),
+    child: child,
+  );
+
+  void _retry() {
+    NetworkImage(widget.url).evict();
+    if (mounted) setState(() => _attempt++);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Image.network(
+      widget.url,
+      key: ValueKey('sticker-$_attempt-${widget.url}'),
+      fit: BoxFit.contain,
+      gaplessPlayback: true,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) return child;
+        return _box(
+          cs,
+          child: Center(
+            child: SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cs.onSurface.withValues(alpha: 0.25),
+              ),
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, _, __) {
+        if (!_autoRetried) {
+          _autoRetried = true;
+          Future.delayed(const Duration(seconds: 2), () {
+            if (mounted) _retry();
+          });
+        }
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _retry,
+          child: _box(
+            cs,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Lucide.ImageOff,
+                  size: 20,
+                  color: cs.onSurface.withValues(alpha: 0.3),
+                ),
+                const SizedBox(height: 6),
+                Icon(
+                  Lucide.RotateCw,
+                  size: 14,
+                  color: cs.onSurface.withValues(alpha: 0.35),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 void _showToolFullImage(BuildContext context, String path) {
   Navigator.of(context).push(
     PageRouteBuilder<void>(
@@ -2137,28 +2226,13 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
   // framed bubble reads as "a picture", not "an emote" — ai-sticker-pack's
   // rendering tip). Height-capped so one meme can't swallow the screen.
   Widget _buildStickerImage(BuildContext context, String url) {
-    final cs = Theme.of(context).colorScheme;
     return Align(
       alignment: Alignment.centerLeft,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 150, maxWidth: 150),
-          child: Image.network(
-            url,
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
-            errorBuilder: (context, _, __) => Container(
-              width: 110,
-              height: 110,
-              color: cs.onSurface.withValues(alpha: 0.05),
-              child: Icon(
-                Lucide.ImageOff,
-                size: 20,
-                color: cs.onSurface.withValues(alpha: 0.3),
-              ),
-            ),
-          ),
+          child: _StickerImage(url: url),
         ),
       ),
     );
