@@ -85,6 +85,8 @@ dependencies:
   syncfusion_flutter_sliders: ^31.2.5
   syncfusion_flutter_pdf: ^31.2.5
   audioplayers: ^6.5.1
+  # 美术馆图片磁盘缓存（museum_widgets.museumNetImage）——首次加载后本地留档。
+  cached_network_image: ^3.4.1
   # Music Room (Spec 8) playback — streaming + background audio.
   just_audio: ^0.9.42
   audio_session: ^0.1.21

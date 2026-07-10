@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
@@ -109,6 +111,47 @@ class EryuPlayerController extends ChangeNotifier {
     unawaited(SharedPreferences.getInstance().then((p) => p.setDouble(_volKey, vv)));
   }
 
+  // ── 歌曲本地缓存（Documents/music_cache/<songId>.mp3，LRU 上限 60 首）────
+  Directory? _musicCacheDir;
+
+  Future<File> _songCacheFile(String songId) async {
+    var dir = _musicCacheDir;
+    if (dir == null) {
+      final docs = await getApplicationDocumentsDirectory();
+      dir = Directory('${docs.path}/music_cache');
+      if (!dir.existsSync()) dir.createSync(recursive: true);
+      _musicCacheDir = dir;
+    }
+    final safe = songId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+    return File('${dir.path}/$safe.mp3');
+  }
+
+  /// 只留最近听的 60 首（连 LockCachingAudioSource 的 .part/.mime 一起清），
+  /// 缓存永远长不满她的手机。
+  Future<void> _trimMusicCache() async {
+    final dir = _musicCacheDir;
+    if (dir == null) return;
+    try {
+      final files = dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.mp3'))
+          .toList()
+        ..sort(
+          (a, b) => a.lastModifiedSync().compareTo(b.lastModifiedSync()),
+        );
+      while (files.length > 60) {
+        final victim = files.removeAt(0);
+        for (final side in ['', '.part', '.mime']) {
+          final f = File('${victim.path}$side');
+          if (f.existsSync()) f.deleteSync();
+        }
+      }
+    } catch (e) {
+      debugPrint('[eryu] music cache trim failed: $e');
+    }
+  }
+
   void bind(EryuClient client) => _client = client;
 
   /// 老家网关（可空——没配就不上报）。谁 bind 了 eryu client，谁顺手把网关也
@@ -212,7 +255,19 @@ class EryuPlayerController extends ChangeNotifier {
         return;
       }
       _loadLyrics();
-      await _player.setUrl(url);
+      // 边播边存：LockCachingAudioSource 首次播放把整首落到本地文件；之后
+      // 同一首直接从盘上读（cacheFile 按 songId 定死，不怕播放 URL 每次
+      // 过期换链），不再"加载好久好久"。缓存源出任何问题都退回直连流。
+      try {
+        final cacheFile = await _songCacheFile(song.songId);
+        await _player.setAudioSource(
+          LockCachingAudioSource(Uri.parse(url), cacheFile: cacheFile),
+        );
+      } catch (e) {
+        debugPrint('[eryu] cached source failed, falling back to stream: $e');
+        await _player.setUrl(url);
+      }
+      unawaited(_trimMusicCache());
       if (seekTo != null && seekTo > Duration.zero) {
         await _player.seek(seekTo);
       }

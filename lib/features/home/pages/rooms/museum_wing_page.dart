@@ -113,11 +113,23 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
     _load();
   }
 
-  Future<void> _load() async {
+  /// 缓存优先：进馆先上上一批（秒开），「换一批」才真出门取新的。
+  Future<void> _load({bool refresh = false}) async {
     setState(() {
       _loading = true;
       _failed = false;
     });
+    final cacheKey = 'wing:${widget.info.id}';
+    if (!refresh) {
+      final cached = await museumCacheLoad(cacheKey);
+      if (cached.isNotEmpty && mounted) {
+        setState(() {
+          _items = cached;
+          _loading = false;
+        });
+        return;
+      }
+    }
     List<MuseumArtwork> got = const [];
     try {
       if (_isDaddy) {
@@ -133,6 +145,7 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
     } catch (_) {
       got = const [];
     }
+    if (got.isNotEmpty) await museumCacheSave(cacheKey, got);
     if (!mounted) return;
     setState(() {
       _items = got;
@@ -199,7 +212,7 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
                   minSize: 44,
                   onTap: () {
                     Haptics.soft();
-                    _load();
+                    _load(refresh: true);
                   },
                 ),
               const SizedBox(width: 4),

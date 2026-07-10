@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -373,34 +374,11 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
         borderRadius: BorderRadius.circular(16),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 160, maxHeight: 380),
-          // Wall copy loads the mid-size image; the full-resolution one only
-          // streams in the pinch-zoom viewer (Met originals can be huge).
-          child: Image.network(
-            widget.artwork.thumbUrl,
-            fit: BoxFit.contain,
+          // Wall copy loads the mid-size image via the shared disk cache; the
+          // full-resolution one only streams in the pinch-zoom viewer.
+          child: SizedBox(
             width: double.infinity,
-            loadingBuilder: (c, child, p) => p == null
-                ? child
-                : const SizedBox(
-                    height: 240,
-                    child: Center(
-                      child: SizedBox(
-                        width: 26,
-                        height: 26,
-                        child: CircularProgressIndicator(strokeWidth: 2.2),
-                      ),
-                    ),
-                  ),
-            errorBuilder: (c, e, s) => SizedBox(
-              height: 160,
-              child: Center(
-                child: Icon(
-                  Lucide.ImageOff,
-                  size: 28,
-                  color: cs.onSurface.withValues(alpha: 0.35),
-                ),
-              ),
-            ),
+            child: museumNetImage(cs, widget.artwork.thumbUrl, BoxFit.contain),
           ),
         ),
       ),
@@ -626,22 +604,20 @@ class _FullImagePage extends StatelessWidget {
           child: InteractiveViewer(
             maxScale: 6,
             child: Center(
-              child: Image.network(
-                url,
+              child: CachedNetworkImage(
+                imageUrl: url,
                 fit: BoxFit.contain,
-                loadingBuilder: (c, child, p) => p == null
-                    ? child
-                    : const Center(
-                        child: SizedBox(
-                          width: 26,
-                          height: 26,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.2,
-                            color: Colors.white70,
-                          ),
-                        ),
-                      ),
-                errorBuilder: (c, e, s) => const Center(
+                placeholder: (c, u) => const Center(
+                  child: SizedBox(
+                    width: 26,
+                    height: 26,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.2,
+                      color: Colors.white70,
+                    ),
+                  ),
+                ),
+                errorWidget: (c, u, e) => const Center(
                   child: Icon(Lucide.ImageOff, color: Colors.white38),
                 ),
               ),

@@ -84,13 +84,33 @@ class _MuseumPageState extends State<MuseumPage> {
     super.dispose();
   }
 
+  static const String _dailyDatePref = 'museum_daily_date_v1';
+
+  /// 今日一幅本来就按天固定——当天取到过一次就落本地，再进门秒开。
   Future<void> _loadDaily() async {
     setState(() => _dailyLoading = true);
+    final now = DateTime.now().toUtc();
+    final today = '${now.year}-${now.month}-${now.day}';
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(_dailyDatePref) == today) {
+      final cached = await museumCacheLoad('daily');
+      if (cached.isNotEmpty && mounted) {
+        setState(() {
+          _daily = cached.first;
+          _dailyLoading = false;
+        });
+        return;
+      }
+    }
     MuseumArtwork? a;
     try {
       a = await MuseumApi.daily();
     } catch (_) {
       a = null;
+    }
+    if (a != null) {
+      await museumCacheSave('daily', [a]);
+      await prefs.setString(_dailyDatePref, today);
     }
     if (!mounted) return;
     setState(() {
@@ -99,18 +119,31 @@ class _MuseumPageState extends State<MuseumPage> {
     });
   }
 
-  Future<void> _loadBrowse() async {
+  /// 逛逛清单缓存优先：进门先上上一批（秒开、不吃流量），
+  /// 右上角「换一批」才真出门取新的。
+  Future<void> _loadBrowse({bool refresh = false}) async {
     setState(() {
       _itemsLoading = true;
       _itemsFailed = false;
       _query = '';
     });
+    if (!refresh) {
+      final cached = await museumCacheLoad('browse');
+      if (cached.isNotEmpty && mounted) {
+        setState(() {
+          _items = cached;
+          _itemsLoading = false;
+        });
+        return;
+      }
+    }
     List<MuseumArtwork> got = const [];
     try {
       got = await MuseumApi.browse();
     } catch (_) {
       got = const [];
     }
+    if (got.isNotEmpty) await museumCacheSave('browse', got);
     if (!mounted) return;
     setState(() {
       _items = got;
@@ -202,7 +235,7 @@ class _MuseumPageState extends State<MuseumPage> {
                 onTap: () {
                   Haptics.soft();
                   _search.clear();
-                  _loadBrowse();
+                  _loadBrowse(refresh: true);
                 },
               ),
               const SizedBox(width: 4),

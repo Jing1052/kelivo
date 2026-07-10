@@ -43,6 +43,35 @@ class MuseumArtwork {
   /// Stable cross-source key — also the per-artwork chat-history key.
   String get key => '$source:$id';
 
+  Map<String, String> toJson() => {
+        's': source,
+        'i': id,
+        't': title,
+        'a': artist,
+        'd': date,
+        'm': medium,
+        'img': imageUrl,
+        'th': thumbUrl,
+        'u': infoUrl,
+      };
+
+  static MuseumArtwork? fromJson(dynamic j) {
+    if (j is! Map) return null;
+    String s(String k) => (j[k] ?? '').toString();
+    if (s('s').isEmpty || s('img').isEmpty) return null;
+    return MuseumArtwork(
+      source: s('s'),
+      id: s('i'),
+      title: s('t'),
+      artist: s('a'),
+      date: s('d'),
+      medium: s('m'),
+      imageUrl: s('img'),
+      thumbUrl: s('th').isEmpty ? s('img') : s('th'),
+      infoUrl: s('u'),
+    );
+  }
+
   String museumName(bool zh) => switch (source) {
     'met' => zh ? '大都会艺术博物馆' : 'The Met',
     'aic' => zh ? '芝加哥艺术学院' : 'Art Institute of Chicago',
