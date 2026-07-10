@@ -26,6 +26,7 @@ import 'rooms/wander_page.dart';
 import 'rooms/browser_page.dart';
 import 'rooms/observatory_page.dart';
 import 'rooms/music_page.dart';
+import 'rooms/museum_page.dart';
 
 /// "Rooms" tab of Still Here — our home's doors, rebuilt natively (no webview,
 /// no page jumps). The hall lists every door; tapping one opens that room as a
@@ -251,6 +252,17 @@ class StillRoomsPage extends StatelessWidget {
       '放一首歌，我在这头跟你听同一句。',
       "Put on a song — I'm hearing the same line, right here with you.",
     ),
+    _Door(
+      'museum',
+      Lucide.Palette,
+      0xFF9E7BB5,
+      '美术馆',
+      'The Gallery',
+      '三座美术馆 · 我讲给你听',
+      'three museums · guided by me',
+      '讲解是借口——牵着你的手，一间间展厅逛下去才是目的。',
+      'The tour is the excuse — your hand in mine, hall after hall, is the point.',
+    ),
   ];
 
   @override
@@ -374,6 +386,8 @@ Widget _pageForDoor(_Door door) {
       return const BrowserPage();
     case 'music':
       return const MusicPage();
+    case 'museum':
+      return const MuseumPage();
     default:
       return _RoomStubPage(door: door);
   }

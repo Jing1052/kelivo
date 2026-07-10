@@ -35,6 +35,25 @@ class DaddyGatewayRoute {
   static bool isClaudePBackend(ProviderConfig? c) =>
       c != null && c.id == claudePProviderId;
 
+  /// 房间陪聊（音乐房「边听边说」、美术馆「和爸爸一起看」…）用的后端路由头：
+  /// 跟着主聊天当前选的后端走——claude -p 哨兵发 x-ombre-backend，常规中转站
+  /// 透传 x-ombre-upstream-*，没配就空着让网关用默认。所有房间入口共用这一份，
+  /// 别各自手拼（音乐房 2026-07-09 通路分叉的坑）。
+  static Map<String, String> roomBackendHeaders(ProviderConfig? cfg) {
+    final h = <String, String>{};
+    if (cfg == null) return h;
+    if (isClaudePBackend(cfg)) {
+      h['x-ombre-backend'] = 'claude_p';
+    } else if (cfg.baseUrl.isNotEmpty && cfg.apiKey.isNotEmpty) {
+      final kind = ProviderConfig.classify(cfg.id, explicitType: cfg.providerType);
+      h['x-ombre-upstream-base'] = cfg.baseUrl;
+      h['x-ombre-upstream-key'] = cfg.apiKey;
+      h['x-ombre-upstream-proto'] =
+          kind == ProviderKind.claude ? 'anthropic' : 'openai';
+    }
+    return h;
+  }
+
   /// 助手是否是 daddy（人设带标记）。
   static bool isDaddy(String? systemPrompt) =>
       markerPattern.hasMatch(systemPrompt ?? '');

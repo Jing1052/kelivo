@@ -1912,6 +1912,57 @@ class OurHomeGateway {
         .toList();
   }
 
+  /// A one-shot 看画 turn with Llaude through the chat gateway — the museum
+  /// room's 「和爸爸一起看」. Mirrors [chatAboutSong]: daddy mode drops
+  /// `system`, so [scene] (the painting we're standing in front of, built by
+  /// the page) is folded into the user message; [history] carries this
+  /// artwork's saved turns so reopening the same painting picks the
+  /// conversation back up. Returns his reply split on `|||` into bubbles.
+  /// Throws on error.
+  Future<List<String>> chatAboutArtwork({
+    required String message,
+    String scene = '',
+    List<Map<String, String>> history = const [],
+    String model = 'gateway',
+    Map<String, String> backendHeaders = const {},
+  }) async {
+    final uri = Uri.parse('$base/v1/chat/completions');
+    final res = await http
+        .post(
+          uri,
+          headers: {
+            ..._authHeaders,
+            'Content-Type': 'application/json',
+            'x-ombre-session': 'stillhere-museum',
+            ...backendHeaders,
+          },
+          body: jsonEncode({
+            'model': model,
+            'stream': false,
+            'messages': [
+              ...history,
+              {'role': 'user', 'content': scene + message},
+            ],
+          }),
+        )
+        .timeout(const Duration(seconds: 90));
+    if (res.statusCode != 200) {
+      throw http.ClientException('chat gateway ${res.statusCode}', uri);
+    }
+    final j = jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
+    final choices = j['choices'];
+    String content = '';
+    if (choices is List && choices.isNotEmpty && choices.first is Map) {
+      final msg = (choices.first as Map)['message'];
+      if (msg is Map) content = (msg['content'] ?? '').toString();
+    }
+    return _cleanCompanionReply(content)
+        .split('|||')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
+
   /// The music-room timeline renders plain text, so main-chat-only artifacts
   /// must be stripped before feeding bubbles: `<think>`/`<thinking>` blocks
   /// (the gateway's non-stream path returns handwritten thinking and the

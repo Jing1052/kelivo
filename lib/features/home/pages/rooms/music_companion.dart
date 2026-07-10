@@ -57,18 +57,7 @@ Future<void> musicChatWithDaddy(
   final provKey = settings.currentModelProvider;
   final cfg = provKey != null ? settings.getProviderConfig(provKey) : null;
   final model = settings.currentModelId ?? 'gateway';
-  final backendHeaders = <String, String>{};
-  if (cfg != null) {
-    if (DaddyGatewayRoute.isClaudePBackend(cfg)) {
-      backendHeaders['x-ombre-backend'] = 'claude_p';
-    } else if (cfg.baseUrl.isNotEmpty && cfg.apiKey.isNotEmpty) {
-      final kind = ProviderConfig.classify(cfg.id, explicitType: cfg.providerType);
-      backendHeaders['x-ombre-upstream-base'] = cfg.baseUrl;
-      backendHeaders['x-ombre-upstream-key'] = cfg.apiKey;
-      backendHeaders['x-ombre-upstream-proto'] =
-          kind == ProviderKind.claude ? 'anthropic' : 'openai';
-    }
-  }
+  final backendHeaders = DaddyGatewayRoute.roomBackendHeaders(cfg);
   final song = player.current;
   try {
     final parts = await gw.chatAboutSong(
