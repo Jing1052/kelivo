@@ -2284,14 +2284,33 @@ class _ChatMessageWidgetState extends State<ChatMessageWidget> {
     player.bind(client);
     player.bindGateway(OurHomeGateway.fromContext(context));
     Haptics.soft();
-    final songs =
+    // null = 请求挂了（网络抖动），isEmpty = eryu 真没有这首。以前两种都直接
+    // 甩去网易云 App——网络抖一下就被拽出 App，"卡片切不了歌"的一半病灶。
+    // 现在：挂了先重试一次，再挂就提示别硬跳；真没这首歌才走网易云兜底。
+    var songs =
         await eryuSoft(client.search('$title $artist'.trim()), 'chat song search');
+    if (songs == null) {
+      songs = await eryuSoft(
+          client.search('$title $artist'.trim()), 'chat song search retry');
+    }
     if (!context.mounted) return;
-    if (songs == null || songs.isEmpty) {
+    if (songs == null) {
+      if (!auto) {
+        showAppSnackBar(
+          context,
+          message: AppLocalizations.of(context)!.chatMessageWidgetSongSearchRetry,
+          type: NotificationType.error,
+        );
+      }
+      return;
+    }
+    if (songs.isEmpty) {
       if (!auto) openSongInNetease(context, title: title, artist: artist);
       return;
     }
-    await player.playSong(songs.first, queue: songs);
+    // 点一张卡＝往"爸爸点过的歌"队列里加一首并跳过去（切歌就在这些歌里走），
+    // 不再把同名搜索结果整页塞进队列——那会让上/下一首按了像没按。
+    await player.playFromChat(songs.first);
   }
 
   Widget _buildSongCard(BuildContext context, String title, String artist) {

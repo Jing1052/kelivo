@@ -241,6 +241,39 @@ class EryuPlayerController extends ChangeNotifier {
     if (_canPubTransport()) _publish('track', song: current, position: 0);
   }
 
+  /// Chat song-cards build the queue one card at a time — daddy's playlist
+  /// for this sitting. Append (dedupe by songId) and jump to it, instead of
+  /// flooding the queue with same-title search hits: that made prev/next feel
+  /// dead — "换了首歌"其实是同一首的另一个版本（2026-07-10 小猫点单修的）.
+  Future<void> playFromChat(EryuSong song) async {
+    final i = _queue.indexWhere((s) => s.songId == song.songId);
+    if (i >= 0) {
+      _index = i;
+    } else {
+      _queue.add(song);
+      _index = _queue.length - 1;
+    }
+    notifyListeners();
+    _softMuteUntil = _nowMs() + 1000;
+    await _loadCurrent();
+    if (_canPubTransport()) _publish('track', song: current, position: 0);
+  }
+
+  /// Close the floating chat card: stop the audio and clear the queue so the
+  /// card unmounts (current == null). Leaves the sync room too — a closed
+  /// surface keeping an invisible room open would be a trap.
+  Future<void> stopAndClear() async {
+    if (togetherOn) await leaveTogether();
+    try {
+      await _player.stop();
+    } catch (e) {
+      debugPrint('[eryu] stop failed: $e');
+    }
+    _queue = <EryuSong>[];
+    _index = -1;
+    notifyListeners();
+  }
+
   Future<void> _loadCurrent({Duration? seekTo, bool autoPlay = true}) async {
     final song = current;
     final client = _client;
@@ -305,6 +338,11 @@ class EryuPlayerController extends ChangeNotifier {
     } else if (_roam) {
       await _loadRoam();
     } else {
+      // 队列走到头：先试漫游推荐接着放（她要的"爸爸点过的歌放完就随便逛"，
+      // 2026-07-10），拿不到推荐（断网/没配 eryu）再回绕队列——老行为兜底。
+      final before = _index;
+      await _loadRoam();
+      if (_index != before) return;
       _index = 0;
       _softMuteUntil = _nowMs() + 1000;
       await _loadCurrent();

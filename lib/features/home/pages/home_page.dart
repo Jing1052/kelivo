@@ -1342,7 +1342,7 @@ class _HomePageState extends State<HomePage>
       fit: StackFit.expand,
       children: [
         if (showMusicCard)
-          ChatMusicCard(bottomInset: _controller.inputBarHeight + 12),
+          ChatMusicCard(topInset: _chatTopOverlayInset(context)),
         _buildScrollButtons(),
         UserMessageEditOverlay(
           visible: editState != null && !_controller.selecting,

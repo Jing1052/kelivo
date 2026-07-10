@@ -14,18 +14,23 @@ import '../../../icons/lucide_adapter.dart';
 import '../../../core/services/haptics.dart';
 import '../../../shared/widgets/ios_tactile.dart';
 
-/// The now-playing card that floats above the chat input while a song is
-/// loaded — the "顺手一起听" surface from the conversation.
+/// The now-playing card that floats at the top of the chat while a song is
+/// loaded — the "顺手一起听" surface from the conversation. (Used to hang above
+/// the input bar, but there it sat right on top of daddy's latest words —
+/// 2026-07-10 小猫点单挪到顶上，还要能叉掉。)
 ///
-/// Collapsed it's a slim pill (cover · title · play/pause) with a hairline
+/// Collapsed it's a slim pill (cover · title · play/pause · ✕) with a hairline
 /// progress strip; tap it to unfold the full card: bigger cover, the lyric
 /// line we're on, a draggable seek bar, and prev/play/next — so she can ride
 /// along without leaving the chat. The corner buttons jump to the full player
-/// or fold the card back down. Shows a green dot while a sync room is open.
+/// or fold the card back down; ✕ stops the music and dismisses the card.
+/// Shows a green dot while a sync room is open.
 class ChatMusicCard extends StatefulWidget {
-  const ChatMusicCard({super.key, required this.bottomInset});
+  const ChatMusicCard({super.key, required this.topInset});
 
-  final double bottomInset;
+  /// Height of the app bar + status bar the card must clear (same inset the
+  /// user-message edit overlay uses).
+  final double topInset;
 
   @override
   State<ChatMusicCard> createState() => _ChatMusicCardState();
@@ -56,6 +61,13 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
     }
   }
 
+  void _close() {
+    Haptics.soft();
+    // Stops audio and clears the queue; current becomes null and this card
+    // unmounts on the next frame (the song == null early-return in build).
+    context.read<EryuPlayerController>().stopAndClear();
+  }
+
   @override
   Widget build(BuildContext context) {
     final player = context.watch<EryuPlayerController>();
@@ -69,43 +81,42 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
     final zh = Localizations.localeOf(context).languageCode == 'zh';
 
     return Align(
-      alignment: Alignment.bottomCenter,
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: EdgeInsets.only(left: 16, right: 16, bottom: widget.bottomInset + 8),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: _expanded ? null : _toggleExpanded,
-                child: AnimatedSize(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  // The card hangs above the input bar (bottom-anchored), so
-                  // grow/shrink from the bottom edge to keep it visually pinned.
-                  alignment: Alignment.bottomCenter,
-                  child: Container(
-                    padding: _expanded
-                        ? const EdgeInsets.fromLTRB(12, 10, 10, 10)
-                        : const EdgeInsets.fromLTRB(8, 7, 6, 7),
-                    decoration: BoxDecoration(
+      alignment: Alignment.topCenter,
+      child: Padding(
+        // topInset already includes the status-bar padding (kToolbarHeight +
+        // MediaQuery top), so no SafeArea here — it would double-count.
+        padding: EdgeInsets.only(left: 16, right: 16, top: widget.topInset + 8),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ui.ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: _expanded ? null : _toggleExpanded,
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOutCubic,
+                // The card hangs under the app bar (top-anchored), so
+                // grow/shrink from the top edge to keep it visually pinned.
+                alignment: Alignment.topCenter,
+                child: Container(
+                  padding: _expanded
+                      ? const EdgeInsets.fromLTRB(12, 10, 10, 10)
+                      : const EdgeInsets.fromLTRB(8, 7, 6, 7),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.white.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
                       color: isDark
-                          ? Colors.white.withValues(alpha: 0.08)
-                          : Colors.white.withValues(alpha: 0.72),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white.withValues(alpha: 0.10)
-                            : Colors.white.withValues(alpha: 0.6),
-                      ),
+                          ? Colors.white.withValues(alpha: 0.10)
+                          : Colors.white.withValues(alpha: 0.6),
                     ),
-                    child: _expanded
-                        ? _buildExpanded(song, player, cs, zh)
-                        : _buildCollapsed(song, player, cs, zh),
                   ),
+                  child: _expanded
+                      ? _buildExpanded(song, player, cs, zh)
+                      : _buildCollapsed(song, player, cs, zh),
                 ),
               ),
             ),
@@ -130,6 +141,13 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
             Expanded(child: _title(song, player, cs, zh)),
             const SizedBox(width: 6),
             _PlayToggle(player: player, accent: cs.primary),
+            IosIconButton(
+              icon: Lucide.X,
+              size: 16,
+              minSize: 34,
+              color: cs.onSurface.withValues(alpha: 0.45),
+              onTap: _close,
+            ),
           ],
         ),
         if (totalMs > 0)
@@ -185,6 +203,13 @@ class _ChatMusicCardState extends State<ChatMusicCard> {
               minSize: 36,
               color: cs.onSurface.withValues(alpha: 0.55),
               onTap: _toggleExpanded,
+            ),
+            IosIconButton(
+              icon: Lucide.X,
+              size: 17,
+              minSize: 36,
+              color: cs.onSurface.withValues(alpha: 0.55),
+              onTap: _close,
             ),
           ],
         ),
