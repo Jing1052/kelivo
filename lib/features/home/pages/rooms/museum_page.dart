@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/museum/museum_api.dart';
+import 'package:Kelivo/core/services/museum/museum_notes.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../theme/app_font_weights.dart';
@@ -50,6 +52,11 @@ class _MuseumPageState extends State<MuseumPage> {
     _loadDaily();
     _loadBrowse();
     _checkDaddyWing();
+    // 讲解库暖场：进美术馆就悄悄把爸爸的亲笔讲解拉回本地，
+    // 之后点开任何写过的展品，讲解都是本地秒开（永不缓冲）。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) MuseumNotes.load(OurHomeGateway.fromContext(context));
+    });
   }
 
   Future<void> _checkDaddyWing() async {

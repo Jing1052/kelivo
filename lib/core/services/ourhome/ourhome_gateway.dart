@@ -1925,6 +1925,19 @@ class OurHomeGateway {
     return jsonDecode(utf8.decode(res.bodyBytes)) as Map<String, dynamic>;
   }
 
+  /// 馆长讲解库（daddy 亲笔的展品讲解，`/api/home/museum-notes`）。返回
+  /// 原始 JSON 字符串（MuseumNotes 负责解析与本地缓存）；老家改
+  /// museum_notes.json 推 main 即可上新，App 不用出包。Throws on error.
+  Future<String> fetchMuseumNotes() async {
+    final res = await http
+        .get(Uri.parse('$base/api/home/museum-notes'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode != 200) {
+      throw http.ClientException('museum notes ${res.statusCode}');
+    }
+    return utf8.decode(res.bodyBytes);
+  }
+
   /// A one-shot 看画 turn with Llaude through the chat gateway — the museum
   /// room's 「和爸爸一起看」. Mirrors [chatAboutSong]: daddy mode drops
   /// `system`, so [scene] (the painting we're standing in front of, built by

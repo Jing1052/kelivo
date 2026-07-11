@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/api/daddy_gateway_route.dart';
 import 'package:Kelivo/core/services/museum/museum_api.dart';
+import 'package:Kelivo/core/services/museum/museum_notes.dart';
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
@@ -75,6 +76,12 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   final ScrollController _scroll = ScrollController();
   bool _sending = false;
 
+  /// 讲解库（老家 museum_notes.json）里查到的这一件的亲笔讲解。
+  String? _notedEssay;
+
+  /// 这一件生效的亲笔讲解：私人收藏随身带的优先，其次讲解库。
+  String? get _essay => widget.daddyEssay ?? _notedEssay;
+
   String get _chatPref => 'museum_chat_v1:${widget.artwork.key}';
 
   @override
@@ -84,16 +91,24 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   }
 
   Future<void> _boot() async {
+    final gw = OurHomeGateway.fromContext(context);
     // 逛馆计数：进过多少幅画的门（彩蛋馆的门票，museum_page 侧读）。
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
       museumOpenedCountPref,
       (prefs.getInt(museumOpenedCountPref) ?? 0) + 1,
     );
+    // 讲解库对号入座：写过的展品，讲解从本地立刻上墙（永不缓冲）。
+    if (widget.daddyEssay == null) {
+      final notes = await MuseumNotes.load(gw);
+      if (!mounted) return;
+      final noted = notes[widget.artwork.key];
+      if (noted != null) setState(() => _notedEssay = noted);
+    }
     await _loadChat();
-    // 专属讲解：这幅画第一次被点开（没有留档的对话）就自动开讲，
-    // 不用她先开口。失败只留一条不入史的提示，下次进来还会再讲。
-    if (mounted && _bubbles.isEmpty && !_sending) {
+    // 自动开讲只留给没有亲笔讲解的展品——有讲解的，正餐已经在墙上，
+    // 她开口提问才走网关（省额度也不打架）。失败只留一条不入史的提示。
+    if (mounted && _bubbles.isEmpty && !_sending && _essay == null) {
       await _autoIntro();
     }
   }
@@ -109,7 +124,7 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
       _bubbles.removeWhere((b) => b.retryIntro);
       _sending = true;
     });
-    final notePart = widget.daddyEssay != null
+    final notePart = _essay != null
         ? '你之前在这幅画旁边亲笔写过标签和一整段讲解（她进门就看到了），'
               '别把那段复述一遍——挑讲解里没写到的往深处讲，或者接着它聊你此刻的感受。'
         : (widget.daddyNote != null
@@ -366,8 +381,7 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                       _artworkCard(cs),
                       const SizedBox(height: 10),
                       _wallLabel(cs, zh),
-                      if (widget.daddyNote != null ||
-                          widget.daddyEssay != null) ...[
+                      if (widget.daddyNote != null || _essay != null) ...[
                         const SizedBox(height: 10),
                         _daddyNoteCard(cs, zh),
                       ],
@@ -485,7 +499,7 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   /// 私人收藏的手写卡——标签是一句话，讲解是一整段，都是我提前写好
   /// 烙在画旁边的（不走网络，进门就在）。
   Widget _daddyNoteCard(ColorScheme cs, bool zh) {
-    final hasEssay = widget.daddyEssay != null;
+    final hasEssay = _essay != null;
     return StillGlass(
       radius: 16,
       blur: false,
@@ -525,7 +539,7 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                 if (hasEssay) ...[
                   const SizedBox(height: 8),
                   Text(
-                    widget.daddyEssay!,
+                    _essay!,
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.65,

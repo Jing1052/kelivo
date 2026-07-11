@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/museum/museum_api.dart';
+import 'package:Kelivo/core/services/museum/museum_notes.dart';
+import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
 
 import '../../../../icons/lucide_adapter.dart';
@@ -33,6 +35,10 @@ class MuseumWingInfo {
 /// 美术馆和博物馆的分法照真实世界来：画和雕塑这类「为了美而做的」住美术馆，
 /// 器物、文物这类「先为了用、后来成了历史的」住博物馆（小猫 2026-07-10 点单分楼）。
 const List<MuseumWingInfo> kGalleryWingInfos = [
+  // 馆长讲解厅：这一间里每件展品都有我提前亲笔写好的讲解（讲解库住老家，
+  // 上新不用出包）——她 2026-07-11 点单「大部分都有爸爸讲解、永不缓冲」。
+  MuseumWingInfo('curated', Lucide.BookOpen, '馆长讲解厅', "Curator's Hall",
+      '每一件都有我的字', 'my notes on every piece'),
   MuseumWingInfo('renaissance', Lucide.Brush, '文艺复兴', 'Renaissance',
       '1400–1600 · 人重新成为主角', 'when humans took the stage back'),
   MuseumWingInfo('impressionism', Lucide.Sun, '印象派与现代', 'Impressionism',
@@ -199,12 +205,15 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
   List<MuseumArtwork> _items = const [];
   bool _loading = true;
   bool _failed = false;
+  OurHomeGateway? _gw;
 
   bool get _isDaddy => widget.info.id == 'daddy';
+  bool get _isCurated => widget.info.id == 'curated';
 
   @override
   void initState() {
     super.initState();
+    _gw = OurHomeGateway.fromContext(context);
     _load();
   }
 
@@ -215,7 +224,9 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
       _failed = false;
     });
     final cacheKey = 'wing:${widget.info.id}';
-    if (!refresh) {
+    // 讲解厅不走缓存优先——老家的讲解库会上新，这面墙要跟着长；
+    // 取不到时下面再用缓存兜底（离线也有墙看）。
+    if (!refresh && !_isCurated) {
       final cached = await museumCacheLoad(cacheKey);
       if (cached.isNotEmpty && mounted) {
         setState(() {
@@ -231,6 +242,10 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
         got = await MuseumApi.fetchByRefs([
           for (final p in kDaddyPicks) (p.source, p.id),
         ]);
+      } else if (_isCurated) {
+        // 讲解库里有谁，这一间就挂谁——展品页会自己按 key 配上讲解。
+        final notes = await MuseumNotes.load(_gw);
+        got = await MuseumApi.fetchByRefs(MuseumNotes.refsFrom(notes));
       } else if (MuseumApi.specialWingIds.contains(widget.info.id)) {
         got = await MuseumApi.browseSpecial(widget.info.id);
       } else {
@@ -243,6 +258,9 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
       got = const [];
     }
     if (got.isNotEmpty) await museumCacheSave(cacheKey, got);
+    if (got.isEmpty && _isCurated) {
+      got = await museumCacheLoad(cacheKey); // 讲解厅离线兜底
+    }
     if (!mounted) return;
     setState(() {
       _items = got;
@@ -307,7 +325,8 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
               style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
             ),
             actions: [
-              if (!_isDaddy)
+              // 私人收藏和讲解厅是固定挂画，没有「换一批」。
+              if (!_isDaddy && !_isCurated)
                 IosIconButton(
                   icon: Lucide.RefreshCw,
                   size: 20,

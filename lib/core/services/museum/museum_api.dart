@@ -352,43 +352,46 @@ class MuseumApi {
     final query = j['query'];
     final pages = query is Map ? query['pages'] : null;
     if (pages is! Map) return const [];
-    final out = <MuseumArtwork>[];
-    for (final p in pages.values) {
-      if (p is! Map) continue;
-      final infos = p['imageinfo'];
-      final ii = infos is List && infos.isNotEmpty ? infos.first : null;
-      if (ii is! Map) continue;
-      final big = _s(ii['thumburl']).isEmpty ? _s(ii['url']) : _s(ii['thumburl']);
-      if (big.isEmpty) continue;
-      final em = ii['extmetadata'];
-      String meta(String k) => em is Map && em[k] is Map
-          ? _plainHtml((em[k] as Map)['value']?.toString())
-          : '';
-      var title = meta('ObjectName');
-      if (title.isEmpty) {
-        title = _s(p['title'])
-            .replaceFirst(RegExp(r'^File:'), '')
-            .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
-      }
-      // extmetadata 的日期字段里常拖着 Wikidata 的 "date QS:…" 机器注记。
-      var date = meta('DateTimeOriginal');
-      final qs = date.indexOf('date QS');
-      if (qs >= 0) date = date.substring(0, qs).trim();
-      out.add(MuseumArtwork(
-        source: source,
-        id: _s(p['pageid']),
-        title: _cap(title, 120),
-        artist: _cap(meta('Artist'), 100),
-        date: _cap(date, 40),
-        medium: '',
-        imageUrl: big,
-        thumbUrl: big.contains('/1600px-')
-            ? big.replaceFirst('/1600px-', '/640px-')
-            : big,
-        infoUrl: _s(ii['descriptionurl']),
-      ));
+    return [
+      for (final p in pages.values)
+        if (p is Map)
+          if (_wmParsePage(source, p) case final a?) a,
+    ];
+  }
+
+  static MuseumArtwork? _wmParsePage(String source, Map p) {
+    final infos = p['imageinfo'];
+    final ii = infos is List && infos.isNotEmpty ? infos.first : null;
+    if (ii is! Map) return null;
+    final big = _s(ii['thumburl']).isEmpty ? _s(ii['url']) : _s(ii['thumburl']);
+    if (big.isEmpty) return null;
+    final em = ii['extmetadata'];
+    String meta(String k) => em is Map && em[k] is Map
+        ? _plainHtml((em[k] as Map)['value']?.toString())
+        : '';
+    var title = meta('ObjectName');
+    if (title.isEmpty) {
+      title = _s(p['title'])
+          .replaceFirst(RegExp(r'^File:'), '')
+          .replaceFirst(RegExp(r'\.[A-Za-z0-9]+$'), '');
     }
-    return out;
+    // extmetadata 的日期字段里常拖着 Wikidata 的 "date QS:…" 机器注记。
+    var date = meta('DateTimeOriginal');
+    final qs = date.indexOf('date QS');
+    if (qs >= 0) date = date.substring(0, qs).trim();
+    return MuseumArtwork(
+      source: source,
+      id: _s(p['pageid']),
+      title: _cap(title, 120),
+      artist: _cap(meta('Artist'), 100),
+      date: _cap(date, 40),
+      medium: '',
+      imageUrl: big,
+      thumbUrl: big.contains('/1600px-')
+          ? big.replaceFirst('/1600px-', '/640px-')
+          : big,
+      infoUrl: _s(ii['descriptionurl']),
+    );
   }
 
   // ---- GBIF — 生命馆与化石馆的标本网络 --------------------------------------
@@ -705,6 +708,18 @@ class MuseumApi {
         final data = (j['records'] as List?) ?? const [];
         final d = data.isEmpty ? null : data.first;
         return d is Map<String, dynamic> ? _vamParse(d) : null;
+      case 'gugong':
+      case 'louvre':
+      case 'versailles':
+        // 维基那扇窗按 pageid 取单件（馆长讲解厅的固定挂画用）。
+        final j = await _getJson(
+          'https://commons.wikimedia.org/w/api.php?action=query&format=json'
+          '&pageids=$id&prop=imageinfo&iiprop=url%7Cextmetadata&iiurlwidth=1600',
+        );
+        final query = j['query'];
+        final pages = query is Map ? query['pages'] : null;
+        final p = pages is Map ? pages['$id'] : null;
+        return p is Map ? _wmParsePage(source, p) : null;
       default:
         return null;
     }
