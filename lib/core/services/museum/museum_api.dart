@@ -29,6 +29,7 @@ class MuseumArtwork {
     required this.imageUrl,
     required this.thumbUrl,
     this.infoUrl = '',
+    this.sourceContext = '',
   });
 
   /// 'met' | 'aic' | 'cma' | 'vam'
@@ -44,6 +45,10 @@ class MuseumArtwork {
   /// The museum's own object page (for "去官网看看").
   final String infoUrl;
 
+  /// 馆方针对这一件展品提供的说明或事实。保留原文，只作为逐件中文讲解的
+  /// 可靠资料源，不直接冒充中文文案显示。
+  final String sourceContext;
+
   /// Stable cross-source key — also the per-artwork chat-history key.
   String get key => '$source:$id';
 
@@ -57,6 +62,7 @@ class MuseumArtwork {
         'img': imageUrl,
         'th': thumbUrl,
         'u': infoUrl,
+        'ctx': sourceContext,
       };
 
   static MuseumArtwork? fromJson(dynamic j) {
@@ -73,6 +79,7 @@ class MuseumArtwork {
       imageUrl: s('img'),
       thumbUrl: s('th').isEmpty ? s('img') : s('th'),
       infoUrl: s('u'),
+      sourceContext: s('ctx'),
     );
   }
 
@@ -125,7 +132,9 @@ class MuseumApi {
   // ---- Art Institute of Chicago ------------------------------------------
 
   static const String _aicFields =
-      'id,title,artist_display,date_display,medium_display,image_id';
+      'id,title,artist_display,date_display,medium_display,image_id,'
+      'description,short_description,place_of_origin,style_title,'
+      'artwork_type_title,department_title';
 
   static MuseumArtwork? _aicParse(Map<String, dynamic> d) {
     final imageId = _s(d['image_id']);
@@ -142,6 +151,16 @@ class MuseumApi {
       imageUrl: '$iiif/full/843,/0/default.jpg',
       thumbUrl: '$iiif/full/600,/0/default.jpg',
       infoUrl: 'https://www.artic.edu/artworks/$id',
+      sourceContext: [
+        _plainHtml(_s(d['description'])),
+        _plainHtml(_s(d['short_description'])),
+        if (_s(d['place_of_origin']).isNotEmpty)
+          'Place of origin: ${_s(d['place_of_origin'])}',
+        if (_s(d['style_title']).isNotEmpty)
+          'Style: ${_s(d['style_title'])}',
+        if (_s(d['artwork_type_title']).isNotEmpty)
+          'Object type: ${_s(d['artwork_type_title'])}',
+      ].where((s) => s.isNotEmpty).join('\n'),
     );
   }
 
@@ -173,7 +192,9 @@ class MuseumApi {
   // ---- Cleveland Museum of Art -------------------------------------------
 
   static const String _cmaFields =
-      'id,title,creators,creation_date,technique,url,images';
+      'id,title,creators,creation_date,technique,url,images,description,'
+      'did_you_know,artlens_description,early_education_description,'
+      'culture,type,creditline';
 
   static MuseumArtwork? _cmaParse(Map<String, dynamic> d) {
     final images = d['images'];
@@ -195,6 +216,18 @@ class MuseumApi {
       imageUrl: img,
       thumbUrl: img,
       infoUrl: _s(d['url']),
+      sourceContext: [
+        _plainHtml(_s(d['description'])),
+        _plainHtml(_s(d['artlens_description'])),
+        _plainHtml(_s(d['early_education_description'])),
+        if (_s(d['did_you_know']).isNotEmpty)
+          'Did you know: ${_s(d['did_you_know'])}',
+        if (d['culture'] is List)
+          'Culture: ${(d['culture'] as List).map(_s).where((s) => s.isNotEmpty).join(', ')}',
+        if (_s(d['type']).isNotEmpty) 'Object type: ${_s(d['type'])}',
+        if (_s(d['creditline']).isNotEmpty)
+          'Credit line: ${_s(d['creditline'])}',
+      ].where((s) => s.isNotEmpty).join('\n'),
     );
   }
 
@@ -248,6 +281,16 @@ class MuseumApi {
     );
   }
 
+  static String _vamContext(Map record) => _cap(
+        [
+          _plainHtml(_s(record['briefDescription'])),
+          _plainHtml(_s(record['objectHistory'])),
+          _plainHtml(_s(record['historicalContext'])),
+          _plainHtml(_s(record['contentDescription'])),
+        ].where((s) => s.isNotEmpty).join('\n'),
+        6000,
+      );
+
   static Future<List<MuseumArtwork>> _vamFetch({
     String q = '',
     required int page,
@@ -286,6 +329,18 @@ class MuseumApi {
       imageUrl: full.isEmpty ? small : full,
       thumbUrl: small.isEmpty ? full : small,
       infoUrl: _s(d['objectURL']),
+      sourceContext: [
+        if (_s(d['objectName']).isNotEmpty)
+          'Object type: ${_s(d['objectName'])}',
+        if (_s(d['culture']).isNotEmpty) 'Culture: ${_s(d['culture'])}',
+        if (_s(d['period']).isNotEmpty) 'Period: ${_s(d['period'])}',
+        if (_s(d['dynasty']).isNotEmpty) 'Dynasty: ${_s(d['dynasty'])}',
+        if (_s(d['reign']).isNotEmpty) 'Reign: ${_s(d['reign'])}',
+        if (_s(d['artistDisplayBio']).isNotEmpty)
+          'Artist biography: ${_s(d['artistDisplayBio'])}',
+        if (_s(d['creditLine']).isNotEmpty)
+          'Credit line: ${_s(d['creditLine'])}',
+      ].where((s) => s.isNotEmpty).join('\n'),
     );
   }
 
@@ -391,6 +446,10 @@ class MuseumApi {
           ? big.replaceFirst('/1600px-', '/640px-')
           : big,
       infoUrl: _s(ii['descriptionurl']),
+      sourceContext: [
+        meta('ImageDescription'),
+        if (meta('Credit').isNotEmpty) 'Credit: ${meta('Credit')}',
+      ].where((s) => s.isNotEmpty).join('\n'),
     );
   }
 
@@ -403,6 +462,20 @@ class MuseumApi {
     'FOSSIL_SPECIMEN': '化石标本',
     'MATERIAL_SAMPLE': '材料样本',
   };
+
+  static String _gbifContext(Map r) => [
+        if (_s(r['vernacularName']).isNotEmpty)
+          'Common name: ${_s(r['vernacularName'])}',
+        if (_s(r['scientificName']).isNotEmpty)
+          'Scientific name: ${_s(r['scientificName'])}',
+        if (_s(r['family']).isNotEmpty) 'Family: ${_s(r['family'])}',
+        if (_s(r['order']).isNotEmpty) 'Order: ${_s(r['order'])}',
+        if (_s(r['locality']).isNotEmpty) 'Locality: ${_s(r['locality'])}',
+        if (_s(r['eventDate']).isNotEmpty)
+          'Observed or collected: ${_s(r['eventDate'])}',
+        if (_s(r['recordedBy']).isNotEmpty)
+          'Recorded by: ${_s(r['recordedBy'])}',
+      ].where((s) => s.isNotEmpty).join('\n');
 
   static Future<List<MuseumArtwork>> _gbifFetch(
     String extra, {
@@ -441,6 +514,7 @@ class MuseumApi {
         imageUrl: img,
         thumbUrl: img,
         infoUrl: 'https://www.gbif.org/occurrence/$key',
+        sourceContext: _gbifContext(r),
       ));
     }
     return out;
@@ -474,6 +548,7 @@ class MuseumApi {
         infoUrl: date.length == 10
             ? 'https://apod.nasa.gov/apod/ap${date.substring(2).replaceAll('-', '')}.html'
             : '',
+        sourceContext: _s(r['explanation']),
       ));
     }
     return out;
@@ -683,6 +758,28 @@ class MuseumApi {
     return fetched.whereType<MuseumArtwork>().toList();
   }
 
+  /// 旧缓存没有逐件资料、或列表接口只给短记录时，打开单件再补一次馆方原文。
+  /// 失败只影响深度讲解，不影响展品与本地即时导览。
+  static Future<String> fetchSourceContext(MuseumArtwork artwork) async {
+    if (artwork.sourceContext.isNotEmpty) return artwork.sourceContext;
+    switch (artwork.source) {
+      case 'apod':
+        final j = await _getJson(
+          'https://api.nasa.gov/planetary/apod?api_key=DEMO_KEY'
+          '&date=${Uri.encodeQueryComponent(artwork.id)}',
+        );
+        return j is Map ? _cap(_s(j['explanation']), 6000) : '';
+      case 'gbif':
+        final j = await _getJson(
+          'https://api.gbif.org/v1/occurrence/${artwork.id}',
+        );
+        return j is Map ? _gbifContext(j) : '';
+      default:
+        final refreshed = await _fetchRef(artwork.source, artwork.id);
+        return refreshed?.sourceContext ?? '';
+    }
+  }
+
   static Future<MuseumArtwork?> _fetchRef(String source, String id) async {
     switch (source) {
       case 'met':
@@ -700,14 +797,35 @@ class MuseumApi {
         final d = j['data'];
         return d is Map<String, dynamic> ? _cmaParse(d) : null;
       case 'vam':
-        // 单件也走 search（kw_system_number 精确命中）——museumobject 端点的
-        // 返回结构和 search 记录不同，没必要为一条路多养一个解析器。
-        final j = await _getJson(
+        final search = await _getJson(
           'https://api.vam.ac.uk/v2/objects/search?kw_system_number=$id&page_size=1',
         );
-        final data = (j['records'] as List?) ?? const [];
+        final data = (search['records'] as List?) ?? const [];
         final d = data.isEmpty ? null : data.first;
-        return d is Map<String, dynamic> ? _vamParse(d) : null;
+        final artwork = d is Map<String, dynamic> ? _vamParse(d) : null;
+        if (artwork == null) return null;
+        try {
+          final detail = await _getJson(
+            'https://api.vam.ac.uk/v2/museumobject/$id',
+          );
+          final record = detail is Map ? detail['record'] : null;
+          final context = record is Map ? _vamContext(record) : '';
+          if (context.isEmpty) return artwork;
+          return MuseumArtwork(
+            source: artwork.source,
+            id: artwork.id,
+            title: artwork.title,
+            artist: artwork.artist,
+            date: artwork.date,
+            medium: artwork.medium,
+            imageUrl: artwork.imageUrl,
+            thumbUrl: artwork.thumbUrl,
+            infoUrl: artwork.infoUrl,
+            sourceContext: context,
+          );
+        } catch (_) {
+          return artwork;
+        }
       case 'gugong':
       case 'louvre':
       case 'versailles':

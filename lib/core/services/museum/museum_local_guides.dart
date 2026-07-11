@@ -41,25 +41,127 @@ class MuseumLocalGuides {
   /// 永远同步返回，不读磁盘、不访问网络。
   static String forArtwork(MuseumArtwork artwork, {String? wingId}) {
     final words = '${artwork.title} ${artwork.artist}'.toLowerCase();
+    final lead = _catalogueLead(artwork);
 
     if (words.contains('van gogh') || words.contains('vincent')) {
-      return '梵高并不是只靠“疯狂”作画的人，他一直认真研究色彩、构图和日本版画。1889年前后住在法国圣雷米疗养院时，他仍持续从窗外的麦田、柏树和夜空里组织画面。注意那些顺着物体生长的短笔触：天空、树木和土地像被同一股力量推动。故事令人心疼，但更值得看的，是他在困难中仍保持的工作纪律。';
+      return '$lead\n\n梵高并不是只靠“疯狂”作画的人，他一直认真研究色彩、构图和日本版画。1889年前后住在法国圣雷米疗养院时，他仍持续从窗外的麦田、柏树和夜空里组织画面。注意那些顺着物体生长的短笔触：天空、树木和土地像被同一股力量推动。故事令人心疼，但更值得看的，是他在困难中仍保持的工作纪律。';
     }
     if (words.contains('monet')) {
-      return '莫奈常常在同一地点反复作画，不是因为题材用完了，而是想记录光线怎样让世界每分钟都不同。干草堆、鲁昂大教堂和吉维尼睡莲都曾成为他的“时间实验”。看这件作品时先退后几步，让并排的色块在眼中混合；再靠近看，你会发现远处的空气其实由许多果断而具体的笔触组成。';
+      return '$lead\n\n莫奈常常在同一地点反复作画，不是因为题材用完了，而是想记录光线怎样让世界每分钟都不同。干草堆、鲁昂大教堂和吉维尼睡莲都曾成为他的“时间实验”。看这件作品时先退后几步，让并排的色块在眼中混合；再靠近看，你会发现远处的空气其实由许多果断而具体的笔触组成。';
     }
     if (words.contains('hokusai') || words.contains('葛饰北斋')) {
-      return '葛饰北斋一生多次改名，也到晚年仍觉得自己的画还可以更好。他的浮世绘本是面向市民出售的印刷品，却凭大胆裁切、清楚轮廓和舶来的普鲁士蓝影响了欧洲现代艺术。看画面里巨大的自然与微小的人：北斋常把紧张藏进节奏，让浪、风或山既像真实景色，也像命运突然翻起的一页。';
+      return '$lead\n\n葛饰北斋一生多次改名，也到晚年仍觉得自己的画还可以更好。他的浮世绘本是面向市民出售的印刷品，却凭大胆裁切、清楚轮廓和舶来的普鲁士蓝影响了欧洲现代艺术。看画面里巨大的自然与微小的人：北斋常把紧张藏进节奏，让浪、风或山既像真实景色，也像命运突然翻起的一页。';
     }
     if (words.contains('seurat') || words.contains('修拉')) {
-      return '修拉把当时的色彩理论变成绘画方法：他把相邻的纯色小点交给观看者的眼睛混合。近看像一片有秩序的颗粒，退远后人物、阴影和阳光才出现。这种“点彩”并不随意，许多大画前都有大量草图和计算。也正因为人物安静得近乎凝固，现代城市的休闲场景反而带着一点奇妙的疏离。';
+      return '$lead\n\n修拉把当时的色彩理论变成绘画方法：他把相邻的纯色小点交给观看者的眼睛混合。近看像一片有秩序的颗粒，退远后人物、阴影和阳光才出现。这种“点彩”并不随意，许多大画前都有大量草图和计算。也正因为人物安静得近乎凝固，现代城市的休闲场景反而带着一点奇妙的疏离。';
     }
     if (words.contains('rodin') || words.contains('罗丹')) {
-      return '罗丹保留指痕、凿痕和未完全磨平的表面，让光线替雕塑继续塑形；这在崇尚光洁完成度的年代曾显得很大胆。他还会把手、躯干等局部单独放大，重新组合出新的作品。别只找人物“是谁”，也看身体如何承受重量：一个弯腰、握拳或转身，常比面部表情更直接地说出情绪。';
+      return '$lead\n\n罗丹保留指痕、凿痕和未完全磨平的表面，让光线替雕塑继续塑形；这在崇尚光洁完成度的年代曾显得很大胆。他还会把手、躯干等局部单独放大，重新组合出新的作品。别只找人物“是谁”，也看身体如何承受重量：一个弯腰、握拳或转身，常比面部表情更直接地说出情绪。';
     }
 
-    return _wingGuides[wingId] ??
+    final subject = _subjectGuide(words);
+    final material = _materialGuide(artwork.medium.toLowerCase());
+    final details = [
+      if (subject.isNotEmpty) subject,
+      if (material.isNotEmpty) material,
+    ].join('\n\n');
+    final background = _wingGuides[wingId] ??
         _sourceGuides[artwork.source] ??
         '先别急着找标准答案。可以先看材料和制作痕迹，再找画面或器物上最吸引目光的一处，最后用标题与年代校正自己的猜想。博物馆讲解的意义不是替你决定感受，而是提供足够的历史线索，让你知道它从哪里来，同时仍保留亲自观看和想象的空间。';
+    return [lead, if (details.isNotEmpty) details, background].join('\n\n');
+  }
+
+  static String _catalogueLead(MuseumArtwork artwork) {
+    final title = artwork.title.isEmpty ? '这件未定名的展品' : '《${artwork.title}》';
+    final maker = artwork.artist.isEmpty ? '作者或制作者尚未明确' : '由 ${artwork.artist} 创作或制作';
+    final facts = [
+      if (artwork.date.isNotEmpty) '馆方标注年代为 ${artwork.date}',
+      if (artwork.medium.isNotEmpty) '使用的材料或技法是 ${artwork.medium}',
+    ];
+    final factsText = facts.isEmpty ? '' : '，${facts.join('，')}';
+    return '眼前的$title，$maker$factsText。它来自${artwork.museumName(true)}。这份即时导览先严格依据当前馆藏标签，把它放回自己的题材、时代和材料中理解。';
+  }
+
+  static String _subjectGuide(String words) {
+    if (words.contains('portrait') || words.contains('self-portrait')) {
+      return '这是一件以人物为中心的作品。肖像不仅记录长相，也在安排身份：目光是否直视观众、手里拿着什么、衣料是否昂贵、背景有没有家族或职业象征，都会告诉我们委托者希望后人怎样记住自己。若人物没有名字，那份匿名本身也反映了谁曾有资格被历史留下。';
+    }
+    if (words.contains('landscape') ||
+        words.contains('river') ||
+        words.contains('sea') ||
+        words.contains('mountain')) {
+      return '题名把注意力引向风景，但风景画并不只是地理记录。地平线的位置决定人在自然面前显得强大还是渺小，天气与季节则常替作品承担情绪。可以顺着道路、河流或云层的方向移动视线，看看艺术家希望我们从哪里进入，又把哪里当作真正的中心。';
+    }
+    if (words.contains('madonna') ||
+        words.contains('virgin') ||
+        words.contains('christ')) {
+      return '题名显示它属于基督教图像传统。这类作品往往既服务于讲述经文，也服务于祈祷；人物姿势、衣服颜色和手中物件都有约定俗成的含义。真正值得比较的是艺术家怎样把神圣故事变成人能理解的表情与动作，以及作品原本可能位于祭坛、礼拜空间还是私人房间。';
+    }
+    if (words.contains('still life') ||
+        words.contains('flowers') ||
+        words.contains('fruit')) {
+      return '静物看似没有情节，却常把时间藏在东西里面：盛开的花会凋谢，切开的果实会腐败，玻璃与金属的反光则展示画家的技术。某些时代还会用熄灭的蜡烛、钟表或昆虫提醒生命短暂。先找最易消失的东西，作品的故事往往就从那里开始。';
+    }
+    if (words.contains('dress') ||
+        words.contains('coat') ||
+        words.contains('textile')) {
+      return '这件服饰原本要跟着身体活动。剪裁决定穿着者的姿态，面料和染色反映价格与生产技术，磨损和改缝则可能留下真实主人的生活。把它想象成被穿上、走路和坐下的样子，会比只看展柜里的平面轮廓更接近设计者原来的意图。';
+    }
+    if (words.contains('vase') ||
+        words.contains('bowl') ||
+        words.contains('cup') ||
+        words.contains('jar')) {
+      return '器物的故事要从用途开始：口沿决定怎样倾倒或饮用，腹部容量关系到储存，底足则影响摆放。装饰并非后来随便贴上去，它常顺着器形安排观看节奏。若器面有人物或神话场景，还要想象使用者在转动器物时，故事怎样一段段展开。';
+    }
+    if (words.contains('armor') ||
+        words.contains('helmet') ||
+        words.contains('sword')) {
+      return '兵器与甲胄必须同时应对真实身体和公开形象。关节、弧面与重量分配说明它是否适合战斗，纹章和精细装饰则说明主人希望展示怎样的身份。礼仪用品可能比实战装备更华丽，因此可以分别寻找“保护人的部分”和“让别人看见的部分”。';
+    }
+    if (words.contains('bird') ||
+        words.contains('butterfly') ||
+        words.contains('lepidoptera')) {
+      return '这件自然记录首先对应一种具体生命。身体形态、羽毛或翅纹不是纯装饰，而是适应栖息地、求偶、伪装或迁徙的结果。采集地点和日期能把它放回生态环境；如果这些信息缺失，我们也应保留不确定性，而不是仅凭外形替它编造习性。';
+    }
+    if (words.contains('fossil') ||
+        words.contains('dinosaur') ||
+        words.contains('ammonite')) {
+      return '化石记录的是生命留下的物质证据，不一定保存完整身体。骨、壳、足迹或印痕经过埋藏和矿化进入地层，又在漫长时间后被暴露出来。观察时可以区分生物结构与周围岩石，并留意缺失部分；科学复原正是从这些有限证据开始。';
+    }
+    if (words.contains('nebula') ||
+        words.contains('galaxy') ||
+        words.contains('star') ||
+        words.contains('moon')) {
+      return '天文影像不是普通快照。望远镜可能长时间曝光、拼接多次观测，或把红外线、X射线等肉眼不可见的数据映射成颜色。因此颜色既帮助辨认温度和物质，也可能是科学编码。理解它时，要把“看起来多大”与“真实尺度多大”分开。';
+    }
+    return '';
+  }
+
+  static String _materialGuide(String medium) {
+    if (medium.contains('oil')) {
+      return '油画颜料干得较慢，艺术家可以叠加透明层、反复修改，也可以保留厚重笔触。若画在木板上，表面通常更坚实细密；画布则更轻、更适合大尺寸。斜着想象光线掠过表面，厚薄变化会暴露作画的先后顺序。';
+    }
+    if (medium.contains('watercolor') || medium.contains('watercolour')) {
+      return '水彩依靠纸面透出的白光形成明亮感，落笔后很难像油画那样完全覆盖重来。颜色边缘的水痕、纸张留白和由湿到干的层次，都是创作过程的一部分。看似轻快的画面，往往需要非常准确的取舍。';
+    }
+    if (medium.contains('bronze')) {
+      return '青铜作品通常经历塑模、制范或失蜡铸造，再经过修整与表面处理。我们看到的是坚硬金属，但最初造型往往来自柔软的泥或蜡。接缝、铸造小孔和后来形成的包浆，都能帮助辨认它怎样被做成、使用和保存。';
+    }
+    if (medium.contains('marble') || medium.contains('stone')) {
+      return '石雕属于减法：每一凿拿走的材料都无法真正放回。雕塑家会顺着石材纹理安排受力，再用不同粗细的工具从大体积推进到皮肤、头发和衣褶。未磨平的部分并非一定没做完，也可能被故意留下来与光滑表面形成对比。';
+    }
+    if (medium.contains('porcelain') || medium.contains('ceramic')) {
+      return '陶瓷的最终颜色与形状要经过窑火决定。胎土、釉料、绘饰和烧成气氛彼此影响，一次温度变化就可能造成窑变、开片或变形。釉在口沿和凹处的厚薄、底足留下的支烧痕迹，都是制作过程的证据。';
+    }
+    if (medium.contains('woodblock') || medium.contains('woodcut')) {
+      return '木版印刷先把图像分解到版面上，再经过雕刻、上墨和压印；多色作品往往需要多块版准确套印。它既是艺术，也是可以复制传播的技术。观察轮廓是否略有错位、色块怎样叠压，便能看见每一次印刷动作。';
+    }
+    if (medium.contains('textile') || medium.contains('silk')) {
+      return '织物的图案受经纬结构、纤维强度和染色方法限制。刺绣是在成品表面加线，织花则在布形成时把纹样编进去，两者观看质感不同。褪色、折痕和修补不是瑕疵清单，也记录它怎样被穿着、悬挂或收藏。';
+    }
+    if (medium.contains('photo') || medium.contains('gelatin silver')) {
+      return '摄影同样包含选择与制作：机位、镜头、曝光时间和后期裁切都会改变叙事。历史照片的感光材料还决定颗粒、反差和保存状态。不要只把它当成“事情确实如此”的证明，也要看摄影者站在哪里、把什么留在画面之外。';
+    }
+    return '';
   }
 }
