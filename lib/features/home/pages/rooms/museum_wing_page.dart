@@ -284,6 +284,7 @@ class _MuseumWingPageState extends State<MuseumWingPage> {
       MaterialPageRoute(
         builder: (_) => MuseumArtworkPage(
           artwork: a,
+          wingId: widget.info.id,
           daddyNote: pick?.label,
           daddyEssay: pick?.essay,
         ),

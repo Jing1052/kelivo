@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:Kelivo/core/providers/settings_provider.dart';
 import 'package:Kelivo/core/services/api/daddy_gateway_route.dart';
 import 'package:Kelivo/core/services/museum/museum_api.dart';
+import 'package:Kelivo/core/services/museum/museum_local_guides.dart';
 import 'package:Kelivo/core/services/museum/museum_notes.dart';
 import 'package:Kelivo/core/services/ourhome/ourhome_gateway.dart';
 import 'package:Kelivo/shared/widgets/chat_backdrop.dart';
@@ -29,11 +31,15 @@ class MuseumArtworkPage extends StatefulWidget {
   const MuseumArtworkPage({
     super.key,
     required this.artwork,
+    this.wingId,
     this.daddyNote,
     this.daddyEssay,
   });
 
   final MuseumArtwork artwork;
+
+  /// 从哪个展厅进来；用于选择安装包内的中文讲解底稿。
+  final String? wingId;
 
   /// 私人收藏馆里我提前写好的一句标签（普通展品为 null）。
   final String? daddyNote;
@@ -79,8 +85,18 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
   /// 讲解库（老家 museum_notes.json）里查到的这一件的亲笔讲解。
   String? _notedEssay;
 
-  /// 这一件生效的亲笔讲解：私人收藏随身带的优先，其次讲解库。
+  /// 这一件已经取到的亲笔讲解：私人收藏随身带的优先，其次讲解库。
   String? get _essay => widget.daddyEssay ?? _notedEssay;
+
+  /// 中文界面永远有随包讲解；亲笔讲解到达后自动覆盖它。
+  String? _effectiveEssay(bool zh) =>
+      _essay ??
+      (zh
+          ? MuseumLocalGuides.forArtwork(
+              widget.artwork,
+              wingId: widget.wingId,
+            )
+          : null);
 
   String get _chatPref => 'museum_chat_v1:${widget.artwork.key}';
 
@@ -92,24 +108,33 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
 
   Future<void> _boot() async {
     final gw = OurHomeGateway.fromContext(context);
+    // 不等待网络：先让随包中文讲解上墙，专属讲解在后台安静替换。
+    if (widget.daddyEssay == null) unawaited(_loadMuseumNote(gw));
     // 逛馆计数：进过多少幅画的门（彩蛋馆的门票，museum_page 侧读）。
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(
       museumOpenedCountPref,
       (prefs.getInt(museumOpenedCountPref) ?? 0) + 1,
     );
-    // 讲解库对号入座：写过的展品，讲解从本地立刻上墙（永不缓冲）。
-    if (widget.daddyEssay == null) {
-      final notes = await MuseumNotes.load(gw);
-      if (!mounted) return;
-      final noted = notes[widget.artwork.key];
-      if (noted != null) setState(() => _notedEssay = noted);
-    }
     await _loadChat();
     // 自动开讲只留给没有亲笔讲解的展品——有讲解的，正餐已经在墙上，
     // 她开口提问才走网关（省额度也不打架）。失败只留一条不入史的提示。
-    if (mounted && _bubbles.isEmpty && !_sending && _essay == null) {
+    final zh =
+        mounted && Localizations.localeOf(context).languageCode == 'zh';
+    if (mounted &&
+        _bubbles.isEmpty &&
+        !_sending &&
+        _effectiveEssay(zh) == null) {
       await _autoIntro();
+    }
+  }
+
+  Future<void> _loadMuseumNote(OurHomeGateway? gw) async {
+    final notes = await MuseumNotes.load(gw);
+    if (!mounted) return;
+    final noted = notes[widget.artwork.key];
+    if (noted != null && noted != _notedEssay) {
+      setState(() => _notedEssay = noted);
     }
   }
 
@@ -341,6 +366,8 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
     final cs = Theme.of(context).colorScheme;
     final zh = Localizations.localeOf(context).languageCode == 'zh';
     final a = widget.artwork;
+    final essay = _effectiveEssay(zh);
+    final isLocalEssay = zh && _essay == null && essay != null;
 
     return Stack(
       fit: StackFit.expand,
@@ -381,9 +408,14 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                       _artworkCard(cs),
                       const SizedBox(height: 10),
                       _wallLabel(cs, zh),
-                      if (widget.daddyNote != null || _essay != null) ...[
+                      if (widget.daddyNote != null || essay != null) ...[
                         const SizedBox(height: 10),
-                        _daddyNoteCard(cs, zh),
+                        _daddyNoteCard(
+                          cs,
+                          zh,
+                          essay: essay,
+                          isLocalEssay: isLocalEssay,
+                        ),
                       ],
                       const SizedBox(height: 18),
                       Center(
@@ -498,8 +530,13 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
 
   /// 私人收藏的手写卡——标签是一句话，讲解是一整段，都是我提前写好
   /// 烙在画旁边的（不走网络，进门就在）。
-  Widget _daddyNoteCard(ColorScheme cs, bool zh) {
-    final hasEssay = _essay != null;
+  Widget _daddyNoteCard(
+    ColorScheme cs,
+    bool zh, {
+    required String? essay,
+    required bool isLocalEssay,
+  }) {
+    final hasEssay = essay != null;
     return StillGlass(
       radius: 16,
       blur: false,
@@ -515,7 +552,9 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
               children: [
                 Text(
                   hasEssay
-                      ? (zh ? '爸爸的讲解' : "Llaude's notes")
+                      ? (zh
+                            ? (isLocalEssay ? '中文讲解' : '爸爸的讲解')
+                            : "Llaude's notes")
                       : (zh ? '爸爸手写的标签' : "Llaude's handwritten label"),
                   style: TextStyle(
                     fontSize: 11,
@@ -539,7 +578,7 @@ class _MuseumArtworkPageState extends State<MuseumArtworkPage> {
                 if (hasEssay) ...[
                   const SizedBox(height: 8),
                   Text(
-                    _essay!,
+                    essay!,
                     style: TextStyle(
                       fontSize: 13,
                       height: 1.65,
