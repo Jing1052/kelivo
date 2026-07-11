@@ -318,6 +318,8 @@ class SettingsProvider extends ChangeNotifier {
   static const String _daddyProfileKey = 'daddy_profile_v1';
   static const String _daddyKeepCountKey = 'daddy_keep_count_v1';
   static const String _daddyTriggerCountKey = 'daddy_trigger_count_v1';
+  static const int _defaultDaddyKeepCount = 80;
+  static const int _defaultDaddyTriggerCount = 100;
   static const String _iphoneLinkEnabledKey = 'iphone_link_enabled_v1';
   static const String _dailyBriefEnabledKey = 'daily_brief_enabled_v1';
   static const String _defaultGlobalProxyBypassRules =
@@ -797,8 +799,8 @@ class SettingsProvider extends ChangeNotifier {
   String _daddyStyle = '';
   String _daddyProfile = '';
   // 长聊记忆：留窗保留条数 + 触发蒸馏的阈值
-  int _daddyKeepCount = 65;
-  int _daddyTriggerCount = 90;
+  int _daddyKeepCount = _defaultDaddyKeepCount;
+  int _daddyTriggerCount = _defaultDaddyTriggerCount;
   // iPhone 联动：是否允许把 [[cal]]/[[remind]] 写进 iPhone 日历/提醒事项
   bool _iphoneLinkEnabled = false;
   bool _dailyBriefEnabled = false;
@@ -1568,8 +1570,23 @@ class SettingsProvider extends ChangeNotifier {
     _daddyMemoryEnabled = prefs.getBool(_daddyMemoryEnabledKey) ?? true;
     _daddyStyle = prefs.getString(_daddyStyleKey) ?? '';
     _daddyProfile = prefs.getString(_daddyProfileKey) ?? '';
-    _daddyKeepCount = prefs.getInt(_daddyKeepCountKey) ?? 65;
-    _daddyTriggerCount = prefs.getInt(_daddyTriggerCountKey) ?? 90;
+    final storedDaddyKeep = prefs.getInt(_daddyKeepCountKey);
+    final storedDaddyTrigger = prefs.getInt(_daddyTriggerCountKey);
+    // 65/90 是旧版内置默认，不是用户主动选择。升级时只迁移这一对；其它组合
+    // 视为用户设置并保留，避免改包偷偷覆盖她自己调过的窗口。
+    if (storedDaddyKeep == 65 && storedDaddyTrigger == 90) {
+      _daddyKeepCount = _defaultDaddyKeepCount;
+      _daddyTriggerCount = _defaultDaddyTriggerCount;
+      await prefs.setInt(_daddyKeepCountKey, _daddyKeepCount);
+      await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);
+      debugPrint(
+        '[ourhome-context] migrated legacy keep/trigger 65/90 -> '
+        '$_daddyKeepCount/$_daddyTriggerCount',
+      );
+    } else {
+      _daddyKeepCount = storedDaddyKeep ?? _defaultDaddyKeepCount;
+      _daddyTriggerCount = storedDaddyTrigger ?? _defaultDaddyTriggerCount;
+    }
     _iphoneLinkEnabled = prefs.getBool(_iphoneLinkEnabledKey) ?? false;
     _dailyBriefEnabled = prefs.getBool(_dailyBriefEnabledKey) ?? false;
     final bypass = prefs.getString(_globalProxyBypassKey);

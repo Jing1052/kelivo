@@ -1235,6 +1235,12 @@ class ChatActions {
           theaterId: theaterId,
         );
         if (override != null) {
+          debugPrint(
+            '[ourhome-context] gateway request messages=${ctx.apiMessages.length} '
+            'keep=${ctx.settings.daddyKeepCount} '
+            'trigger=${ctx.settings.daddyTriggerCount} '
+            'conversation=$conversationId',
+          );
           sendConfig = override.config;
           sendHeaders = override.headers;
         } else if (DaddyGatewayRoute.isDaddy(assistant?.systemPrompt)) {

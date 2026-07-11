@@ -101,12 +101,12 @@ void main() {
       final o = DaddyGatewayRoute.overrideFor(
         systemPrompt: '[[ourhome:T]]',
         userConfig: userConfig(),
-        keepCount: 65,
-        triggerCount: 90,
+        keepCount: 80,
+        triggerCount: 100,
         sessionId: 'conv-abc',
       );
-      expect(o!.headers['x-ombre-keep'], '65');
-      expect(o.headers['x-ombre-trigger'], '90');
+      expect(o!.headers['x-ombre-keep'], '80');
+      expect(o.headers['x-ombre-trigger'], '100');
       expect(o.headers['x-ombre-session'], 'conv-abc');
     });
 
