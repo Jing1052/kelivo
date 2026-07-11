@@ -68,7 +68,7 @@ const List<MuseumWingInfo> kPalaceWingInfos = [
       '紫禁城的家底', 'treasures of the Forbidden City'),
   MuseumWingInfo('louvre', Lucide.Library, '卢浮宫特藏', 'The Louvre',
       '从窗户请进来的名画', 'masterpieces through the window'),
-  MuseumWingInfo('versailles', Lucide.Wand, '凡尔赛宫', 'Versailles',
+  MuseumWingInfo('versailles', Lucide.Wand2, '凡尔赛宫', 'Versailles',
       '镜厅与太阳王', 'the Hall of Mirrors'),
 ];
 

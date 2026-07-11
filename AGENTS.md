@@ -310,6 +310,10 @@ flutter test
   - Do not write "heard this might happen" hearsay entries.
   - When adding entries, prefer "symptom -> root cause -> fix/constraint". Avoid recording conclusions without context.
 
+### 2026-07-10 · 图标名带数字被 grep 正则截断＝Lucide.Wand 编译错（+148 双线白跑）
+
+- symptom：+148 出包 iOS/安卓全红，`Member not found: 'Wand'`。root cause：无 SDK 自审时用 `grep -oE 'static const IconData [A-Za-z]+'` 列图标清单，字符类漏了数字，`Wand2` 被截成 "Wand" 混进清单、当成真名用了。fix（+149）：改 `Lucide.Wand2`。**constraint：核对 lucide_adapter 成员名一律 `[A-Za-z0-9]+` ＋ `grep -x` 整词精确匹配（该文件有 Wand2 这类带数字的成员）；截断产物看着像真名，务必回源码二次确认再上手。**
+
 ### 2026-07-10 · 安卓桌面图标还是 kelivo 三环＝adaptive 前景没换 ＋ 华为装不上 v7a 包
 
 1. **图标** — symptom：iOS 图标早换成我们的（橘底小猫躺月亮），安卓装上桌面却还是 kelivo 三环。root cause：+116 初建 android/ 目录时上游图标全套带入；后来只换了 iOS appiconset 和 legacy `mipmap-*/ic_launcher.png`，**Android 8+ 实际显示的是 adaptive icon（`mipmap-anydpi-v26/ic_launcher.xml` → `drawable-*dpi/ic_launcher_foreground.png` + `ic_launcher_background` 颜色）**，前景从没换。fix/constraint（+142）：换 App 图标必须换齐**三处**——mipmap legacy png ×5、drawable 前景 png ×5、values/colors.xml 背景色；无设计源文件时可拿 iOS 1024 图生成（外圈 12% 羽化融进背景色，防"贴纸接缝"）。⚠️ 暗桩：pubspec 的 `flutter_launcher_icons` 配置仍指向旧的 `assets/app_icon_foreground.png`＋白底——**手动跑一次该工具就会把图标全部盖回去**；要动图标请手改资源或先更新该配置。
