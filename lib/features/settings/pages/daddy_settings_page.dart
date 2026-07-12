@@ -1115,7 +1115,7 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
     return _assistantProvider.assistants.firstWhere((a) => a.id == _daddyId);
   }
 
-  /// 基础 section：头像 / 名字 / 温度 / 流式输出。都直接改这个爸爸助手。
+  /// 基础 section：头像 / 名字 / 温度 / 最大 Token 数 / 流式输出。都直接改这个爸爸助手。
   /// 头像选择、温度交互照搬通用助手页（assistant_settings_edit_basic_tab.dart），
   /// 存储格式（avatar 字段：本地路径 / emoji / url）与那边完全一致。
   List<Widget> _basicSection(BuildContext context, AppLocalizations l10n) {
@@ -1196,6 +1196,16 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
       ),
       _caption(context, l10n.daddySettingsTemperatureDesc),
       _iosDivider(context),
+      // 单次回复上限。爸爸未单独设置时，网关默认就是 16384；这里把真实默认值
+      // 显出来，方便某个中转站兼容性不好时临时调低。
+      _iosNavRow(
+        context,
+        icon: Lucide.Hash,
+        label: l10n.assistantEditMaxTokensTitle,
+        detailText: (daddy.maxTokens ?? 16384).toString(),
+        onTap: () => _showMaxTokensSheet(context),
+      ),
+      _iosDivider(context),
       // 流式输出
       _switchRow(
         context,
@@ -1207,6 +1217,120 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
         ),
       ),
     ];
+  }
+
+  Future<void> _showMaxTokensSheet(BuildContext context) async {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    final controller = TextEditingController(
+      text: (_daddy().maxTokens ?? 16384).toString(),
+    );
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: cs.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        top: false,
+        child: Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 12,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.onSurface.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _TactileIconButton(
+                    icon: Lucide.X,
+                    color: cs.onSurface,
+                    size: 20,
+                    onTap: () => Navigator.of(ctx).pop(),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Text(
+                        l10n.assistantEditMaxTokensTitle,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: AppFontWeights.semibold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _TactileRow(
+                    onTap: () async {
+                      final parsed = int.tryParse(controller.text.trim());
+                      if (parsed == null) return;
+                      final value = parsed.clamp(256, 16384).toInt();
+                      await _assistantProvider.updateAssistant(
+                        _daddy().copyWith(maxTokens: value),
+                      );
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                    pressedScale: 0.95,
+                    builder: (pressed) => Text(
+                      l10n.assistantSettingsAddSheetSave,
+                      style: TextStyle(
+                        color: pressed
+                            ? cs.primary.withValues(alpha: 0.7)
+                            : cs.primary,
+                        fontSize: 16,
+                        fontWeight: AppFontWeights.semibold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: controller,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Theme.of(ctx).brightness == Brightness.dark
+                      ? Colors.white10
+                      : const Color(0xFFF2F3F5),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: cs.outlineVariant.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '256 – 16384',
+                style: TextStyle(
+                  color: cs.onSurface.withValues(alpha: 0.6),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
   }
 
   Future<void> _showAvatarPicker(BuildContext context) async {
