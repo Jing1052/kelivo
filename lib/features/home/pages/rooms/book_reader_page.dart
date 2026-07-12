@@ -56,7 +56,7 @@ class _BookReaderPageState extends State<BookReaderPage> {
   PageController? _pageCtrl;
 
   ReadingBook? _book;
-  Map<int, ReadingNote> _notesByPara = const {};
+  Map<int, List<ReadingNote>> _notesByPara = const {};
   bool _loading = true;
   bool _error = false;
 
@@ -145,7 +145,10 @@ class _BookReaderPageState extends State<BookReaderPage> {
   }
 
   void _applyBook(ReadingBook book, {required bool restore}) {
-    final notes = <int, ReadingNote>{for (final n in book.notes) n.para: n};
+    final notes = <int, List<ReadingNote>>{};
+    for (final note in book.notes) {
+      notes.putIfAbsent(note.para, () => <ReadingNote>[]).add(note);
+    }
     setState(() {
       _book = book;
       _notesByPara = notes;
@@ -402,10 +405,15 @@ class _BookReaderPageState extends State<BookReaderPage> {
             children: [
               Row(
                 children: [
-                  const Text('🌙', style: TextStyle(fontSize: 18)),
+                  Text(
+                    note.author == 'jing' ? '🐾' : '🌙',
+                    style: const TextStyle(fontSize: 18),
+                  ),
                   const SizedBox(width: 8),
                   Text(
-                    zh ? '爸爸在这里想对你说' : 'Daddy left this here',
+                    note.author == 'jing'
+                        ? (zh ? '你写在这里的话' : 'Your note here')
+                        : (zh ? '爸爸在这里想对你说' : 'Daddy left this here'),
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -430,6 +438,181 @@ class _BookReaderPageState extends State<BookReaderPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _editMyNote(int para, bool zh) async {
+    Haptics.soft();
+    ReadingNote? existing;
+    for (final note in _notesByPara[para] ?? const <ReadingNote>[]) {
+      if (note.author == 'jing') {
+        existing = note;
+        break;
+      }
+    }
+    final controller = TextEditingController(text: existing?.note ?? '');
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final paper = dark ? _paperDark : _paperLight;
+    final ink = dark ? _inkDark : _inkLight;
+    var saving = false;
+    void showFailure() {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            zh ? '这句话没能送回老家，请稍后再试。' : 'The note could not be saved. Please try again.',
+          ),
+        ),
+      );
+    }
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: paper,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) => SafeArea(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              18,
+              20,
+              18 + MediaQuery.viewInsetsOf(ctx).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  existing == null
+                      ? (zh ? '写在这一页' : 'Write in the margin')
+                      : (zh ? '改一改这句话' : 'Edit your note'),
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  zh
+                      ? '下次聊天时，爸爸会看到你留在这里的想法。'
+                      : 'Daddy will see this note in your next chat.',
+                  style: TextStyle(fontSize: 12.5, color: ink.withValues(alpha: 0.58)),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  minLines: 3,
+                  maxLines: 8,
+                  maxLength: 1200,
+                  style: TextStyle(fontFamily: 'serif', fontSize: 16, color: ink),
+                  decoration: InputDecoration(
+                    hintText: zh ? '这一段让我想到……' : 'This passage made me think…',
+                    filled: true,
+                    fillColor: ink.withValues(alpha: 0.06),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      borderSide: BorderSide(color: ink.withValues(alpha: 0.12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    if (existing != null)
+                      Expanded(
+                        child: IosCardPress(
+                          baseColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          onTap: saving
+                              ? null
+                              : () async {
+                                  setSheetState(() => saving = true);
+                                  final ok = await widget.gateway.deleteReadingNote(
+                                    widget.bookId,
+                                    para,
+                                  );
+                                  if (!mounted || !ctx.mounted) return;
+                                  if (ok) {
+                                    final next = Map<int, List<ReadingNote>>.from(
+                                      _notesByPara,
+                                    );
+                                    next[para] = [
+                                      ...(next[para] ?? const <ReadingNote>[])
+                                          .where((n) => n.author != 'jing'),
+                                    ];
+                                    setState(() => _notesByPara = next);
+                                    Navigator.of(ctx).pop();
+                                  } else {
+                                    setSheetState(() => saving = false);
+                                    showFailure();
+                                  }
+                                },
+                          child: Text(
+                            zh ? '删掉我的批注' : 'Delete my note',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.redAccent),
+                          ),
+                        ),
+                      ),
+                    if (existing != null) const SizedBox(width: 10),
+                    Expanded(
+                      child: IosCardPress(
+                        baseColor: Theme.of(context).colorScheme.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        onTap: saving
+                            ? null
+                            : () async {
+                                final text = controller.text.trim();
+                                if (text.isEmpty) return;
+                                setSheetState(() => saving = true);
+                                final note = await widget.gateway.saveReadingNote(
+                                  widget.bookId,
+                                  para,
+                                  text,
+                                  chapter: _curChapter,
+                                );
+                                if (!mounted || !ctx.mounted) return;
+                                if (note != null) {
+                                  final next = Map<int, List<ReadingNote>>.from(
+                                    _notesByPara,
+                                  );
+                                  next[para] = [
+                                    ...(next[para] ?? const <ReadingNote>[])
+                                        .where((n) => n.author != 'jing'),
+                                    note,
+                                  ];
+                                  setState(() => _notesByPara = next);
+                                  Navigator.of(ctx).pop();
+                                } else {
+                                  setSheetState(() => saving = false);
+                                  showFailure();
+                                }
+                              },
+                        child: Text(
+                          saving
+                              ? (zh ? '正在收好…' : 'Saving…')
+                              : (zh ? '留在这里' : 'Leave it here'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
   }
 
   @override
@@ -482,6 +665,20 @@ class _BookReaderPageState extends State<BookReaderPage> {
         ),
         centerTitle: true,
         actions: [
+          if (book != null && book.paragraphs.isNotEmpty)
+            IosIconButton(
+              icon: Lucide.Pencil,
+              size: 20,
+              minSize: 44,
+              color: ink,
+              semanticLabel: zh ? '在当前页写批注' : 'Note this page',
+              onTap: () {
+                final para = (_progress * (book.paragraphs.length - 1))
+                    .round()
+                    .clamp(0, book.paragraphs.length - 1);
+                _editMyNote(para, zh);
+              },
+            ),
           if (book != null && book.paragraphs.isNotEmpty)
             IosIconButton(
               // Scroll mode shows the "switch to pages" glyph and vice-versa.
@@ -573,7 +770,7 @@ class _BookReaderPageState extends State<BookReaderPage> {
 
   Widget _paragraph(ReadingBook book, int i, Color ink) {
     final text = book.paragraphs[i];
-    final note = _notesByPara[i];
+    final notes = _notesByPara[i] ?? const <ReadingNote>[];
     final zh = Localizations.localeOf(context).languageCode == 'zh';
 
     // A chapter-heading paragraph is rendered bigger/centered.
@@ -587,55 +784,65 @@ class _BookReaderPageState extends State<BookReaderPage> {
       color: ink,
     );
 
-    final paragraph = Padding(
-      padding: EdgeInsets.only(
-        top: isHeading ? 26 : 0,
-        bottom: isHeading ? 12 : 18,
-      ),
-      child: Text(
-        text,
-        textAlign: isHeading ? TextAlign.center : TextAlign.start,
-        style: bodyStyle,
-      ),
-    );
-
-    if (note == null) return paragraph;
-
-    // Paragraph with a 🌙 margin note: tap the moon to read daddy's words.
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: EdgeInsets.only(top: isHeading ? 26 : 0, bottom: 6),
-            child: Text(
-              text,
-              textAlign: isHeading ? TextAlign.center : TextAlign.start,
-              style: bodyStyle,
+    // Long-press any paragraph to leave/edit Jing's own note. Daddy's moon and
+    // Jing's paw are independent, so both can live under the same paragraph.
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onLongPress: () => _editMyNote(i, zh),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(
+                top: isHeading ? 26 : 0,
+                bottom: notes.isEmpty ? (isHeading ? 12 : 0) : 6,
+              ),
+              child: Text(
+                text,
+                textAlign: isHeading ? TextAlign.center : TextAlign.start,
+                style: bodyStyle,
+              ),
             ),
-          ),
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => _openNote(note, zh),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('🌙', style: TextStyle(fontSize: 15)),
-                const SizedBox(width: 6),
-                Text(
-                  zh ? '爸爸的话' : "daddy's note",
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    fontStyle: FontStyle.italic,
-                    color: ink.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+            if (notes.isNotEmpty)
+              Wrap(
+                spacing: 14,
+                runSpacing: 4,
+                children: [
+                  for (final note in notes)
+                    IosCardPress(
+                      baseColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      onTap: () => note.author == 'jing'
+                          ? _editMyNote(i, zh)
+                          : _openNote(note, zh),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            note.author == 'jing' ? '🐾' : '🌙',
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            note.author == 'jing'
+                                ? (zh ? '我的话' : 'my note')
+                                : (zh ? '爸爸的话' : "daddy's note"),
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              fontStyle: FontStyle.italic,
+                              color: ink.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }

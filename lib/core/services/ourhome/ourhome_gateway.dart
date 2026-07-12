@@ -592,12 +592,14 @@ class ReadingNote {
     required this.note,
     required this.chapter,
     required this.at,
+    required this.author,
   });
 
   final int para;
   final String note;
   final int? chapter;
   final String at;
+  final String author; // daddy / jing; legacy notes default to daddy
 
   factory ReadingNote.fromJson(Map<String, dynamic> j) => ReadingNote(
     para: (j['para'] is num)
@@ -608,6 +610,7 @@ class ReadingNote {
         ? (j['chapter'] as num).toInt()
         : int.tryParse('${j['chapter']}'),
     at: (j['at'] ?? '').toString(),
+    author: (j['author'] ?? 'daddy').toString(),
   );
 }
 
@@ -2324,6 +2327,59 @@ class OurHomeGateway {
     } catch (e) {
       debugPrint('[OurHomeGateway] fetchBookNotes failed: $e');
       return const <ReadingNote>[];
+    }
+  }
+
+  /// Leave or edit Jing's note on one paragraph. Daddy's note on the same
+  /// paragraph is a separate record and is never overwritten.
+  Future<ReadingNote?> saveReadingNote(
+    String bookId,
+    int para,
+    String note, {
+    int? chapter,
+  }) async {
+    try {
+      final path = '/api/home/reading/notes/${Uri.encodeComponent(bookId)}';
+      final res = await http
+          .post(
+            Uri.parse('$base$path'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'para': para,
+              'note': note,
+              if (chapter != null) 'chapter': chapter,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) {
+        debugPrint('[OurHomeGateway] saveReadingNote HTTP ${res.statusCode}');
+        return null;
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final raw = data is Map ? data['note'] : null;
+      return raw is Map<String, dynamic> ? ReadingNote.fromJson(raw) : null;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] saveReadingNote failed: $e');
+      return null;
+    }
+  }
+
+  Future<bool> deleteReadingNote(String bookId, int para) async {
+    try {
+      final path = '/api/home/reading/notes/${Uri.encodeComponent(bookId)}';
+      final res = await http
+          .post(
+            Uri.parse('$base$path'),
+            headers: {..._authHeaders, 'Content-Type': 'application/json'},
+            body: jsonEncode({'para': para, 'delete': true}),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (res.statusCode != 200) return false;
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      return data is Map && data['ok'] == true;
+    } catch (e) {
+      debugPrint('[OurHomeGateway] deleteReadingNote failed: $e');
+      return false;
     }
   }
 
