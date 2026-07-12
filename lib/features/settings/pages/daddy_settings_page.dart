@@ -1275,7 +1275,12 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                       ),
                     ),
                   ),
-                  _TactileRow(
+                  IosCardPress(
+                    baseColor: Colors.transparent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 6,
+                    ),
                     onTap: () async {
                       final parsed = int.tryParse(controller.text.trim());
                       if (parsed == null) return;
@@ -1285,13 +1290,10 @@ class _DaddySettingsPageState extends State<DaddySettingsPage> {
                       );
                       if (ctx.mounted) Navigator.of(ctx).pop();
                     },
-                    pressedScale: 0.95,
-                    builder: (pressed) => Text(
+                    child: Text(
                       l10n.assistantSettingsAddSheetSave,
                       style: TextStyle(
-                        color: pressed
-                            ? cs.primary.withValues(alpha: 0.7)
-                            : cs.primary,
+                        color: cs.primary,
                         fontSize: 16,
                         fontWeight: AppFontWeights.semibold,
                       ),
