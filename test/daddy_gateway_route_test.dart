@@ -151,7 +151,7 @@ void main() {
 
     test('retries only transient gateway TLS handshake failures', () {
       expect(
-        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
           error:
               'HandshakeException: Connection terminated during handshake',
@@ -159,7 +159,7 @@ void main() {
         isTrue,
       );
       expect(
-        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
           error:
               'ConnectTimeout: _ssl.c:1015: The handshake operation timed out',
@@ -167,7 +167,7 @@ void main() {
         isTrue,
       );
       expect(
-        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
           error:
               '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol',
@@ -176,23 +176,41 @@ void main() {
       );
     });
 
-    test('does not replay ambiguous reset, certificate, or other hosts', () {
+    test('retries gateway reset only while still waiting for headers', () {
       expect(
-        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
           error: 'SocketException: Connection reset by peer',
+        ),
+        isTrue,
+      );
+      expect(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error:
+              'HttpException: Connection closed before full header was received',
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not replay certificate, generic timeout, or other hosts', () {
+      expect(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error: 'TimeoutException after 60 seconds',
         ),
         isFalse,
       );
       expect(
-        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
           error: 'HandshakeException: CERTIFICATE_VERIFY_FAILED',
         ),
         isFalse,
       );
       expect(
-        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'relay.example.com',
           error:
               'HandshakeException: Connection terminated during handshake',

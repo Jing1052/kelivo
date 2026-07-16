@@ -1432,18 +1432,18 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
   try {
     response = await client.send(buildRequest());
   } catch (error, stackTrace) {
-    if (!DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+    if (!DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
       host: info.host,
       error: error,
     )) {
       Error.throwWithStackTrace(error, stackTrace);
     }
     FlutterLogger.log(
-      '[ourhome] gateway TLS handshake failed before response headers; '
+      '[ourhome] gateway connection failed before response headers; '
       'retrying once: $error',
       tag: 'OurHomeGateway',
     );
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await Future<void>.delayed(const Duration(milliseconds: 700));
     response = await client.send(buildRequest());
   }
   if (response.statusCode < 200 || response.statusCode >= 300) {

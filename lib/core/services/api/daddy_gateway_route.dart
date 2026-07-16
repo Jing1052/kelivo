@@ -73,10 +73,10 @@ class DaddyGatewayRoute {
     return t != null && t.isNotEmpty;
   }
 
-  /// Zeabur 晚间偶发在 HTTP 响应头之前掐掉 TLS 握手。此类失败尚未建立
-  /// HTTP 会话，可以安全地把同一请求再送一次；证书错误、普通 reset/timeout
-  /// 可能已进入 HTTP 请求阶段，不能在这里盲目重放。
-  static bool shouldRetryHandshakeBeforeHeaders({
+  /// Zeabur 晚间偶发在 HTTP 响应头之前掐掉 TLS/Socket 连接。网关的 Claude
+  /// 正文流与工具循环是在响应头发出后才启动，因此这里确认是「响应头前断线」
+  /// 时可安全重送一次；证书错误与普通响应超时仍不重放。
+  static bool shouldRetryConnectionBeforeHeaders({
     required String host,
     required Object error,
   }) {
@@ -91,7 +91,10 @@ class DaddyGatewayRoute {
         text.contains('connection terminated during handshake') ||
         text.contains('handshake operation timed out') ||
         text.contains('unexpected_eof_while_reading') ||
-        text.contains('unexpected eof while reading');
+        text.contains('unexpected eof while reading') ||
+        text.contains('connection reset by peer') ||
+        text.contains('connection closed before full header') ||
+        text.contains('software caused connection abort');
   }
 
   /// 为 daddy 构建网关改道（config + headers）。
