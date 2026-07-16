@@ -153,8 +153,7 @@ void main() {
       expect(
         DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
-          error:
-              'HandshakeException: Connection terminated during handshake',
+          error: 'HandshakeException: Connection terminated during handshake',
         ),
         isTrue,
       );
@@ -227,8 +226,7 @@ void main() {
       expect(
         DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'relay.example.com',
-          error:
-              'HandshakeException: Connection terminated during handshake',
+          error: 'HandshakeException: Connection terminated during handshake',
         ),
         isFalse,
       );

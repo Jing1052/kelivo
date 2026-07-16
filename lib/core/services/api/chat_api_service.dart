@@ -520,8 +520,7 @@ class ChatApiService {
   }
 
   static http.Client _clientFor(ProviderConfig cfg, CancelToken cancelToken) {
-    final requestHost =
-        Uri.tryParse(cfg.baseUrl)?.host.toLowerCase() ?? '';
+    final requestHost = Uri.tryParse(cfg.baseUrl)?.host.toLowerCase() ?? '';
     final isDaddyGateway = requestHost == DaddyGatewayRoute.gatewayHost;
     bool retryGatewayConnection(Object error) =>
         DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
@@ -549,10 +548,9 @@ class ChatApiService {
         connectionTimeout: isDaddyGateway
             ? DaddyGatewayRoute.gatewayConnectionTimeout
             : null,
-        responseHeaderTimeout:
-            isDaddyGateway
-                ? DaddyGatewayRoute.gatewayResponseHeaderTimeout
-                : null,
+        responseHeaderTimeout: isDaddyGateway
+            ? DaddyGatewayRoute.gatewayResponseHeaderTimeout
+            : null,
       );
     }
     return DioHttpClient(
@@ -561,10 +559,9 @@ class ChatApiService {
       connectionTimeout: isDaddyGateway
           ? DaddyGatewayRoute.gatewayConnectionTimeout
           : null,
-      responseHeaderTimeout:
-          isDaddyGateway
-              ? DaddyGatewayRoute.gatewayResponseHeaderTimeout
-              : null,
+      responseHeaderTimeout: isDaddyGateway
+          ? DaddyGatewayRoute.gatewayResponseHeaderTimeout
+          : null,
     );
   }
 

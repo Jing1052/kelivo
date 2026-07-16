@@ -15,9 +15,7 @@ void main() {
       attempts += 1;
       await request.drain();
       if (attempts == 1) {
-        final socket = await request.response.detachSocket(
-          writeHeaders: false,
-        );
+        final socket = await request.response.detachSocket(writeHeaders: false);
         await socket.close();
         return;
       }
@@ -29,9 +27,7 @@ void main() {
     });
     addTearDown(() => server.close(force: true));
 
-    final client = DioHttpClient(
-      retryConnectionBeforeHeaders: (_) => true,
-    );
+    final client = DioHttpClient(retryConnectionBeforeHeaders: (_) => true);
     addTearDown(client.close);
     final request = http.Request(
       'POST',

@@ -48,11 +48,15 @@ class DaddyGatewayRoute {
     if (isClaudePBackend(cfg)) {
       h['x-ombre-backend'] = 'claude_p';
     } else if (cfg.baseUrl.isNotEmpty && cfg.apiKey.isNotEmpty) {
-      final kind = ProviderConfig.classify(cfg.id, explicitType: cfg.providerType);
+      final kind = ProviderConfig.classify(
+        cfg.id,
+        explicitType: cfg.providerType,
+      );
       h['x-ombre-upstream-base'] = cfg.baseUrl;
       h['x-ombre-upstream-key'] = cfg.apiKey;
-      h['x-ombre-upstream-proto'] =
-          kind == ProviderKind.claude ? 'anthropic' : 'openai';
+      h['x-ombre-upstream-proto'] = kind == ProviderKind.claude
+          ? 'anthropic'
+          : 'openai';
     }
     return h;
   }
@@ -142,9 +146,7 @@ class DaddyGatewayRoute {
       useResponseApi: false,
     );
 
-    final gwHeaders = <String, String>{
-      ...?extraHeaders,
-    };
+    final gwHeaders = <String, String>{...?extraHeaders};
     if (isClaudePBackend(userConfig)) {
       // 走家里 claude -p（订阅）：网关不转发中转站，故不发 upstream 头，
       // 只多发一个后端标记，由网关改调家里 /claudep/chat。
