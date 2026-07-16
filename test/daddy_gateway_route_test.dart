@@ -192,6 +192,14 @@ void main() {
         ),
         isTrue,
       );
+      expect(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error:
+              'SocketException: Write failed (OS Error: Broken pipe, errno = 32)',
+        ),
+        isTrue,
+      );
     });
 
     test('does not replay certificate, generic timeout, or other hosts', () {

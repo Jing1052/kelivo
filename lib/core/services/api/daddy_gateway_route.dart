@@ -94,7 +94,10 @@ class DaddyGatewayRoute {
         text.contains('unexpected eof while reading') ||
         text.contains('connection reset by peer') ||
         text.contains('connection closed before full header') ||
-        text.contains('software caused connection abort');
+        text.contains('software caused connection abort') ||
+        text.contains('broken pipe') ||
+        text.contains('write failed') ||
+        text.contains('errno = 32');
   }
 
   /// 为 daddy 构建网关改道（config + headers）。

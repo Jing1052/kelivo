@@ -1428,24 +1428,7 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
     return request;
   }
 
-  late http.StreamedResponse response;
-  try {
-    response = await client.send(buildRequest());
-  } catch (error, stackTrace) {
-    if (!DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
-      host: info.host,
-      error: error,
-    )) {
-      Error.throwWithStackTrace(error, stackTrace);
-    }
-    FlutterLogger.log(
-      '[ourhome] gateway connection failed before response headers; '
-      'retrying once: $error',
-      tag: 'OurHomeGateway',
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    response = await client.send(buildRequest());
-  }
+  final response = await client.send(buildRequest());
   if (response.statusCode < 200 || response.statusCode >= 300) {
     final errorBody = await response.stream.bytesToString();
     throw HttpException('HTTP ${response.statusCode}: $errorBody');

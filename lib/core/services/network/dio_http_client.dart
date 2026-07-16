@@ -57,17 +57,24 @@ class NetworkProxyConfig {
 }
 
 class DioHttpClient extends http.BaseClient {
-  DioHttpClient({this._proxy, CancelToken? cancelToken})
-    : _cancelToken = cancelToken ?? CancelToken(),
-      _dio = Dio(
-        BaseOptions(
-          connectTimeout: null,
-          sendTimeout: null,
-          receiveTimeout: null,
-          validateStatus: (_) => true,
-        ),
-      ) {
-    _dio.httpClientAdapter = IOHttpClientAdapter(
+  DioHttpClient({
+    this._proxy,
+    CancelToken? cancelToken,
+    this.retryConnectionBeforeHeaders,
+  }) : _cancelToken = cancelToken ?? CancelToken() {
+    _dio = _createDio();
+  }
+
+  Dio _createDio() {
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: null,
+        sendTimeout: null,
+        receiveTimeout: null,
+        validateStatus: (_) => true,
+      ),
+    );
+    dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
         client.connectionTimeout = null;
@@ -126,11 +133,13 @@ class DioHttpClient extends http.BaseClient {
         return client;
       },
     );
+    return dio;
   }
 
-  final Dio _dio;
+  late Dio _dio;
   final NetworkProxyConfig? _proxy;
   final CancelToken _cancelToken;
+  final bool Function(Object error)? retryConnectionBeforeHeaders;
 
   @override
   void close() {
@@ -184,8 +193,8 @@ class DioHttpClient extends http.BaseClient {
       }
     }
 
-    try {
-      final resp = await _dio.request<ResponseBody>(
+    Future<Response<ResponseBody>> performRequest() {
+      return _dio.request<ResponseBody>(
         uri.toString(),
         data: bodyBytes.isEmpty ? null : bodyBytes,
         options: Options(
@@ -198,6 +207,31 @@ class DioHttpClient extends http.BaseClient {
         ),
         cancelToken: _cancelToken,
       );
+    }
+
+    try {
+      late Response<ResponseBody> resp;
+      try {
+        resp = await performRequest();
+      } on DioException catch (e) {
+        final shouldRetry =
+            !_cancelToken.isCancelled &&
+            (retryConnectionBeforeHeaders?.call(e) ?? false);
+        if (!shouldRetry) rethrow;
+
+        if (RequestLogger.enabled) {
+          RequestLogger.logLine(
+            '[RES $reqId] connection_failed_before_headers='
+            '${RequestLogger.escape(e.toString())}; retrying_with_fresh_transport',
+          );
+        }
+        try {
+          _dio.close(force: true);
+        } catch (_) {}
+        _dio = _createDio();
+        await Future<void>.delayed(const Duration(milliseconds: 700));
+        resp = await performRequest();
+      }
 
       final statusCode = resp.statusCode ?? 0;
       final headers = <String, String>{};

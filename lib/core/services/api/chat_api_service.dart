@@ -520,6 +520,13 @@ class ChatApiService {
   }
 
   static http.Client _clientFor(ProviderConfig cfg, CancelToken cancelToken) {
+    final requestHost =
+        Uri.tryParse(cfg.baseUrl)?.host.toLowerCase() ?? '';
+    bool retryGatewayConnection(Object error) =>
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
+          host: requestHost,
+          error: error,
+        );
     final enabled = cfg.proxyEnabled == true;
     final host = (cfg.proxyHost ?? '').trim();
     final portStr = (cfg.proxyPort ?? '').trim();
@@ -537,9 +544,13 @@ class ChatApiService {
           password: pass.isEmpty ? null : pass,
         ),
         cancelToken: cancelToken,
+        retryConnectionBeforeHeaders: retryGatewayConnection,
       );
     }
-    return DioHttpClient(cancelToken: cancelToken);
+    return DioHttpClient(
+      cancelToken: cancelToken,
+      retryConnectionBeforeHeaders: retryGatewayConnection,
+    );
   }
 
   static String _decodeUtf8Body(
