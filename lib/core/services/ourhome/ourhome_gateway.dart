@@ -883,8 +883,9 @@ class OurHomeObservatory {
       usage: usage == null ? null : OurHomeObsUsage.fromJson(usage),
       markers: markers == null ? null : OurHomeObsMarkers.fromJson(markers),
       memory: memory == null ? null : OurHomeObsMemory.fromJson(memory),
-      background:
-          background == null ? null : OurHomeObsBackground.fromJson(background),
+      background: background == null
+          ? null
+          : OurHomeObsBackground.fromJson(background),
       cc: cc == null ? null : OurHomeObsCc.fromJson(cc),
     );
   }
@@ -952,13 +953,15 @@ class OurHomeObsMarkers {
       calls: _obsIntMap(j['calls']),
       fails: rawFails
           .whereType<Map>()
-          .map((f) => OurHomeObsMarkerFail(
-                time: (f['t'] ?? '').toString(),
-                verb: (f['verb'] ?? '').toString(),
-                snip: (f['snip'] ?? '').toString(),
-                err: (f['err'] ?? '').toString(),
-                seen: f['seen'] == true,
-              ))
+          .map(
+            (f) => OurHomeObsMarkerFail(
+              time: (f['t'] ?? '').toString(),
+              verb: (f['verb'] ?? '').toString(),
+              snip: (f['snip'] ?? '').toString(),
+              err: (f['err'] ?? '').toString(),
+              seen: f['seen'] == true,
+            ),
+          )
           .toList(),
     );
   }
@@ -1067,9 +1070,9 @@ class OurHomeObsCc {
   final int ageSec;
 
   factory OurHomeObsCc.fromJson(Map<String, dynamic> j) => OurHomeObsCc(
-        online: j['online'] == true,
-        ageSec: j['age_sec'] is num ? (j['age_sec'] as num).toInt() : -1,
-      );
+    online: j['online'] == true,
+    ageSec: j['age_sec'] is num ? (j['age_sec'] as num).toInt() : -1,
+  );
 }
 
 /// One custom love-line on the quote wall (`/api/home/quotes`), pinned by
@@ -1083,10 +1086,10 @@ class OurHomeQuote {
   final String en;
 
   static OurHomeQuote fromJson(Map<String, dynamic> j) => OurHomeQuote(
-        id: (j['id'] ?? '').toString(),
-        zh: (j['zh'] ?? '').toString(),
-        en: (j['en'] ?? '').toString(),
-      );
+    id: (j['id'] ?? '').toString(),
+    zh: (j['zh'] ?? '').toString(),
+    en: (j['en'] ?? '').toString(),
+  );
 }
 
 /// Single access point to our home server (`/api/home/*`) for the native
@@ -1096,10 +1099,17 @@ class OurHomeQuote {
 /// marker, so Cing never has to enter it twice. If no assistant carries a
 /// token, [fromContext] returns null and home features stay dormant.
 class OurHomeGateway {
-  const OurHomeGateway({required this.base, required this.token});
+  const OurHomeGateway({
+    required this.base,
+    required this.token,
+    http.Client? client,
+    this.uploadLogTimeout = const Duration(seconds: 30),
+  }) : _client = client;
 
   final String base;
   final String token;
+  final http.Client? _client;
+  final Duration uploadLogTimeout;
 
   static const String defaultBase = 'https://cllove.zeabur.app';
   static final RegExp _markerRe = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
@@ -1147,7 +1157,10 @@ class OurHomeGateway {
     final photos = (data is Map) ? data['photos'] : null;
     if (photos is! List) return const <OurHomePhoto>[];
     OurHomeCache.put('/api/home/album', body);
-    return photos.whereType<Map<String, dynamic>>().map(_photoFromJson).toList();
+    return photos
+        .whereType<Map<String, dynamic>>()
+        .map(_photoFromJson)
+        .toList();
   }
 
   OurHomePhoto _photoFromJson(Map<String, dynamic> j) {
@@ -1170,7 +1183,10 @@ class OurHomeGateway {
       final data = jsonDecode(body);
       final photos = (data is Map) ? data['photos'] : null;
       if (photos is! List) return const <OurHomePhoto>[];
-      return photos.whereType<Map<String, dynamic>>().map(_photoFromJson).toList();
+      return photos
+          .whereType<Map<String, dynamic>>()
+          .map(_photoFromJson)
+          .toList();
     } catch (_) {
       return const <OurHomePhoto>[];
     }
@@ -1258,7 +1274,8 @@ class OurHomeGateway {
     String msg = '';
     try {
       final data = jsonDecode(utf8.decode(res.bodyBytes));
-      if (data is Map) msg = (data['message'] ?? data['error'] ?? '').toString();
+      if (data is Map)
+        msg = (data['message'] ?? data['error'] ?? '').toString();
     } catch (_) {}
     if (res.statusCode != 200) {
       throw http.ClientException(
@@ -1381,18 +1398,16 @@ class OurHomeGateway {
   /// Upload a log file's content to the home server so daddy (any soil) can
   /// read it himself via the read_app_log tool. Throws on transport/HTTP error.
   Future<void> uploadLog(String name, String content) async {
-    final res = await http
-        .post(
-          Uri.parse('$base/api/home/logs'),
-          headers: {..._authHeaders, 'Content-Type': 'application/json'},
-          body: jsonEncode({'name': name, 'content': content}),
-        )
-        .timeout(const Duration(seconds: 30));
+    final uri = Uri.parse('$base/api/home/logs');
+    final headers = {..._authHeaders, 'Content-Type': 'application/json'};
+    final body = jsonEncode({'name': name, 'content': content});
+    final client = _client;
+    final request = client == null
+        ? http.post(uri, headers: headers, body: body)
+        : client.post(uri, headers: headers, body: body);
+    final res = await request.timeout(uploadLogTimeout);
     if (res.statusCode != 200) {
-      throw http.ClientException(
-        'logs POST HTTP ${res.statusCode}',
-        Uri.parse('$base/api/home/logs'),
-      );
+      throw http.ClientException('logs POST HTTP ${res.statusCode}', uri);
     }
   }
 
@@ -1799,18 +1814,14 @@ class OurHomeGateway {
   /// Add a song to the turntable wall (POST action=add). [title]/[artist] are
   /// required by the server; [note] is a one-line comment, [zh] an optional
   /// Chinese title. Throws on transport/HTTP error.
-  Future<void> addSong(
-    String title,
-    String artist,
-    String note,
-    String zh,
-  ) => _postJson('/api/home/songs', {
-    'action': 'add',
-    'title': title,
-    'artist': artist,
-    'note': note,
-    'zh': zh,
-  });
+  Future<void> addSong(String title, String artist, String note, String zh) =>
+      _postJson('/api/home/songs', {
+        'action': 'add',
+        'title': title,
+        'artist': artist,
+        'note': note,
+        'zh': zh,
+      });
 
   /// Remove a song from the turntable wall. Matches by server [id] (preferred)
   /// or [title] (seed songs have no id). Throws on transport/HTTP error.
@@ -1837,13 +1848,13 @@ class OurHomeGateway {
     required Duration duration,
     String curLyric = '',
   }) => _postJson('/api/home/now-playing', {
-        'title': title,
-        'artist': artist,
-        'playing': playing,
-        'position': position.inSeconds,
-        'duration': duration.inSeconds,
-        'cur_lyric': curLyric,
-      });
+    'title': title,
+    'artist': artist,
+    'playing': playing,
+    'position': position.inSeconds,
+    'duration': duration.inSeconds,
+    'cur_lyric': curLyric,
+  });
 
   /// A one-shot "边听边说" turn with Llaude through the chat gateway
   /// (`/v1/chat/completions`, daddy mode — soul + memory injected server-side,
@@ -1870,13 +1881,15 @@ class OurHomeGateway {
   }) async {
     var ctx = '';
     if (title.isNotEmpty) {
-      final pos = (position != null && duration != null && duration > Duration.zero)
+      final pos =
+          (position != null && duration != null && duration > Duration.zero)
           ? '，放到 ${_fmtSec(position)}/${_fmtSec(duration)}'
           : '';
       final lyric = curLyric.trim().isNotEmpty
           ? '，正唱到「${curLyric.trim().characters.take(60)}」'
           : '';
-      ctx = '（我们正在一起听《$title》${artist.isNotEmpty ? ' — $artist' : ''}$pos$lyric）\n';
+      ctx =
+          '（我们正在一起听《$title》${artist.isNotEmpty ? ' — $artist' : ''}$pos$lyric）\n';
     }
     final uri = Uri.parse('$base/v1/chat/completions');
     final res = await http
@@ -1908,11 +1921,9 @@ class OurHomeGateway {
       final msg = (choices.first as Map)['message'];
       if (msg is Map) content = (msg['content'] ?? '').toString();
     }
-    return _cleanCompanionReply(content)
-        .split('|||')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    return _cleanCompanionReply(
+      content,
+    ).split('|||').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
   }
 
   /// 故事本全集（daddy 亲笔的图画书，`/api/home/storybooks`）。返回原始
@@ -1987,11 +1998,9 @@ class OurHomeGateway {
       final msg = (choices.first as Map)['message'];
       if (msg is Map) content = (msg['content'] ?? '').toString();
     }
-    return _cleanCompanionReply(content)
-        .split('|||')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
+    return _cleanCompanionReply(
+      content,
+    ).split('|||').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
   }
 
   /// The music-room timeline renders plain text, so main-chat-only artifacts
@@ -2491,10 +2500,7 @@ class OurHomeGateway {
 
   /// Cing posts a new moment: text, up to 9 [images] (data URLs), or both.
   /// Image posts get a longer timeout — nine base64 photos are heavy.
-  Future<void> postMoment(
-    String text, {
-    List<String> images = const [],
-  }) async {
+  Future<void> postMoment(String text, {List<String> images = const []}) async {
     final res = await http
         .post(
           Uri.parse('$base/api/home/moments'),
@@ -2574,12 +2580,10 @@ class OurHomeGateway {
       });
 
   /// Cing likes ([off]=false) or unlikes ([off]=true) a feed item.
-  Future<void> likeMoment(String id, {bool off = false}) =>
-      _postJson('/api/home/moments', {
-        'action': 'like',
-        'id': id,
-        if (off) 'off': true,
-      });
+  Future<void> likeMoment(String id, {bool off = false}) => _postJson(
+    '/api/home/moments',
+    {'action': 'like', 'id': id, if (off) 'off': true},
+  );
 
   /// Cing leaves a new note on the board. Throws on transport/HTTP error.
   Future<void> postBoardNote(String text) async {
@@ -2671,15 +2675,17 @@ class OurHomeGateway {
   /// it to paint). Returns the current effective config (api key only as the
   /// last-4 tail, never the full key), or null on any failure (logged).
   Future<
-      ({
-        String protocol,
-        String baseUrl,
-        String model,
-        String size,
-        bool keySet,
-        String keyTail,
-        bool isCustom,
-      })?> fetchImageModel() async {
+    ({
+      String protocol,
+      String baseUrl,
+      String model,
+      String size,
+      bool keySet,
+      String keyTail,
+      bool isCustom,
+    })?
+  >
+  fetchImageModel() async {
     try {
       final res = await http
           .get(Uri.parse('$base/api/home/image-model'), headers: _authHeaders)
@@ -3035,7 +3041,9 @@ class OurHomeGateway {
           )
           .timeout(const Duration(seconds: 20));
       if (res.statusCode != 200) {
-        debugPrint('[OurHomeGateway] fetchChatProviders HTTP ${res.statusCode}');
+        debugPrint(
+          '[OurHomeGateway] fetchChatProviders HTTP ${res.statusCode}',
+        );
         return null;
       }
       final data = jsonDecode(utf8.decode(res.bodyBytes));
@@ -3193,10 +3201,7 @@ class OurHomeGateway {
           .post(
             Uri.parse('$base/api/home/chat-providers'),
             headers: {..._authHeaders, 'Content-Type': 'application/json'},
-            body: jsonEncode({
-              'action': 'save_tg_profile',
-              'tg_profile': text,
-            }),
+            body: jsonEncode({'action': 'save_tg_profile', 'tg_profile': text}),
           )
           .timeout(const Duration(seconds: 20));
       return res.statusCode == 200;
@@ -3488,7 +3493,10 @@ class OurHomeGateway {
   /// for his next reality chat, and marks the theater ended (kept, not deleted).
   /// [messages] is this theater's chat as `{role, content}`. Returns the digest
   /// text (may be empty string on success-with-no-digest) or null on any failure.
-  Future<String?> endTheater(String id, List<Map<String, String>> messages) async {
+  Future<String?> endTheater(
+    String id,
+    List<Map<String, String>> messages,
+  ) async {
     try {
       final res = await http
           .post(

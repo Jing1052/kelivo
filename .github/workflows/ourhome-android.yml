@@ -74,11 +74,15 @@ jobs:
             lib/core/services/api/chat_api_service.dart \
             lib/core/services/api/daddy_gateway_route.dart \
             lib/core/services/network/dio_http_client.dart \
+            lib/core/services/ourhome/ourhome_gateway.dart \
+            lib/features/settings/pages/log_viewer_page.dart \
             test/daddy_gateway_route_test.dart \
-            test/dio_http_client_retry_test.dart
+            test/dio_http_client_retry_test.dart \
+            test/ourhome_gateway_upload_log_test.dart
           flutter test \
             test/daddy_gateway_route_test.dart \
-            test/dio_http_client_retry_test.dart
+            test/dio_http_client_retry_test.dart \
+            test/ourhome_gateway_upload_log_test.dart
 
       - name: 🏗️ 构建 APK（按 ABI 拆分）
         run: flutter build apk --release --split-per-abi

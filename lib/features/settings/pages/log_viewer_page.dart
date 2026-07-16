@@ -401,17 +401,13 @@ class _FileIcon extends StatelessWidget {
 
 /// Uploads [file]'s content to the home server so daddy (any soil) can read
 /// it himself via the read_app_log tool — no manual export/forward needed.
-/// Inline bilingual text (room-style; no new ARB keys — this container can't
-/// run gen-l10n, see AGENTS.md §8 pitfall 6).
 Future<void> sendLogFileToDaddy(BuildContext context, File file) async {
-  final zh = Localizations.localeOf(context).languageCode == 'zh';
+  final l10n = AppLocalizations.of(context)!;
   final gateway = OurHomeGateway.fromContext(context);
   if (gateway == null) {
     showAppSnackBar(
       context,
-      message: zh
-          ? '先在爸爸的助手设定里填好我们家网关，才能递日志。'
-          : 'Set up the home gateway first.',
+      message: l10n.daddyToolsNoGateway,
       type: NotificationType.error,
     );
     return;
@@ -427,7 +423,7 @@ Future<void> sendLogFileToDaddy(BuildContext context, File file) async {
       if (context.mounted) {
         showAppSnackBar(
           context,
-          message: zh ? '这份日志是空的。' : 'This log is empty.',
+          message: l10n.logViewerEmpty,
           type: NotificationType.info,
         );
       }
@@ -437,7 +433,7 @@ Future<void> sendLogFileToDaddy(BuildContext context, File file) async {
     if (context.mounted) {
       showAppSnackBar(
         context,
-        message: zh ? '送到家了，爸爸随时能看。' : 'Delivered — daddy can read it now.',
+        message: l10n.ccBridgeUploadDone,
         type: NotificationType.success,
       );
     }
@@ -445,10 +441,53 @@ Future<void> sendLogFileToDaddy(BuildContext context, File file) async {
     if (context.mounted) {
       showAppSnackBar(
         context,
-        message: zh ? '没送出去：$e' : 'Failed to send: $e',
+        message: '${l10n.ccBridgeUploadFailed}: $e',
         type: NotificationType.error,
       );
     }
+  }
+}
+
+class _SendLogButton extends StatefulWidget {
+  const _SendLogButton({required this.file});
+
+  final File file;
+
+  @override
+  State<_SendLogButton> createState() => _SendLogButtonState();
+}
+
+class _SendLogButtonState extends State<_SendLogButton> {
+  bool _sending = false;
+
+  Future<void> _send() async {
+    if (_sending) return;
+    setState(() => _sending = true);
+    try {
+      await sendLogFileToDaddy(context, widget.file);
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return IconButton(
+      tooltip: l10n.bottomToolsSheetUpload,
+      onPressed: _sending ? null : _send,
+      icon: _sending
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: cs.primary,
+              ),
+            )
+          : Icon(Lucide.Send, color: cs.onSurface, size: 20),
+    );
   }
 }
 
@@ -520,13 +559,7 @@ class _PlainLogContentPageState extends State<_PlainLogContentPage> {
         ),
         title: Text(widget.title),
         actions: [
-          IconButton(
-            icon: Icon(Lucide.Send, color: cs.onSurface, size: 20),
-            tooltip: Localizations.localeOf(context).languageCode == 'zh'
-                ? '发给爸爸'
-                : 'Send to daddy',
-            onPressed: () => sendLogFileToDaddy(context, widget.file),
-          ),
+          _SendLogButton(file: widget.file),
           IconButton(
             icon: Icon(Lucide.Share2, color: cs.onSurface, size: 20),
             tooltip: l10n.logViewerExport,
@@ -643,13 +676,7 @@ class _RequestLogFilePageState extends State<_RequestLogFilePage> {
             icon: Icon(Lucide.RefreshCw, color: cs.onSurface, size: 20),
             onPressed: _load,
           ),
-          IconButton(
-            icon: Icon(Lucide.Send, color: cs.onSurface, size: 20),
-            tooltip: Localizations.localeOf(context).languageCode == 'zh'
-                ? '发给爸爸'
-                : 'Send to daddy',
-            onPressed: () => sendLogFileToDaddy(context, widget.file),
-          ),
+          _SendLogButton(file: widget.file),
           IconButton(
             icon: Icon(Lucide.Share2, color: cs.onSurface, size: 20),
             tooltip: l10n.logViewerExport,
