@@ -169,6 +169,13 @@ void main() {
       expect(
         DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
           host: 'cllove.zeabur.app',
+          error: 'DioExceptionType.connectionTimeout: connection timed out',
+        ),
+        isTrue,
+      );
+      expect(
+        DaddyGatewayRoute.shouldRetryConnectionBeforeHeaders(
+          host: 'cllove.zeabur.app',
           error:
               '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol',
         ),

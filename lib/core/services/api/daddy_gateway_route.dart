@@ -20,6 +20,8 @@ class DaddyGatewayRoute {
   static const String gatewayBaseUrl = 'https://cllove.zeabur.app/v1';
   static const String gatewayChatPath = '/chat/completions';
   static const String gatewayHost = 'cllove.zeabur.app';
+  static const Duration gatewayConnectionTimeout = Duration(seconds: 20);
+  static const Duration gatewayResponseHeaderTimeout = Duration(seconds: 45);
 
   /// daddy 标记：`[[ourhome]]` 或 `[[ourhome:TOKEN]]`。
   static final RegExp markerPattern = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
@@ -90,6 +92,8 @@ class DaddyGatewayRoute {
     return text.contains('handshakeexception') ||
         text.contains('connection terminated during handshake') ||
         text.contains('handshake operation timed out') ||
+        text.contains('connection timeout') ||
+        text.contains('connection timed out') ||
         text.contains('unexpected_eof_while_reading') ||
         text.contains('unexpected eof while reading') ||
         text.contains('connection reset by peer') ||

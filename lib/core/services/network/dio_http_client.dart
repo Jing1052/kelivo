@@ -56,11 +56,24 @@ class NetworkProxyConfig {
   bool get isValid => enabled && host.trim().isNotEmpty && port > 0;
 }
 
+class _ResponseHeadersTimeout implements Exception {
+  const _ResponseHeadersTimeout(this.uri, this.timeout);
+
+  final Uri uri;
+  final Duration timeout;
+
+  @override
+  String toString() =>
+      'No response headers within ${timeout.inSeconds}s for $uri';
+}
+
 class DioHttpClient extends http.BaseClient {
   DioHttpClient({
     this._proxy,
     CancelToken? cancelToken,
     this.retryConnectionBeforeHeaders,
+    this.connectionTimeout,
+    this.responseHeaderTimeout,
   }) : _cancelToken = cancelToken ?? CancelToken() {
     _dio = _createDio();
   }
@@ -68,7 +81,7 @@ class DioHttpClient extends http.BaseClient {
   Dio _createDio() {
     final dio = Dio(
       BaseOptions(
-        connectTimeout: null,
+        connectTimeout: connectionTimeout,
         sendTimeout: null,
         receiveTimeout: null,
         validateStatus: (_) => true,
@@ -77,7 +90,7 @@ class DioHttpClient extends http.BaseClient {
     dio.httpClientAdapter = IOHttpClientAdapter(
       createHttpClient: () {
         final client = HttpClient();
-        client.connectionTimeout = null;
+        client.connectionTimeout = connectionTimeout;
         client.idleTimeout = const Duration(days: 3650);
         if (_proxy?.isValid == true) {
           final p = _proxy!;
@@ -140,6 +153,8 @@ class DioHttpClient extends http.BaseClient {
   final NetworkProxyConfig? _proxy;
   final CancelToken _cancelToken;
   final bool Function(Object error)? retryConnectionBeforeHeaders;
+  final Duration? connectionTimeout;
+  final Duration? responseHeaderTimeout;
 
   @override
   void close() {
@@ -194,7 +209,8 @@ class DioHttpClient extends http.BaseClient {
     }
 
     Future<Response<ResponseBody>> performRequest() {
-      return _dio.request<ResponseBody>(
+      final dio = _dio;
+      final response = dio.request<ResponseBody>(
         uri.toString(),
         data: bodyBytes.isEmpty ? null : bodyBytes,
         options: Options(
@@ -207,13 +223,24 @@ class DioHttpClient extends http.BaseClient {
         ),
         cancelToken: _cancelToken,
       );
+      final timeout = responseHeaderTimeout;
+      if (timeout == null) return response;
+      return response.timeout(
+        timeout,
+        onTimeout: () {
+          try {
+            dio.close(force: true);
+          } catch (_) {}
+          throw _ResponseHeadersTimeout(uri, timeout);
+        },
+      );
     }
 
     try {
       late Response<ResponseBody> resp;
       try {
         resp = await performRequest();
-      } on DioException catch (e) {
+      } catch (e) {
         final shouldRetry =
             !_cancelToken.isCancelled &&
             (retryConnectionBeforeHeaders?.call(e) ?? false);

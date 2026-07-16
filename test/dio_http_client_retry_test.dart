@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -44,4 +45,51 @@ void main() {
     expect(jsonDecode(body), {'ok': true});
     expect(attempts, 2);
   });
+
+  test(
+    'silent response-header hang fails once without duplicate send',
+    () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final releaseResponse = Completer<void>();
+      var attempts = 0;
+      server.listen((request) async {
+        attempts += 1;
+        await request.drain();
+        await releaseResponse.future;
+        try {
+          await request.response.close();
+        } catch (_) {}
+      });
+      addTearDown(() async {
+        if (!releaseResponse.isCompleted) releaseResponse.complete();
+        await server.close(force: true);
+      });
+
+      final client = DioHttpClient(
+        retryConnectionBeforeHeaders: (_) => false,
+        responseHeaderTimeout: const Duration(milliseconds: 50),
+      );
+      addTearDown(client.close);
+      final request = http.Request(
+        'POST',
+        Uri.parse('http://127.0.0.1:${server.port}/chat'),
+      )..body = jsonEncode({'message': 'hello'});
+      final stopwatch = Stopwatch()..start();
+
+      await expectLater(
+        client.send(request),
+        throwsA(
+          isA<http.ClientException>().having(
+            (error) => error.message,
+            'message',
+            contains('No response headers within'),
+          ),
+        ),
+      );
+      stopwatch.stop();
+
+      expect(attempts, 1);
+      expect(stopwatch.elapsed, lessThan(const Duration(seconds: 2)));
+    },
+  );
 }
