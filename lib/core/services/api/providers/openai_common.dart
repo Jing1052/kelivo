@@ -1370,7 +1370,6 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
     }
   }
 
-  final request = http.Request('POST', url);
   final headers = <String, String>{
     'Authorization': 'Bearer ${_apiKeyForRequest(config, modelId)}',
     'Content-Type': 'application/json',
@@ -1381,7 +1380,6 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
   if (extraHeaders != null && extraHeaders.isNotEmpty) {
     headers.addAll(extraHeaders);
   }
-  request.headers.addAll(headers);
   _maybeAddStreamingUsageOptions(
     body,
     stream: stream,
@@ -1422,9 +1420,32 @@ Stream<ChatStreamChunk> _sendOpenAIStream(
     isReasoning: isReasoning,
     thinkingBudget: thinkingBudget,
   );
-  request.body = jsonEncode(body);
+  final encodedBody = jsonEncode(body);
+  http.Request buildRequest() {
+    final request = http.Request('POST', url);
+    request.headers.addAll(headers);
+    request.body = encodedBody;
+    return request;
+  }
 
-  final response = await client.send(request);
+  late http.StreamedResponse response;
+  try {
+    response = await client.send(buildRequest());
+  } catch (error, stackTrace) {
+    if (!DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+      host: info.host,
+      error: error,
+    )) {
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+    FlutterLogger.log(
+      '[ourhome] gateway TLS handshake failed before response headers; '
+      'retrying once: $error',
+      tag: 'OurHomeGateway',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    response = await client.send(buildRequest());
+  }
   if (response.statusCode < 200 || response.statusCode >= 300) {
     final errorBody = await response.stream.bytesToString();
     throw HttpException('HTTP ${response.statusCode}: $errorBody');

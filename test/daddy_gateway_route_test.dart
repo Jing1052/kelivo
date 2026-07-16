@@ -148,5 +148,57 @@ void main() {
       expect(DaddyGatewayRoute.usesGateway('[[ourhome]]'), isFalse);
       expect(DaddyGatewayRoute.usesGateway('[[ourhome:abc]]'), isTrue);
     });
+
+    test('retries only transient gateway TLS handshake failures', () {
+      expect(
+        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error:
+              'HandshakeException: Connection terminated during handshake',
+        ),
+        isTrue,
+      );
+      expect(
+        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error:
+              'ConnectTimeout: _ssl.c:1015: The handshake operation timed out',
+        ),
+        isTrue,
+      );
+      expect(
+        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error:
+              '[SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol',
+        ),
+        isTrue,
+      );
+    });
+
+    test('does not replay ambiguous reset, certificate, or other hosts', () {
+      expect(
+        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error: 'SocketException: Connection reset by peer',
+        ),
+        isFalse,
+      );
+      expect(
+        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+          host: 'cllove.zeabur.app',
+          error: 'HandshakeException: CERTIFICATE_VERIFY_FAILED',
+        ),
+        isFalse,
+      );
+      expect(
+        DaddyGatewayRoute.shouldRetryHandshakeBeforeHeaders(
+          host: 'relay.example.com',
+          error:
+              'HandshakeException: Connection terminated during handshake',
+        ),
+        isFalse,
+      );
+    });
   });
 }

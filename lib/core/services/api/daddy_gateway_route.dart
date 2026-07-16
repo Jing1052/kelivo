@@ -19,6 +19,7 @@ class DaddyGatewayRoute {
   /// 网关基址与 chat-completions 路径（OpenAI-compatible）。
   static const String gatewayBaseUrl = 'https://cllove.zeabur.app/v1';
   static const String gatewayChatPath = '/chat/completions';
+  static const String gatewayHost = 'cllove.zeabur.app';
 
   /// daddy 标记：`[[ourhome]]` 或 `[[ourhome:TOKEN]]`。
   static final RegExp markerPattern = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
@@ -70,6 +71,27 @@ class DaddyGatewayRoute {
   static bool usesGateway(String? systemPrompt) {
     final t = tokenFor(systemPrompt);
     return t != null && t.isNotEmpty;
+  }
+
+  /// Zeabur 晚间偶发在 HTTP 响应头之前掐掉 TLS 握手。此类失败尚未建立
+  /// HTTP 会话，可以安全地把同一请求再送一次；证书错误、普通 reset/timeout
+  /// 可能已进入 HTTP 请求阶段，不能在这里盲目重放。
+  static bool shouldRetryHandshakeBeforeHeaders({
+    required String host,
+    required Object error,
+  }) {
+    if (host.toLowerCase() != gatewayHost) return false;
+    final text = error.toString().toLowerCase();
+    if (text.contains('certificate') ||
+        text.contains('cert_verify') ||
+        text.contains('unknown ca')) {
+      return false;
+    }
+    return text.contains('handshakeexception') ||
+        text.contains('connection terminated during handshake') ||
+        text.contains('handshake operation timed out') ||
+        text.contains('unexpected_eof_while_reading') ||
+        text.contains('unexpected eof while reading');
   }
 
   /// 为 daddy 构建网关改道（config + headers）。
