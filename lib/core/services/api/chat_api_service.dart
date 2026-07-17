@@ -516,7 +516,7 @@ class ChatApiService {
   }
 
   static Future<List<Map<String, dynamic>>>
-      _stripHistoricalImageInputsFromMessages(
+  _stripHistoricalImageInputsFromMessages(
     List<Map<String, dynamic>> messages,
   ) async {
     var lastUserIndex = -1;
@@ -533,9 +533,7 @@ class ChatApiService {
       if (i != lastUserIndex) {
         copy.remove(multimodalInternalMediaPathsKey);
         if (copy.containsKey('content')) {
-          copy['content'] = await _stripImageInputsFromContent(
-            copy['content'],
-          );
+          copy['content'] = await _stripImageInputsFromContent(copy['content']);
         }
       }
       out.add(copy);
