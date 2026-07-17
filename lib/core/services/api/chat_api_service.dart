@@ -516,7 +516,7 @@ class ChatApiService {
   }
 
   static Future<List<Map<String, dynamic>>>
-  _stripHistoricalImageInputsFromMessages(
+      _stripHistoricalImageInputsFromMessages(
     List<Map<String, dynamic>> messages,
   ) async {
     var lastUserIndex = -1;
@@ -645,7 +645,9 @@ class ChatApiService {
         ? await _stripImageInputsFromMessages(unicodeSafeMessages)
         : includeHistoricalImageInputs
         ? unicodeSafeMessages
-        : await _stripHistoricalImageInputsFromMessages(unicodeSafeMessages);
+        : await _stripHistoricalImageInputsFromMessages(
+            unicodeSafeMessages,
+          );
     final safeUserImagePaths = stripUnsupportedImageInputs
         ? const <String>[]
         : userImagePaths;
