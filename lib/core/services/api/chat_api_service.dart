@@ -645,9 +645,7 @@ class ChatApiService {
         ? await _stripImageInputsFromMessages(unicodeSafeMessages)
         : includeHistoricalImageInputs
         ? unicodeSafeMessages
-        : await _stripHistoricalImageInputsFromMessages(
-            unicodeSafeMessages,
-          );
+        : await _stripHistoricalImageInputsFromMessages(unicodeSafeMessages);
     final safeUserImagePaths = stripUnsupportedImageInputs
         ? const <String>[]
         : userImagePaths;
