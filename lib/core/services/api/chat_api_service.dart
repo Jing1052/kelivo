@@ -515,6 +515,34 @@ class ChatApiService {
     return out;
   }
 
+  static Future<List<Map<String, dynamic>>>
+  _stripHistoricalImageInputsFromMessages(
+    List<Map<String, dynamic>> messages,
+  ) async {
+    var lastUserIndex = -1;
+    for (var i = messages.length - 1; i >= 0; i--) {
+      if ((messages[i]['role'] ?? '').toString() == 'user') {
+        lastUserIndex = i;
+        break;
+      }
+    }
+
+    final out = <Map<String, dynamic>>[];
+    for (var i = 0; i < messages.length; i++) {
+      final copy = Map<String, dynamic>.from(messages[i]);
+      if (i != lastUserIndex) {
+        copy.remove(multimodalInternalMediaPathsKey);
+        if (copy.containsKey('content')) {
+          copy['content'] = await _stripImageInputsFromContent(
+            copy['content'],
+          );
+        }
+      }
+      out.add(copy);
+    }
+    return out;
+  }
+
   static bool _supportsImageInput(ProviderConfig config, String modelId) {
     return _effectiveModelInfo(config, modelId).input.contains(Modality.image);
   }
@@ -589,6 +617,7 @@ class ChatApiService {
     String? requestId,
     bool allowImagesApiRouting = true,
     bool ocrActive = false,
+    bool includeHistoricalImageInputs = true,
   }) async* {
     final kind = ProviderConfig.classify(
       config.id,
@@ -614,7 +643,9 @@ class ChatApiService {
         !_supportsImageInput(config, modelId);
     final safeMessages = stripUnsupportedImageInputs
         ? await _stripImageInputsFromMessages(unicodeSafeMessages)
-        : unicodeSafeMessages;
+        : includeHistoricalImageInputs
+        ? unicodeSafeMessages
+        : await _stripHistoricalImageInputsFromMessages(unicodeSafeMessages);
     final safeUserImagePaths = stripUnsupportedImageInputs
         ? const <String>[]
         : userImagePaths;

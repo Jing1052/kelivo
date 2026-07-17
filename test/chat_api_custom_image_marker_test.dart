@@ -242,6 +242,47 @@ void main() {
       );
     });
 
+    test(
+      'gateway mode strips historical images but keeps the current user image',
+      () async {
+        final body = await _sendAndCaptureRequestBody((baseUrl) async {
+          return ChatApiService.sendMessageStream(
+            config: _openAiConfig(baseUrl),
+            modelId: 'gpt-4.1',
+            messages: const [
+              {
+                'role': 'user',
+                'content': 'old [image:data:image/png;base64,T0xE]',
+              },
+              {'role': 'assistant', 'content': 'noted'},
+              {
+                'role': 'user',
+                'content': 'new [image:data:image/png;base64,TkVX]',
+              },
+            ],
+            stream: false,
+            includeHistoricalImageInputs: false,
+          ).toList();
+        });
+
+        final messages = (body['messages'] as List)
+            .map((e) => (e as Map).cast<String, dynamic>())
+            .toList(growable: false);
+        expect(messages.first['content'], 'old');
+        expect(jsonEncode(messages.first), isNot(contains('T0xE')));
+
+        final currentParts = (messages.last['content'] as List)
+            .map((e) => (e as Map).cast<String, dynamic>())
+            .toList(growable: false);
+        expect(currentParts.first['text'], 'new');
+        expect(currentParts.last['type'], 'image_url');
+        expect(
+          (currentParts.last['image_url'] as Map<String, dynamic>)['url'],
+          'data:image/png;base64,TkVX',
+        );
+      },
+    );
+
     test('keeps structured image_url parts for image-capable models', () async {
       final body = await _sendAndCaptureRequestBody((baseUrl) async {
         return ChatApiService.sendMessageStream(

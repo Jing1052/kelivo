@@ -1218,6 +1218,7 @@ class ChatActions {
       // 走原直连，请求字节不变。任何构建异常退回原配置，绝不阻断发送。
       var sendConfig = ctx.config;
       var sendHeaders = ctx.extraHeaders;
+      var includeHistoricalImageInputs = true;
       try {
         // 小剧场：这条会话若绑定了剧场 id，透传给网关当「小剧场」线处理。
         final theaterId = chatService
@@ -1243,6 +1244,9 @@ class ChatActions {
           );
           sendConfig = override.config;
           sendHeaders = override.headers;
+          // 老家网关只读取最后一条 user 的图片；历史图片即使上传也会被丢弃。
+          // 不再反复 Base64 重传旧图，避免长窗口请求体膨胀并卡在响应头之前。
+          includeHistoricalImageInputs = false;
         } else if (DaddyGatewayRoute.isDaddy(assistant?.systemPrompt)) {
           // daddy 但 token 为空（旧标记 [[ourhome]]）：网关会 401，退回原直连。
           debugPrint(
@@ -1253,6 +1257,7 @@ class ChatActions {
         debugPrint('[ourhome] daddy gateway override failed: $e — direct send');
         sendConfig = ctx.config;
         sendHeaders = ctx.extraHeaders;
+        includeHistoricalImageInputs = true;
       }
 
       final stream = ChatApiService.sendMessageStream(
@@ -1273,6 +1278,7 @@ class ChatActions {
         requestId: conversationId,
         allowImagesApiRouting: ctx.allowImagesApiRouting,
         ocrActive: ctx.ocrActive,
+        includeHistoricalImageInputs: includeHistoricalImageInputs,
       );
 
       await _conversationStreams[conversationId]?.cancel();
