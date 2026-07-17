@@ -52,6 +52,7 @@ jobs:
 
       - name: 🧪 验证网关连接保护
         run: |
+          set +e
           dart format --output=none --set-exit-if-changed \
             lib/core/services/api/chat_api_service.dart \
             lib/core/services/api/daddy_gateway_route.dart \
@@ -62,6 +63,12 @@ jobs:
             test/daddy_gateway_route_test.dart \
             test/dio_http_client_retry_test.dart \
             test/ourhome_gateway_upload_log_test.dart
+          FORMAT_STATUS=$?
+          set -e
+          if [ "$FORMAT_STATUS" -ne 0 ]; then
+            git diff -- lib test
+            exit "$FORMAT_STATUS"
+          fi
           flutter test \
             test/chat_api_custom_image_marker_test.dart \
             test/daddy_gateway_route_test.dart \
