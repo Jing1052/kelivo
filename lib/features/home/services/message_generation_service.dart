@@ -50,6 +50,7 @@ Map<String, String>? buildConversationRequestHeaders({
 /// Result of preparing a message generation
 class PreparedGeneration {
   final List<Map<String, dynamic>> apiMessages;
+  final int contextMessageTotal;
   final List<Map<String, dynamic>> toolDefs;
   final ToolCallHandler? onToolCall;
   final bool hasBuiltInSearch;
@@ -57,6 +58,7 @@ class PreparedGeneration {
 
   PreparedGeneration({
     required this.apiMessages,
+    this.contextMessageTotal = 0,
     required this.toolDefs,
     this.onToolCall,
     required this.hasBuiltInSearch,
@@ -140,6 +142,13 @@ class MessageGenerationService {
       currentConversation: currentConversation,
       includeToolMessages: includeToolMessages,
     );
+    // Preserve the absolute pre-window total. applyContextLimit() below may
+    // send only a tail, but Ombre Brain needs this high-water mark to keep its
+    // anchored rolling window stable across App restarts and capped requests.
+    final contextMessageTotal = apiMessages.where((message) {
+      final role = (message['role'] ?? '').toString();
+      return role == 'user' || role == 'assistant';
+    }).length;
 
     // Apply assistant replace-only regexes at send-time (visual stays unchanged).
     if (assistant != null && assistant.regexRules.isNotEmpty) {
@@ -223,6 +232,7 @@ class MessageGenerationService {
 
     return PreparedGeneration(
       apiMessages: apiMessages,
+      contextMessageTotal: contextMessageTotal,
       toolDefs: toolDefs,
       onToolCall: onToolCall,
       hasBuiltInSearch: hasBuiltInSearch,
@@ -324,6 +334,7 @@ class MessageGenerationService {
     return stream_ctrl.GenerationContext(
       assistantMessage: assistantMessage,
       apiMessages: prepared.apiMessages,
+      contextMessageTotal: prepared.contextMessageTotal,
       userImagePaths: userImagePaths,
       allowImagesApiRouting: allowImagesApiRouting,
       providerKey: providerKey,

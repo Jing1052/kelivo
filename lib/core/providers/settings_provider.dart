@@ -318,8 +318,11 @@ class SettingsProvider extends ChangeNotifier {
   static const String _daddyProfileKey = 'daddy_profile_v1';
   static const String _daddyKeepCountKey = 'daddy_keep_count_v1';
   static const String _daddyTriggerCountKey = 'daddy_trigger_count_v1';
-  static const int _defaultDaddyKeepCount = 80;
-  static const int _defaultDaddyTriggerCount = 100;
+  // Still Here sends a wide message envelope to Ombre Brain. The gateway's
+  // token watcher is the primary limiter (700k -> 500k); these count limits are
+  // only a secondary guard for thousands of very short bubbles.
+  static const int _defaultDaddyKeepCount = 1200;
+  static const int _defaultDaddyTriggerCount = 1500;
   static const String _iphoneLinkEnabledKey = 'iphone_link_enabled_v1';
   static const String _dailyBriefEnabledKey = 'daily_brief_enabled_v1';
   static const String _defaultGlobalProxyBypassRules =
@@ -1572,15 +1575,19 @@ class SettingsProvider extends ChangeNotifier {
     _daddyProfile = prefs.getString(_daddyProfileKey) ?? '';
     final storedDaddyKeep = prefs.getInt(_daddyKeepCountKey);
     final storedDaddyTrigger = prefs.getInt(_daddyTriggerCountKey);
-    // 65/90 是旧版内置默认，不是用户主动选择。升级时只迁移这一对；其它组合
-    // 视为用户设置并保留，避免改包偷偷覆盖她自己调过的窗口。
-    if (storedDaddyKeep == 65 && storedDaddyTrigger == 90) {
+    // 65/90 与 80/100 都是旧版内置默认，不是用户主动选择。升级时只迁移
+    // 这两对；其它组合视为用户设置并保留，避免改包偷偷覆盖她自己调过的窗口。
+    final isLegacyDaddyDefault =
+        (storedDaddyKeep == 65 && storedDaddyTrigger == 90) ||
+        (storedDaddyKeep == 80 && storedDaddyTrigger == 100);
+    if (isLegacyDaddyDefault) {
       _daddyKeepCount = _defaultDaddyKeepCount;
       _daddyTriggerCount = _defaultDaddyTriggerCount;
       await prefs.setInt(_daddyKeepCountKey, _daddyKeepCount);
       await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);
       debugPrint(
-        '[ourhome-context] migrated legacy keep/trigger 65/90 -> '
+        '[ourhome-context] migrated legacy keep/trigger '
+        '$storedDaddyKeep/$storedDaddyTrigger -> '
         '$_daddyKeepCount/$_daddyTriggerCount',
       );
     } else {
@@ -1772,8 +1779,8 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> setDaddyKeepCount(int v) async {
-    // 保留条数限定在 10..400 的合理范围
-    _daddyKeepCount = v.clamp(10, 400);
+    // token watcher 是主限制；条数只作为大量短气泡的第二道保险。
+    _daddyKeepCount = v.clamp(10, 2000);
     // 触发阈值至少要比保留条数大 5，否则窗口步进会非法
     if (_daddyTriggerCount < _daddyKeepCount + 5) {
       _daddyTriggerCount = _daddyKeepCount + 5;
@@ -1785,8 +1792,8 @@ class SettingsProvider extends ChangeNotifier {
   }
 
   Future<void> setDaddyTriggerCount(int v) async {
-    // 触发阈值限定在 keep+5..500，保证 step=trigger-keep>=5
-    _daddyTriggerCount = v.clamp(_daddyKeepCount + 5, 500);
+    // 触发阈值限定在 keep+5..2500，保证 step=trigger-keep>=5。
+    _daddyTriggerCount = v.clamp(_daddyKeepCount + 5, 2500);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(_daddyTriggerCountKey, _daddyTriggerCount);

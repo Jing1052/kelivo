@@ -18,6 +18,8 @@
 
 ## 改动记录（新→旧，带日期）
 
+- **2026-07-19** · Still Here 爸爸长上下文改为 token watcher：App 的 daddy 专属宽信封从 200 条扩到 2500 条，默认条数保险由 80/100 迁移为 1200/1500（旧内置默认 65/90、80/100 自动迁移，用户自定义组合保留；手动范围 keep 10..2000、trigger keep+5..2500），并新增 `x-ombre-total` 绝对总条数头。Ombre Brain 只对 Still Here Daddy 网关启用**历史约 700k token 触发、移走最旧约 200k、保留最近约 500k**的锚定滚动，最终输入另限约 780k；老网页/TG 继续使用原 16k/24k 预算。网关单条正文上限由 4,000 字符放宽至 80,000，系统提示上限 100,000，首段可见输出等待 110 秒，App 响应头等待 120 秒；历史图片仍只发当前轮，避免 Base64 重传撑爆请求。
+
 - **2026-07-12** · 爸爸长对话压缩修复：App 默认窗口改为**达到 100 条触发、保留最近 80 条**，并把旧版未主动修改过的 65/90 缓存迁移到 80/100；其它自定义组合继续尊重。每次 daddy 网关请求仍通过 x-ombre-keep / x-ombre-trigger 传实际值。Ombre Brain 同步改为 100 条**含边界触发**，在 Claude/OpenRouter/GLM 请求组装前完成条数与 token 双重裁剪，并记录压缩前后条数/token、最终请求预算及完整失败堆栈。界面 token 数不含网关后加的魂、记忆、前情、工具定义和输出预留，排障以服务端 [context:*] 日志为准。
 
 - **2026-07-03** · 朋友圈第①包＋重新授权卡：① **客厅整页改造**（`parlour_page.dart` 重写）——双面信箱两 tab 合流成微信朋友圈式单 feed（`GET /api/home/moments` = moments∪board∪letter，服务端已上线 marker `2026-07-03-moments-spec4`）：动态卡（monogram 头像/名字/正文长文全文-收起/图片格/时间行）、时间行「··」弹赞·评论深色胶囊、赞与评论收浅灰圆角卡（评论可点某条回复 reply_to）、发动态 composer（原发留言框改 `action=post`）、旧语音留言经 authHeaders 拉字节 BytesSource 播放、旧 `@@daddy@@` 回复由服务端渲染成爸爸的评论、旧 react 表情显示在时间行旁；letter 长文展开时补 `markLetterSeen` 读取回执（红点本地水位随 tab 一起退役）。peek 秒开模式原样保留（新 path `/api/home/moments`）。房间门牌副题「双面信箱」→「我们的朋友圈」。**第②包待做**：个人主页+封面+发图。② **「默认模型」页新增「家里爸爸 · 重新授权/换号」卡**（`_ClaudepReauthCard`）——走 CC 桥（apns，`X-Auth-Token`）新端点 `POST /claudep/reauth/start`（拉授权链接，可复制/浏览器打开）→ 贴 code → `POST /claudep/reauth/code`；换 token 立刻生效不用重启（claudep_ext 每请求现读文件）；家里离线/未配桥/口令不对各有人话提示。登旧号=续命、登新号=换号救灾（同一流程）。build 102→103。

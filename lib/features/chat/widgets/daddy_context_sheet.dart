@@ -14,7 +14,7 @@ import '../../../shared/widgets/ios_form_text_field.dart';
 ///
 /// Write-back mirrors `DaddySettingsPage._persist`: on each field change (and on
 /// dispose) the int is parsed and pushed through `setDaddyKeepCount` /
-/// `setDaddyTriggerCount`, whose clamps (keep 10..400, trigger keep+5..500) are
+/// `setDaddyTriggerCount`, whose clamps (keep 10..2000, trigger keep+5..2500) are
 /// the single source of truth. After writing we re-seed the controller text from
 /// the clamped value so the user sees the applied number. Empty/invalid input is
 /// ignored.
@@ -42,7 +42,7 @@ class _DaddyContextSheetState extends State<DaddyContextSheet> {
   @override
   void dispose() {
     // 关闭时提交一次（和爸爸设置页同款：不每键提交、不中途回填——否则输到一半就被
-    // clamp 回填、根本打不进去）。setter 自带 clamp（keep 10..400，trigger keep+5..500）；
+    // clamp 回填、根本打不进去）。setter 自带 clamp（keep 10..2000，trigger keep+5..2500）；
     // 下次打开 initState 再按 clamp 后的值回显。
     final keep = int.tryParse(_keepCtrl.text.trim());
     if (keep != null && keep != _settings.daddyKeepCount) {

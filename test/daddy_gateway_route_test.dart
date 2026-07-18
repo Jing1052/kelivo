@@ -101,12 +101,14 @@ void main() {
       final o = DaddyGatewayRoute.overrideFor(
         systemPrompt: '[[ourhome:T]]',
         userConfig: userConfig(),
-        keepCount: 80,
-        triggerCount: 100,
+        keepCount: 1200,
+        triggerCount: 1500,
+        totalCount: 1732,
         sessionId: 'conv-abc',
       );
-      expect(o!.headers['x-ombre-keep'], '80');
-      expect(o.headers['x-ombre-trigger'], '100');
+      expect(o!.headers['x-ombre-keep'], '1200');
+      expect(o.headers['x-ombre-trigger'], '1500');
+      expect(o.headers['x-ombre-total'], '1732');
       expect(o.headers['x-ombre-session'], 'conv-abc');
     });
 
@@ -116,10 +118,12 @@ void main() {
         userConfig: userConfig(),
         keepCount: null,
         triggerCount: 0,
+        totalCount: 0,
         sessionId: '',
       );
       expect(o!.headers.containsKey('x-ombre-keep'), isFalse);
       expect(o.headers.containsKey('x-ombre-trigger'), isFalse);
+      expect(o.headers.containsKey('x-ombre-total'), isFalse);
       expect(o.headers.containsKey('x-ombre-session'), isFalse);
     });
 

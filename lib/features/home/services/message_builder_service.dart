@@ -1086,10 +1086,9 @@ class MessageBuilderService {
     }
   }
 
-  /// daddy 网关上下文上限：客户端只做粗裁到 200 条，真正的窗口/前情提要由网关
-  /// 用 keep/trigger 头在服务端完成。若仍按 contextMessageSize(默认 64) 预裁，
-  /// 会裁到低于 trigger，把服务端窗口饿死，故 daddy 走这个更宽的 cap。
-  static const int _daddyGatewayContextCap = 200;
+  /// Daddy 网关的宽消息信封。真正的 700k -> 500k token 滚动由 Ombre Brain
+  /// 完成；这里只防止极端数量的超短气泡把手机请求无限放大。
+  static const int _daddyGatewayContextCap = 2500;
 
   /// Apply context message limit based on assistant settings.
   void applyContextLimit(

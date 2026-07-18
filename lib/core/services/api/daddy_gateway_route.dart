@@ -21,7 +21,7 @@ class DaddyGatewayRoute {
   static const String gatewayChatPath = '/chat/completions';
   static const String gatewayHost = 'cllove.zeabur.app';
   static const Duration gatewayConnectionTimeout = Duration(seconds: 20);
-  static const Duration gatewayResponseHeaderTimeout = Duration(seconds: 45);
+  static const Duration gatewayResponseHeaderTimeout = Duration(seconds: 120);
 
   /// daddy 标记：`[[ourhome]]` 或 `[[ourhome:TOKEN]]`。
   static final RegExp markerPattern = RegExp(r'\[\[ourhome(?::([^\]]+))?\]\]');
@@ -120,6 +120,7 @@ class DaddyGatewayRoute {
     Map<String, String>? extraHeaders,
     int? keepCount,
     int? triggerCount,
+    int? totalCount,
     String? sessionId,
     String? theaterId,
   }) {
@@ -165,6 +166,9 @@ class DaddyGatewayRoute {
     }
     if (triggerCount != null && triggerCount > 0) {
       gwHeaders['x-ombre-trigger'] = triggerCount.toString();
+    }
+    if (totalCount != null && totalCount > 0) {
+      gwHeaders['x-ombre-total'] = totalCount.toString();
     }
     if (sessionId != null && sessionId.isNotEmpty) {
       gwHeaders['x-ombre-session'] = sessionId;

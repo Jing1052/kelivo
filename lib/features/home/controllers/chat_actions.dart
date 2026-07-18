@@ -1232,6 +1232,7 @@ class ChatActions {
           // （与下方 requestId: conversationId 同源），网关据此滚动前情提要。
           keepCount: ctx.settings.daddyKeepCount,
           triggerCount: ctx.settings.daddyTriggerCount,
+          totalCount: ctx.contextMessageTotal,
           sessionId: conversationId,
           theaterId: theaterId,
         );
@@ -1240,6 +1241,7 @@ class ChatActions {
             '[ourhome-context] gateway request messages=${ctx.apiMessages.length} '
             'keep=${ctx.settings.daddyKeepCount} '
             'trigger=${ctx.settings.daddyTriggerCount} '
+            'total=${ctx.contextMessageTotal} '
             'conversation=$conversationId',
           );
           sendConfig = override.config;
